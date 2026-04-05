@@ -1,0 +1,134 @@
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{biblatex}
+\addbibresource{references.bib}
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+\graphicspath{{images/}}
+
+\title{Toward Decentralized Trust and Verifiable Content on the Web}
+\author{
+  Jason Grey\\
+  \texttt{jason@jason-grey.com}
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We propose a decentralized, standards-aligned framework for embedding cryptographic trust directly into HTML content. Using a new \texttt{<signed-section>} element, content creators and publishing platforms can sign semantically meaningful regions of web pages and include identity-linked metadata in-band. Signatures are validated using public key infrastructure (PKI) such as DIDs \cite{DIDSpec}, and can be enhanced with third-party endorsements submitted to optional, federated trust directories. We introduce a simple canonicalization method for content normalization and outline how browsers and CMS systems can support user-configured web-of-trust policies for live content validation. Unlike blockchain-based or DRM-centric systems, our approach is lightweight, browser-compatible, and web-native---designed to scale across publishing workflows, civic media, and knowledge networks.
+\end{abstract}
+
+\section{Introduction}
+
+The web lacks a standardized mechanism for proving who wrote or who was first to publish a given piece of content. TLS certifies the domain, but not the author. As AI-generated and republished material becomes ubiquitous, users face increasing difficulty determining what content is trustworthy. Existing methods like digital signatures (e.g., DKIM \cite{DKIM}, PGP \cite{PGP}) and content fingerprinting (e.g., ISCC \cite{ISCC}) offer pieces of the solution but do not integrate cleanly with web-native publishing workflows or browser verification.
+
+We present a system for decentralized content authenticity, authorship claim, and endorsement that aligns with the hypertext ethos: structured, inspectable, and layered. We define a method for authors to sign content blocks in HTML, supported by canonicalization rules and cryptographic integrity checks, along with an endorsement and discovery model via public trust directories.
+
+\section{System Architecture}
+
+\includegraphics[width=\textwidth]{architecture1}
+
+\subsection{Signed HTML Blocks}
+A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. This tag includes:
+
+\begin{itemize}
+  \item \textbf{Canonicalized content}: e.g., a blog post or paragraph.
+  \item \textbf{Metadata}: author identity (e.g., via DID \cite{DIDSpec}), timestamp, content hash, or emerging Content Preferences \cite{ContentPrefs}.
+  \item \textbf{Signature}: Base64-encoded digital signature of content + metadata.
+\end{itemize}
+
+\begin{lstlisting}[language=HTML, basicstyle=\ttfamily\footnotesize]
+<signed-section keyid="did:web:author.example"
+    signature="BASE64_SIG" algorithm="ed25519">
+  <meta name="author" content="Alice Example">
+  <article>
+    <h1>Verifiable Web Content</h1>
+    <p>Content should be provable...</p>
+  </article>
+</signed-section>
+\end{lstlisting}
+
+\subsection{Canonicalization}
+To ensure consistent signing and verification, we define a canonicalization algorithm:
+\begin{itemize}
+  \item Normalize whitespace, strip extra line breaks.
+  \item Sort HTML attributes and metadata.
+  \item Minify and serialize as a UTF-8 string.
+  \item Generate both SHA-256 hash and SimHash for similarity detection.
+\end{itemize}
+
+\subsection{Trust Directory (Optional)}
+Signed content MAY be submitted to one or more trust directories:
+\begin{itemize}
+  \item Indexes content hashes and associated signers.
+  \item Stores and serves third-party endorsements.
+  \item Supports key resolution and optional revocation.
+\end{itemize}
+
+\subsection{Endorsements}
+Third parties (publishers, experts, other users) can issue signed JSON endorsements of specific content hashes:
+
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+{
+  "endorser": "did:web:publisher.org",
+  "endorsement": "sha256-XYZ",
+  "signature": "BASE64_SIG",
+  "timestamp": "2025-05-01T00:00Z"
+}
+\end{lstlisting}
+
+\section{Browser and CMS Integration}
+
+\subsection{Browser Behavior}
+User agents verify:
+\begin{itemize}
+  \item Signature validity (via embedded or discovered public key).
+  \item Match of content hash to canonicalized DOM.
+  \item Trust status of signer and any endorsements.
+\end{itemize}
+
+Trust configuration is client-side. UI indicators can reflect verification status (e.g., a verified badge, or a warning tooltip).
+
+\subsection{CMS Workflows}
+Content management systems (or social media platforms, etc.) generate:
+\begin{itemize}
+  \item Canonicalized content blocks.
+  \item Embedded signatures from author keys.
+  \item Optional submissions to trust directories.
+\end{itemize}
+
+\section{Planned Work}
+
+We will provide basic prototype implementations that sign HTML blocks and validate them client-side. The system is designed for backwards-compatibility and extensibility via its metadata schema.
+
+Planned areas of development and public release:
+\begin{itemize}
+  \item Research on metadata schema and cryptographic primitives.
+  \item Further refinement of canonicalization algorithms.
+  \item A formal proposal to the W3C for extending HTML with signed sections.
+  \item An API specification for trust directories, with reference implementation.
+  \item Reference browser extension(s) for client-side validation.
+  \item Example CMS plugin(s) and a standalone trust directory server.
+  \item Research into implementing this framework in news feeds and aggregation platforms.
+\end{itemize}
+
+\section{Conclusion}
+
+This work introduces a practical, decentralized system for content authenticity on the web---one that is inspectable, implementable, and federated. It aligns with the Hypertext community's interest in authorship, provenance, and semantic structure while responding to misinformation and civic trust concerns.
+
+By rooting trust in content itself and enabling configurable trust graphs, we reinforce the open web as a decentralized medium for human knowledge.
+
+\printbibliography
+
+\end{document}
