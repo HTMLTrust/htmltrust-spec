@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-pdf:
+    name: Build PDF
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install TeX Live
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-bibtex-extra \
+            texlive-fonts-recommended \
+            texlive-fonts-extra \
+            biber \
+            cm-super
+
+      - name: Build paper
+        working-directory: paper
+        run: |
+          pdflatex -interaction=nonstopmode htmltrust.tex
+          biber htmltrust
+          pdflatex -interaction=nonstopmode htmltrust.tex
+          pdflatex -interaction=nonstopmode htmltrust.tex
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: htmltrust-paper
+          path: paper/htmltrust.pdf

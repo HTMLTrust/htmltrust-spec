@@ -1,0 +1,17 @@
+{
+  "name": "HTMLTrust Spec",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "packages": "texlive-latex-recommended,texlive-latex-extra,texlive-bibtex-extra,texlive-fonts-recommended,texlive-fonts-extra,biber,latexmk,cm-super"
+    }
+  },
+  "postCreateCommand": "echo 'TeX Live installed. Run: cd paper && pdflatex htmltrust.tex && biber htmltrust && pdflatex htmltrust.tex && pdflatex htmltrust.tex'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "james-yu.latex-workshop"
+      ]
+    }
+  }
+}
