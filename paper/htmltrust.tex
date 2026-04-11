@@ -59,6 +59,17 @@ A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. Th
 </signed-section>
 \end{lstlisting}
 
+\subsection{Identity and Key Resolution}
+The \texttt{keyid} attribute identifies the signer but is deliberately pluggable: implementations MUST accept multiple resolution methods and SHOULD treat none as canonical. Acceptable forms include:
+
+\begin{itemize}
+  \item \textbf{Decentralized Identifiers (DIDs)}: e.g., \texttt{did:web:author.example}, which resolves via a well-known DID document hosted at the author's origin \cite{DIDSpec}. This places no dependency on any third party.
+  \item \textbf{Direct URL to a public key}: e.g., \texttt{https://author.example/key.json}, fetched directly from the author's origin. Simple to host as a static file without additional tooling.
+  \item \textbf{Trust directory reference}: e.g., \texttt{https://directory.example/keys/abc123}, where a federated trust directory serves as a convenience key registry. This is particularly useful for less-technical authors who prefer a ``signup'' workflow to self-hosted identity publication.
+\end{itemize}
+
+None of these methods places a privileged entity at the center of the web-of-trust: authors freely choose a resolution mechanism, and verifiers freely choose which methods they accept. The \texttt{keyid} is opaque to the signature protocol; only the resolved public key matters for cryptographic verification, which is a local operation in the user agent and never requires contacting a directory.
+
 \subsection{Canonicalization}
 To ensure consistent signing and verification, we define a canonicalization algorithm:
 \begin{itemize}
@@ -69,12 +80,15 @@ To ensure consistent signing and verification, we define a canonicalization algo
 \end{itemize}
 
 \subsection{Trust Directory (Optional)}
-Signed content MAY be submitted to one or more trust directories:
+Signed content MAY be submitted to one or more trust directories. A directory MAY perform any of the following roles, and implementations MAY specialize in a subset:
 \begin{itemize}
-  \item Indexes content hashes and associated signers.
+  \item Indexes content hashes and associated signers for discovery.
   \item Stores and serves third-party endorsements.
   \item Supports key resolution and optional revocation.
+  \item Acts as a convenience key registry and ``signup'' provider for authors who prefer not to self-host identity documents.
 \end{itemize}
+
+Directories are federated: multiple directories MAY coexist, and user agents MAY query any subset of them according to user policy. No directory is privileged by the protocol, and verification of a signature never requires contacting a directory---only key resolution (when the chosen \texttt{keyid} form points at a directory) and optional endorsement lookup do.
 
 \subsection{Endorsements}
 Third parties (publishers, experts, other users) can issue signed JSON endorsements of specific content hashes:
@@ -91,14 +105,14 @@ Third parties (publishers, experts, other users) can issue signed JSON endorseme
 \section{Browser and CMS Integration}
 
 \subsection{Browser Behavior}
-User agents verify:
+User agents perform verification in two distinct layers:
+
 \begin{itemize}
-  \item Signature validity (via embedded or discovered public key).
-  \item Match of content hash to canonicalized DOM.
-  \item Trust status of signer and any endorsements.
+  \item \textbf{Cryptographic verification (local)}: The user agent canonicalizes the signed content, computes its hash, compares it against the embedded \texttt{content-hash}, resolves the \texttt{keyid} to a public key, and validates the signature. This is a local operation, performed in the user agent with no network calls beyond the key resolution step, and produces a deterministic yes/no result.
+  \item \textbf{Trust decision (client policy)}: Given a cryptographically valid signature, the user agent applies the current user's trust policy to decide how to present the content. This may consider the author's identity against a personal trust list, endorsements from trusted third parties, optional reputation queries to one or more trust directories, and local or cached revocation state. The outcome is user- and context-specific and is never determined by a remote authority.
 \end{itemize}
 
-Trust configuration is client-side. UI indicators can reflect verification status (e.g., a verified badge, or a warning tooltip).
+Trust configuration is client-side. UI indicators reflect the combined outcome of both layers (e.g., a verified badge, an unknown-signer badge, or a warning tooltip when a trusted endorser has flagged the signer).
 
 \subsection{CMS Workflows}
 Content management systems (or social media platforms, etc.) generate:
