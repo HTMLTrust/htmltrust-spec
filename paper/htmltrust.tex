@@ -44,8 +44,8 @@ A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. Th
 
 \begin{lstlisting}[language=HTML, basicstyle=\ttfamily\footnotesize]
 <signed-section keyid="did:web:author.example"
-    signature="BASE64_SIG"
-    content-hash="sha256:abc123..."
+    signature="3q2+7w8NslfJ..."
+    content-hash="sha256:RAyBCvKT..."
     algorithm="ed25519">
   <meta name="author" content="Alice Example">
   <meta name="signed-at" content="2025-05-01T10:30:00Z">
@@ -57,9 +57,9 @@ A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. Th
 </signed-section>
 \end{lstlisting}
 
-\paragraph{Required attributes.} \texttt{keyid} (identifies the signer, resolvable per \S2.2), \texttt{signature} (Base64-encoded cryptographic signature), and \texttt{content-hash} (hash of the canonicalized content, prefixed with the algorithm, e.g. \texttt{sha256:\ldots}).
+\paragraph{Required attributes.} \texttt{keyid} (identifies the signer, resolvable per \S2.2), \texttt{signature} (the cryptographic signature, encoded per the hash encoding rules below), \texttt{content-hash} (hash of the canonicalized content, prefixed with the hash algorithm, e.g. \texttt{sha256:\ldots}), and \texttt{algorithm} (the signature algorithm, e.g. \texttt{ed25519}, \texttt{ecdsa}, or \texttt{rsa}).
 
-\paragraph{Optional attributes.} \texttt{algorithm} (defaults to \texttt{ed25519} when omitted). Visual presentation (\texttt{style}, \texttt{class}) SHOULD be handled by user-agent CSS rather than inline attributes to keep the tag compact.
+\paragraph{Hash and signature encoding (open feedback).} Hashes and signatures in this revision are encoded as unpadded Base64, which is shorter than hexadecimal by roughly one-third. We invite community feedback on whether hexadecimal (widespread in tooling such as git and TLS), Base32 (case-insensitive and easier to transcribe by hand), or another encoding would be preferable for broader ecosystem alignment.
 
 \paragraph{Canonical signing payload.} The signature is computed over a deterministic binding string:
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
@@ -69,7 +69,11 @@ where \texttt{content-hash} is the hash of the canonicalized content, \texttt{cl
 
 Domain binding intentionally ties a signature to a specific publication origin, preventing unauthorized republication of signed content with the original signature preserved. Legitimate republication is supported through a separate mechanism: a republisher MAY wrap the signed content in their own outer \texttt{<signed-section>} that references the original via a canonical-URL metadata field, preserving the integrity of the original while adding an attribution chain. (This wrapped-signing mechanism is defined in future work.)
 
-\paragraph{Canonical content extraction.} The hash over which the signature is computed is taken from the \textit{text content} of the signed region after the extraction and normalization process defined in \S2.3. Markup and attributes of the signed content itself are not covered by the hash; readers consume text, and HTMLTrust attests to the integrity of that text. A future revision MAY define optional extensions for covering specific attributes (e.g., link destinations) where the semantic integrity of non-text elements is relevant.
+\paragraph{Canonical content extraction.} The hash over which the signature is computed is taken from the \textit{text content} of the signed region after the extraction and normalization process defined in \S2.3. Markup and attributes of the signed content itself are not covered by the hash in this revision; readers consume text, and HTMLTrust attests to the integrity of that text.
+
+This design deliberately accepts certain semantic gaps at the protocol layer: an adversary in possession of signed text MAY rewrap it in misleading block elements, alter surrounding link destinations, or surround it with additional media, all without invalidating the cryptographic signature. We consider these acceptable at the protocol layer because the HTMLTrust system addresses them through a higher, social layer: signatures are domain-bound (see the canonical signing payload above), so a reader encountering signed content at an unexpected origin is immediately alerted by the signature check itself, and crawlers and researchers (\S2.4) can trace signed content back to its canonical origin through the trust directory, flagging imposter copies and content that has been altered outside its original publication site. Cryptographic verification ensures \textit{the words are genuine and published where they claim to be}; the research and reputation ecosystem catches the remaining semantic attacks, such as altered surrounding context or link-swap on mirrored pages. The layered design keeps cryptographic verification simple, fast, and portable across implementations while delegating semantic-integrity detection to the research path, where it can evolve over time without breaking existing signatures.
+
+\paragraph{Open design question: meaningful attribute coverage.} We have a strong preference, not yet committed to the normative specification, for extending the hash to cover particularly meaningful attributes---especially \texttt{href} on \texttt{<a>} elements, since link-swap within the original publication origin is a phishing vector that domain-binding and researcher traceability cannot fully address on their own. The open design question is \textit{which} attributes and \textit{which} elements should be covered without drifting toward the full-structural signing that made XMLDSig (XML Digital Signatures) operationally unusable across implementations. We explicitly invite community feedback on this trade-off.
 
 \subsection{Identity and Key Resolution}
 The \texttt{keyid} attribute identifies the signer but is deliberately pluggable: implementations MUST accept multiple resolution methods and SHOULD treat none as canonical. Acceptable forms include:
