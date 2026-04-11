@@ -112,7 +112,9 @@ User agents perform verification in two distinct layers:
   \item \textbf{Trust decision (client policy)}: Given a cryptographically valid signature, the user agent applies the current user's trust policy to decide how to present the content. This may consider the author's identity against a personal trust list, endorsements from trusted third parties, optional reputation queries to one or more trust directories, and local or cached revocation state. The outcome is user- and context-specific and is never determined by a remote authority.
 \end{itemize}
 
-Trust configuration is client-side. UI indicators reflect the combined outcome of both layers (e.g., a verified badge, an unknown-signer badge, or a warning tooltip when a trusted endorser has flagged the signer).
+Trust configuration is client-side. Trust policies MAY draw on any combination of inputs, including personal trust lists of keyids, domain-level trust for origins, transitive trust via endorsements from designated parties, and reputation scores produced by user-selected trust directories. A trust directory MAY compute scores using its own curated trust graph, which subscribing users inherit without maintaining their own graph; this federates the burden of trust graph maintenance to directory operators whom users choose to trust at a higher level.
+
+User interfaces SHOULD present the trust outcome as a graduated score or ranking rather than a binary verdict, and SHOULD distinguish the two layers visually: a signature either verifies cryptographically or it does not, but trust is a matter of degree. A score-based indicator (e.g., red below a low threshold, green above a high threshold, yellow in between) with hover or detail views exposing the underlying rationale (which inputs contributed, which directories were consulted, which endorsements applied) allows users to distinguish cryptographic certainty from social trust, and to understand why a given piece of content earned the indicator they see.
 
 \subsection{CMS Workflows}
 Content management systems (or social media platforms, etc.) generate:
