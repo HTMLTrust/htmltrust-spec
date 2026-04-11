@@ -40,24 +40,36 @@ We present a system for decentralized content authenticity, authorship claim, an
 \includegraphics[width=\textwidth]{architecture1}
 
 \subsection{Signed HTML Blocks}
-A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. This tag includes:
-
-\begin{itemize}
-  \item \textbf{Canonicalized content}: e.g., a blog post or paragraph.
-  \item \textbf{Metadata}: author identity (e.g., via DID \cite{DIDSpec}), timestamp, content hash, or emerging Content Preferences \cite{ContentPrefs}.
-  \item \textbf{Signature}: Base64-encoded digital signature of content + metadata.
-\end{itemize}
+A new tag, \texttt{<signed-section>}, encapsulates a signed region of a page. This tag carries the cryptographic signature and its supporting metadata as attributes, and its inner content includes the signed content itself and any claims expressed as \texttt{<meta>} elements.
 
 \begin{lstlisting}[language=HTML, basicstyle=\ttfamily\footnotesize]
 <signed-section keyid="did:web:author.example"
-    signature="BASE64_SIG" algorithm="ed25519">
+    signature="BASE64_SIG"
+    content-hash="sha256:abc123..."
+    algorithm="ed25519">
   <meta name="author" content="Alice Example">
+  <meta name="signed-at" content="2025-05-01T10:30:00Z">
+  <meta name="claim:License" content="CC-BY-4.0">
   <article>
     <h1>Verifiable Web Content</h1>
     <p>Content should be provable...</p>
   </article>
 </signed-section>
 \end{lstlisting}
+
+\paragraph{Required attributes.} \texttt{keyid} (identifies the signer, resolvable per \S2.2), \texttt{signature} (Base64-encoded cryptographic signature), and \texttt{content-hash} (hash of the canonicalized content, prefixed with the algorithm, e.g. \texttt{sha256:\ldots}).
+
+\paragraph{Optional attributes.} \texttt{algorithm} (defaults to \texttt{ed25519} when omitted). Visual presentation (\texttt{style}, \texttt{class}) SHOULD be handled by user-agent CSS rather than inline attributes to keep the tag compact.
+
+\paragraph{Canonical signing payload.} The signature is computed over a deterministic binding string:
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+{content-hash}:{claims-hash}:{domain}:{signed-at}
+\end{lstlisting}
+where \texttt{content-hash} is the hash of the canonicalized content, \texttt{claims-hash} is the hash of the canonical serialization of all inner \texttt{<meta>} claim elements (ordered lexically by name), \texttt{domain} is the origin where the content is authoritatively published, and \texttt{signed-at} is the ISO-8601 timestamp from the corresponding \texttt{<meta>} tag. The signer's identity is not included in the binding because it is implicit in the keyid resolution step: any attempt to claim a signature under a different identity would resolve to a different public key and fail verification.
+
+Domain binding intentionally ties a signature to a specific publication origin, preventing unauthorized republication of signed content with the original signature preserved. Legitimate republication is supported through a separate mechanism: a republisher MAY wrap the signed content in their own outer \texttt{<signed-section>} that references the original via a canonical-URL metadata field, preserving the integrity of the original while adding an attribution chain. (This wrapped-signing mechanism is defined in future work.)
+
+\paragraph{Canonical content extraction.} The hash over which the signature is computed is taken from the \textit{text content} of the signed region after the extraction and normalization process defined in \S2.3. Markup and attributes of the signed content itself are not covered by the hash; readers consume text, and HTMLTrust attests to the integrity of that text. A future revision MAY define optional extensions for covering specific attributes (e.g., link destinations) where the semantic integrity of non-text elements is relevant.
 
 \subsection{Identity and Key Resolution}
 The \texttt{keyid} attribute identifies the signer but is deliberately pluggable: implementations MUST accept multiple resolution methods and SHOULD treat none as canonical. Acceptable forms include:
