@@ -91,7 +91,7 @@ Signed content MAY be submitted to one or more trust directories. A directory MA
 Directories are federated: multiple directories MAY coexist, and user agents MAY query any subset of them according to user policy. No directory is privileged by the protocol, and verification of a signature never requires contacting a directory---only key resolution (when the chosen \texttt{keyid} form points at a directory) and optional endorsement lookup do.
 
 \subsection{Endorsements}
-Third parties (publishers, experts, other users) can issue signed JSON endorsements of specific content hashes:
+Third parties (publishers, experts, other users) MAY issue signed JSON endorsements of specific content hashes. An endorsement is a standalone signed artifact that attests the endorser's opinion about a specific piece of signed content at a specific moment in time:
 
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
 {
@@ -101,6 +101,10 @@ Third parties (publishers, experts, other users) can issue signed JSON endorseme
   "timestamp": "2025-05-01T00:00Z"
 }
 \end{lstlisting}
+
+Endorsements target specific pieces of content, not signers. Ongoing or collective trust of a signer is expressed via that signer's reputation in one or more trust directories (see \S2.4), not via persistent signer-level endorsement artifacts. This separation keeps endorsement semantics clean: a content endorsement is a point-in-time attestation about a specific artifact, while directory reputation reflects an ongoing curatorial opinion about a signer.
+
+Endorsements are stored and served by trust directories, which index them by content hash. A verifier seeking endorsements for a given piece of content queries one or more directories and retrieves any endorsements on file. Endorsements MUST be verified cryptographically by the verifier using the endorser's public key (itself subject to the same keyid resolution methods as content signatures) before being trusted. An unverified endorsement MUST NOT contribute to any trust decision.
 
 \section{Browser and CMS Integration}
 
