@@ -44,10 +44,10 @@ The compiled PDF will be output as `paper/htmltrust.pdf`.
 
 | Repository | Description |
 |---|---|
-| [htmltrust-browser-reference](https://github.com/ArcadeLabsInc/htmltrust-browser-reference) | Reference browser extension for client-side signature validation |
-| [htmltrust-server-reference](https://github.com/ArcadeLabsInc/htmltrust-server-reference) | Reference trust directory API server |
-| [htmltrust-cms-reference](https://github.com/ArcadeLabsInc/htmltrust-cms-reference) | Reference CMS plugin (WordPress) for content signing |
-| [htmltrust-website](https://github.com/ArcadeLabsInc/htmltrust-website) | Project website |
+| [htmltrust-browser-reference](https://github.com/HTMLTrust/htmltrust-browser-reference) | Reference browser extension for client-side signature validation |
+| [htmltrust-server-reference](https://github.com/HTMLTrust/htmltrust-server-reference) | Reference trust directory API server |
+| [htmltrust-cms-reference](https://github.com/HTMLTrust/htmltrust-cms-reference) | Reference CMS plugin (WordPress) for content signing |
+| [htmltrust-website](https://github.com/HTMLTrust/htmltrust-website) | Project website |
 
 ## Author
 
