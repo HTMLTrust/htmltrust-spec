@@ -40,6 +40,35 @@ pdflatex htmltrust.tex
 
 The compiled PDF will be output as `paper/htmltrust.pdf`.
 
+## Known Issue: Runtime DOM Mutation Breaks Verification
+
+HTMLTrust signs the **static HTML** that leaves the publishing pipeline. Browser verifiers, however, read the **live DOM** — the state of the page after every script on the page has finished running. If anything inside a `<signed-section>` is mutated between page load and verification, the verifier's recomputed `content-hash` will not match the signed one, and the signature will be reported as invalid even though it is cryptographically correct.
+
+### Concrete cases we have observed
+
+- **Hugo Blox docs theme** injects a `<button class="copy-button">Copy</button>` into every `<pre>` block at runtime. When a signed page contains a code block, the verifier sees an extra `Copy` token inside the signed region that the signer never saw.
+- Any **client-side syntax-highlighting** library (Prism, highlight.js) that rewrites a code block's inner HTML at load time has the same effect.
+- **Analytics, lazy-loading, or social-share injection** libraries that add nodes inside content containers will break verification if they touch a signed region.
+
+### Mitigations available today
+
+| Mitigation | Trade-off |
+|---|---|
+| Ensure no client-side script writes into `<signed-section>` descendants | Simplest, but constrains theme/framework choice |
+| Pre-render any decoration server-side (e.g., emit the "Copy" button into the static HTML so the signer hashes it) | Works, but every page-template change requires a re-bake |
+| Move runtime-injected decoration **outside** the `<signed-section>` (sibling, not child) | Often the cleanest fix when you control the script |
+| Read `outerHTML` from a pristine fetch instead of `element.innerHTML` for verification | Requires a verifier-side change; doesn't help current extensions |
+
+### Open spec question
+
+This is a real, general challenge for any content-signing protocol that targets browser-side verification. The spec needs to give implementations explicit guidance — likely a combination of:
+
+1. **Stage 1 canonicalization** SHOULD define a "skip-on-mutation-marker" mechanism (e.g., `data-htmltrust-ignore="true"` on a subtree) so themes can mark decoration that must be excluded from the hash.
+2. **Authoring guidance** SHOULD warn against injecting nodes inside signed regions at runtime.
+3. **Verifier guidance** MAY recommend fetching the original document and verifying against that, treating DOM-state verification as a separate, optional capability.
+
+This is tracked as an active open design question (see also [open design questions on the implementation page](https://www.htmltrust.org/implementation/#open-design-questions)). Community input is welcome.
+
 ## Companion Repositories
 
 | Repository | Description |
