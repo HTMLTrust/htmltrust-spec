@@ -2,7 +2,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-scratch_root="${TMPDIR:?Set TMPDIR to a disk-backed scratch directory.}"
+# Keep local artifacts on the caller's disk-backed scratch volume. GitHub
+# Actions exposes RUNNER_TEMP instead of TMPDIR; /var/tmp is the portable
+# disk-backed fallback when neither variable is set.
+scratch_root="${TMPDIR:-${RUNNER_TEMP:-/var/tmp}}"
 npm_cache="$scratch_root/htmltrust-spec-npm-cache"
 snapshot="$scratch_root/htmltrust-w3c-snapshot.html"
 

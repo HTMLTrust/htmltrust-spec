@@ -25,7 +25,7 @@ make w3c         # serve the W3C draft at http://localhost:8000
 make w3c-check   # render the W3C draft and fail on ReSpec diagnostics
 ```
 
-`make check` needs Bash, Git, ripgrep, jq, and Node.js 22 or newer. The other
+`make check` needs Bash, Git, grep, jq, and Node.js 22 or newer. The other
 targets list their tool requirements below.
 
 ## Choose the document you need
@@ -76,8 +76,8 @@ Then run `make paper`. The PDF is ignored by Git.
 
 The W3C draft uses ReSpec. Run `make w3c`, open <http://localhost:8000>, and
 inspect the rendered draft. `make w3c-check` uses pinned ReSpec 37.3.5 and
-writes its temporary snapshot under `$TMPDIR`. It needs Node.js 22 or newer
-and Chrome or Chromium.
+writes its temporary snapshot under `$TMPDIR` when set, then `RUNNER_TEMP` or
+`/var/tmp`. It needs Node.js 22 or newer and Chrome or Chromium.
 
 ## Understand implementation status
 

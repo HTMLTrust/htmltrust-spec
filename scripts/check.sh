@@ -10,14 +10,14 @@ done
 
 node scripts/check-vectors.mjs
 
-if rg -n '\{DATE\}|\{TBD\}|\bTODO\b' \
+if grep -nE '\{DATE\}|\{TBD\}|(^|[^[:alnum:]_])TODO([^[:alnum:]_]|$)' \
   ietf-draft/draft-grey-htmltrust-00.md \
   w3c-cg/index.html; then
   echo "Draft placeholder found." >&2
   exit 1
 fi
 
-if rg -n 'origin-mismatch' \
+if grep -nF -- 'origin-mismatch' \
   ietf-draft/draft-grey-htmltrust-00.md \
   w3c-cg/index.html; then
   echo "Retired failure identifier found." >&2
