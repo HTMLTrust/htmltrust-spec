@@ -1,0 +1,7 @@
+{
+  "description": "Canonical claims escape record delimiters",
+  "claims": {
+    "a:b": "c\\d:e"
+  },
+  "canonicalClaims": "a\\:b:c\\\\d\\:e\n"
+}

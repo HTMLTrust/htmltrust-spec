@@ -6,12 +6,42 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: this workflow reads the repo and uploads the built PDF.
+permissions:
+  contents: read
+
 jobs:
+  build-drafts:
+    name: Build standards drafts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - name: Install draft tools
+        run: |
+          sudo gem install kramdown-rfc --version 1.7.43 --no-document
+          python3 -m pip install --break-system-packages xml2rfc==3.34.0
+
+      - name: Validate and render
+        run: |
+          make check
+          make ietf
+          make w3c-check
+          git diff --exit-code -- ietf-draft
+
   build-pdf:
     name: Build PDF
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Install TeX Live
         run: |
@@ -26,14 +56,9 @@ jobs:
             cm-super
 
       - name: Build paper
-        working-directory: paper
-        run: |
-          pdflatex -interaction=nonstopmode htmltrust.tex
-          biber htmltrust
-          pdflatex -interaction=nonstopmode htmltrust.tex
-          pdflatex -interaction=nonstopmode htmltrust.tex
+        run: make paper
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: htmltrust-paper
           path: paper/htmltrust.pdf

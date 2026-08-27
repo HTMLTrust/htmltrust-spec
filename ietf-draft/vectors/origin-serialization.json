@@ -1,0 +1,21 @@
+{
+  "description": "Signing payloads use a serialized tuple origin.",
+  "cases": [
+    {
+      "inputURL": "HTTPS://BÜCHER.EXAMPLE:443/path?q=1#fragment",
+      "origin": "https://xn--bcher-kva.example"
+    },
+    {
+      "inputURL": "https://[2001:db8::1]:8443/article",
+      "origin": "https://[2001:db8::1]:8443"
+    },
+    {
+      "inputURL": "file:///home/example/article.html",
+      "failure": "origin-not-supported"
+    },
+    {
+      "inputURL": "data:text/html,example",
+      "failure": "origin-not-supported"
+    }
+  ]
+}

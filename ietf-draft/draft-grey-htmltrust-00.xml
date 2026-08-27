@@ -1,0 +1,3455 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <?xml-stylesheet type="text/xsl" href="rfc2629.xslt" ?>
+  <!-- Generated with kramdown-rfc 1.7.43. -->
+
+
+<!DOCTYPE rfc  [
+  <!ENTITY nbsp    "&#160;">
+  <!ENTITY zwsp   "&#8203;">
+  <!ENTITY nbhy   "&#8209;">
+  <!ENTITY wj     "&#8288;">
+
+]>
+
+
+<rfc ipr="trust200902" docName="draft-grey-htmltrust-00" category="exp" submissionType="independent" tocInclude="true" sortRefs="true" symRefs="true">
+  <front>
+    <title abbrev="HTMLTrust">HTMLTrust: Cryptographically Signed Sections of HTML</title>
+
+    <author fullname="Jason Grey">
+      <organization>Improbability Engineers, LLC</organization>
+      <address>
+        <email>jason@jason-grey.com</email>
+      </address>
+    </author>
+
+    <date year="2026" month="August" day="27"/>
+
+    <area>Applications and Real-Time</area>
+    <workgroup>Independent Submission</workgroup>
+    <keyword>html</keyword> <keyword>signatures</keyword> <keyword>provenance</keyword> <keyword>content authenticity</keyword> <keyword>canonicalization</keyword> <keyword>decentralized identity</keyword>
+
+    <abstract>
+
+
+<?line 134?>
+
+<t>This document specifies the on-the-wire protocol elements of HTMLTrust: a
+canonicalization algorithm for HTML text regions, a deterministic signing
+payload, encodings for hashes and signatures, an endorsement format, and an
+optional HTTP API for federated trust directories. Together these allow
+authors to cryptographically attest authorship of arbitrary semantic regions
+of an HTML document and allow verifiers to confirm those attestations
+without relying on any privileged authority.</t>
+
+<t>This document defines only the wire protocol. The HTML element through which
+HTMLTrust is exposed in browsers, its DOM interface, and the user-agent
+processing model are defined in a companion W3C Community Group Report,
+referenced here as <xref target="HTMLTRUST-W3C"></xref>, and are out of scope for this document.</t>
+
+
+
+    </abstract>
+
+    <note title="About This Document" removeInRFC="true">
+      <t>
+        The latest revision of this draft can be found at <eref target="https://htmltrust.org/spec/"/>.
+        Status information for this document may be found at <eref target="https://datatracker.ietf.org/doc/draft-grey-htmltrust/"/>.
+      </t>
+      <t>Source for this draft and an issue tracker can be found at
+        <eref target="https://github.com/jasongrey/htmltrust-spec"/>.</t>
+    </note>
+
+
+  </front>
+
+  <middle>
+
+
+<?line 149?>
+
+<section anchor="introduction"><name>Introduction</name>
+
+<t>Transport-layer security on the Web certifies the origin that served a
+response; it does not certify the author of any particular passage within
+that response. As large-scale republication and machine-generated content
+have become routine, readers, downstream systems, and aggregators
+increasingly lack a reliable means to determine who stands behind a
+particular passage of text on a page, or whether that text has been altered
+since publication.</t>
+
+<t>HTMLTrust addresses this gap with a single, narrowly-scoped mechanism: a
+cryptographic signature, carried in band, over the canonicalized text of a
+region of an HTML document, bound to the publication origin and to a
+resolvable signer identifier. Verifiers re-derive the canonical text,
+recompute the hash, resolve the signer's public key, and verify the
+signature, all without any required network call to a trusted third party.</t>
+
+<t>A companion Community Group Report <xref target="HTMLTRUST-W3C"></xref> defines the HTML element
+through which signed regions are expressed in the document, its DOM
+interface, and the user-agent processing model. This document defines only
+the protocol artifacts that an interoperable implementation must agree on:
+the canonicalization algorithm, the signing payload, the encoding of hashes
+and signatures, the endorsement document format, and the optional HTTP API
+exposed by a federated trust directory.</t>
+
+<section anchor="scope"><name>Scope</name>
+
+<t>This document specifies:</t>
+
+<t><list style="symbols">
+  <t>The canonicalization algorithm that transforms an HTML subtree into a
+byte string suitable for hashing (Section 4).</t>
+  <t>The signing payload binding (Section 5).</t>
+  <t>The encoding of hashes and signatures on the wire (Section 6).</t>
+  <t>An IANA-style registry of signature and hash algorithms (Section 7).</t>
+  <t>Key resolution mechanisms for the signer identifier (Section 8).</t>
+  <t>The HTTP API exposed by a federated trust directory (Section 10).</t>
+  <t>The endorsement document format (Section 11).</t>
+  <t>The verification procedure that a verifier <bcp14>MUST</bcp14> follow (Section 12).</t>
+</list></t>
+
+<t>This document does not specify the HTML element, its DOM interface, parsing
+behavior, rendering, user-agent UI, or accessibility considerations. Those
+are defined in <xref target="HTMLTRUST-W3C"></xref>.</t>
+
+</section>
+<section anchor="related-work-and-adjacent-efforts"><name>Related Work and Adjacent Efforts</name>
+
+<t>HTMLTrust composes with rather than replaces several existing web-platform
+mechanisms. Subresource Integrity <xref target="SRI"></xref> provides byte-level integrity for
+fetched subresources and does not attest to authorship. Signed HTTP
+Exchanges <xref target="SXG"></xref> sign complete HTTP responses bound to an origin, at response
+granularity rather than per-region authorship. C2PA Content Credentials
+<xref target="C2PA"></xref> provides provenance metadata for media assets through sidecars;
+HTMLTrust extends an analogous goal to in-document HTML text regions, in
+band rather than via sidecars. XML Digital Signatures <xref target="XMLDSIG"></xref> attempted
+full structural signing of XML; its operational fragility across
+implementations informs the deliberately narrow semantic-subset signing
+specified in Section 4.</t>
+
+<t>DomainKeys Identified Mail <xref target="RFC6376"></xref> provided the operational template of
+separating cryptographic verification from policy-driven trust decision.
+JSON Web Signature <xref target="RFC7515"></xref> and HTTP Message Signatures <xref target="RFC9421"></xref> are used
+as building blocks for endorsement signing (Section 11.2) and directory
+submission authentication (Section 10.8) respectively. The W3C Decentralized
+Identifiers specification <xref target="W3C.did-core"></xref> supplies one of the key-resolution
+methods defined in Section 8.1.</t>
+
+<t>Several active W3C Community Groups address concerns adjacent to HTMLTrust.
+The Credible Web Community Group <xref target="CREDIBLE-WEB"></xref> has produced the
+Credibility Signals catalog and hosts research on reputation graphs,
+credibility scoring, and originator-profile mechanisms; the Originator
+Profile initiative <xref target="ORIGINATOR-PROFILE"></xref> presented to that group in August
+2024 is an independent author-attestation effort whose goals overlap with
+this work. The Decentralized Fact-checking and Provenance Organization
+Community Group <xref target="DEFACTO"></xref> researches decentralized provenance for
+text-based content, with architectural overlap with the endorsement and
+trust-directory model defined in Sections 10 and 11. The AI Content
+Disclosure Community Group <xref target="AI-CONTENT-DISCLOSURE"></xref> is defining structured
+syntax for declaring AI-authored content under emerging regulatory regimes;
+HTMLTrust's claim namespace, defined in the companion <xref target="HTMLTRUST-W3C"></xref>, is
+intended to compose with such disclosure metadata when carried inside a
+signed section. The Credentials Community Group <xref target="CREDENTIALS-CG"></xref> is the
+originating community for <xref target="W3C.did-core"></xref> and the Verifiable Credentials
+work, both used as building blocks. The Anti-Fraud Community Group
+<xref target="ANTIFRAUD-CG"></xref> addresses web-platform mitigations for fraudulent content
+delivery, an adjacent threat surface to author impersonation.</t>
+
+</section>
+<section anchor="conventions-and-definitions"><name>Conventions and Definitions</name>
+
+<t>The key words "<bcp14>MUST</bcp14>", "<bcp14>MUST NOT</bcp14>", "<bcp14>REQUIRED</bcp14>", "<bcp14>SHALL</bcp14>", "<bcp14>SHALL
+NOT</bcp14>", "<bcp14>SHOULD</bcp14>", "<bcp14>SHOULD NOT</bcp14>", "<bcp14>RECOMMENDED</bcp14>", "<bcp14>NOT RECOMMENDED</bcp14>",
+"<bcp14>MAY</bcp14>", and "<bcp14>OPTIONAL</bcp14>" in this document are to be interpreted as
+described in BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/> when, and only when, they
+appear in all capitals, as shown here.</t>
+
+<?line -18?>
+
+</section>
+</section>
+<section anchor="terminology"><name>Terminology</name>
+
+<t>The following terms are used throughout this document.</t>
+
+<dl>
+  <dt>Signer:</dt>
+  <dd>
+    <t>An entity that produces a signature over a signed section. A signer is
+identified by a key identifier (see "key identifier") that resolves to a
+public key.</t>
+  </dd>
+  <dt>Verifier:</dt>
+  <dd>
+    <t>An entity that consumes a signed section, re-derives the canonical
+representation, resolves the signer's public key, and validates the
+signature. The reference verifier is typically a user agent, but
+command-line tools, search-engine crawlers, and aggregators are also
+conforming verifiers.</t>
+  </dd>
+  <dt>Signed section:</dt>
+  <dd>
+    <t>A region of an HTML document that has been signed under this
+specification. The HTML element that delimits a signed section is the
+HTMLTrust signed section element as defined in <xref target="HTMLTRUST-W3C"></xref>. Within
+this document, references to "the signed section" refer to the abstract
+region of content and its associated attributes, not to any particular
+parser representation.</t>
+  </dd>
+  <dt>Canonical content:</dt>
+  <dd>
+    <t>The deterministic UTF-8 byte string produced by applying the algorithm in
+Section 4 to the signed text and signed semantic attributes of a signed
+section.</t>
+  </dd>
+  <dt>Canonical claims:</dt>
+  <dd>
+    <t>The deterministic UTF-8 byte string produced by applying the algorithm in
+Section 4.6 to the in-band claim metadata of a signed section.</t>
+  </dd>
+  <dt>Content hash:</dt>
+  <dd>
+    <t>The cryptographic hash of the canonical content, prefixed with a hash
+algorithm identifier per Section 6.</t>
+  </dd>
+  <dt>Claims hash:</dt>
+  <dd>
+    <t>The cryptographic hash of the canonical claims, prefixed with a hash
+algorithm identifier per Section 6.</t>
+  </dd>
+  <dt>Signing payload:</dt>
+  <dd>
+    <t>The deterministic byte string defined in Section 5 over which the
+signature is computed.</t>
+  </dd>
+  <dt>Key identifier:</dt>
+  <dd>
+    <t>An opaque string ("keyid") that identifies a signer. A key identifier is
+resolved to a public key by one of the methods in Section 8.</t>
+  </dd>
+  <dt>Trust directory:</dt>
+  <dd>
+    <t>An optional federated service that indexes signed content, stores
+endorsements, serves public keys, and may produce reputation scores. The
+HTTP API is defined in Section 10.</t>
+  </dd>
+  <dt>Endorsement:</dt>
+  <dd>
+    <t>A signed JSON document attesting that an endorser holds an opinion about
+a specific content hash at a specific point in time. The format is
+defined in Section 11.</t>
+  </dd>
+  <dt>Origin:</dt>
+  <dd>
+    <t>The Web origin at which signed content is canonically published, as
+defined by <xref target="RFC6454"></xref>: the tuple of scheme, host, and port. HTMLTrust
+serializes origins as described in Section 5.</t>
+  </dd>
+</dl>
+
+</section>
+<section anchor="architecture-overview"><name>Architecture Overview</name>
+
+<t>The HTMLTrust protocol involves four actors:</t>
+
+<dl>
+  <dt>Signer:</dt>
+  <dd>
+    <t>Produces canonicalized content, computes hashes, constructs the signing
+payload, and signs it with a private key. Typically embedded in a
+publishing pipeline (content management system, static-site generator,
+authoring tool).</t>
+  </dd>
+  <dt>Publisher origin:</dt>
+  <dd>
+    <t>Serves the resulting HTML to verifiers over the Web. The publisher
+origin is bound into the signing payload via the legacy-named <spanx style="verb">domain</spanx>
+field (Section 5). The publisher origin and the signer <bcp14>MAY</bcp14> be different
+entities; the origin attests transport, the signer attests authorship.</t>
+  </dd>
+  <dt>Verifier:</dt>
+  <dd>
+    <t>Performs the procedure in Section 12. The verifier re-derives canonical
+content, recomputes hashes, resolves the signer's public key, and
+validates the signature. Verification is local except for key
+resolution, which <bcp14>MAY</bcp14> require a network fetch.</t>
+  </dd>
+  <dt>Trust directory:</dt>
+  <dd>
+    <t>Optional. Indexes content hashes for discovery, stores endorsements,
+serves public keys for signers who choose directory-based identity, and
+<bcp14>MAY</bcp14> compute reputation scores. No directory is privileged by the
+protocol. A verifier <bcp14>MAY</bcp14> perform full cryptographic verification without
+ever contacting a directory.</t>
+  </dd>
+</dl>
+
+<t>The basic data flow is:</t>
+
+<t><list style="numbers" type="1">
+  <t>The signer canonicalizes a content region per Section 4 and computes
+the content hash.</t>
+  <t>The signer collects in-band claim metadata, canonicalizes the claims
+per Section 4.6, and computes the claims hash.</t>
+  <t>The signer constructs the signing payload per Section 5 and signs it
+with the private key corresponding to the signer's key identifier.</t>
+  <t>The signer emits the HTML region annotated with key identifier,
+signature, content hash, and algorithm attributes per <xref target="HTMLTRUST-W3C"></xref>.</t>
+  <t>The publisher origin serves the resulting HTML.</t>
+  <t>A verifier obtains the HTML, extracts the signed section's attributes
+and content, and performs the procedure in Section 12.</t>
+  <t>The verifier <bcp14>MAY</bcp14> consult a trust directory for endorsements,
+reputation, or key resolution, depending on configuration.</t>
+</list></t>
+
+</section>
+<section anchor="canonicalization"><name>Canonicalization</name>
+
+<t>This section defines the deterministic transformation from an HTML
+subtree to a UTF-8 byte string suitable for hashing. A conforming
+implementation <bcp14>MUST</bcp14> produce byte-for-byte identical output for inputs
+that this section declares equivalent.</t>
+
+<section anchor="inputs"><name>Inputs</name>
+
+<t>The input to canonicalization is a DOM subtree rooted at the signed
+section element. For the purposes of this document, the subtree is
+treated as the abstract tree defined by the HTML Living Standard parser
+applied to the source octets. A verifier <bcp14>MUST</bcp14> use that parser model, or
+an implementation with the same tokenization, tree-construction, and
+character-reference behavior. A live DOM is suitable only when it is the
+parser snapshot before script-driven mutation; a post-mutation DOM is a
+different verification input and <bcp14>MUST</bcp14> be reported as such by the W3C
+processing model.</t>
+
+<t>A verifier that operates on bytes (for example, a crawler verifying
+without instantiating a DOM) <bcp14>MUST</bcp14> produce the same result as a
+DOM-aware verifier on the same source octets.</t>
+
+<t>The signed document URL is the final response URL after redirects. The
+base URL used to resolve signed <spanx style="verb">href</spanx> and <spanx style="verb">src</spanx> values is the document base
+URL computed by the HTML Standard from the accepted source snapshot, with
+the signed document URL as its fallback base URL. Runtime mutation of the
+document URL or a <spanx style="verb">base</spanx> element <bcp14>MUST NOT</bcp14> change the base URL of an existing
+source-snapshot result. A verifier operating outside a browser <bcp14>MUST</bcp14> receive
+the signed document URL and <bcp14>MUST</bcp14> apply the same HTML base-URL algorithm. The
+origin in the signing payload is derived from the signed document URL, not
+from the document base URL.</t>
+
+<t>Portable-profile validation is performed on the source octets and parser
+diagnostics before the recovered DOM tree is accepted as verification input.
+A verifier <bcp14>MUST</bcp14> retain enough tokenizer and tree-construction diagnostics to
+detect the rejected cases in Section 4.1.1. A DOM that has already discarded
+duplicate attributes or repaired malformed markup is insufficient by itself.
+If the source octets are unavailable, verification <bcp14>MUST</bcp14> fail with
+"source-refetch-failed". If the verifier cannot produce the required parser
+diagnostics from available source, it <bcp14>MUST</bcp14> fail with
+"parser-profile-unsupported". It <bcp14>MUST NOT</bcp14> treat a live or reconstructed DOM
+as portable input.</t>
+
+<t>In particular, HTML character references are resolved by the parse
+model before text normalization (Section 4.4). A byte-oriented
+implementation <bcp14>MUST</bcp14> decode the full set of HTML5 named character
+references, matched case-sensitively (<spanx style="verb">&amp;Omega;</spanx> and <spanx style="verb">&amp;omega;</spanx> are
+distinct). This document requires character references in signed
+content to be semicolon-terminated and does not define canonical
+behavior for the legacy unterminated forms. Numeric character
+references are decoded using the HTML5 rules: a value of zero, a value
+greater than U+10FFFF, or a surrogate code point (U+D800..U+DFFF)
+becomes U+FFFD, and a C1 control in the range U+0080..U+009F maps
+through the standard windows-1252 replacement table. The abbreviated
+"common entity" tables shipped by some early implementations are NOT
+conforming.</t>
+
+<section anchor="portable-parser-profile"><name>Portable parser profile</name>
+
+<t>To make independent implementations interoperable, this revision defines
+a portable input profile. Every signed section conforming to this revision
+<bcp14>MUST</bcp14> satisfy this profile. This revision defines no in-band profile
+negotiation. A signed section <bcp14>MUST</bcp14> be encoded as UTF-8, contain no duplicate
+attributes, and contain no parse
+errors involving unclosed or misnested elements, table foster parenting,
+foreign-content integration points, or ambiguous character references.
+The profile excludes <spanx style="verb">template</spanx> and nested browsing contexts from the
+signed subtree as specified in Section 4.3.1. A parser-backed verifier
+<bcp14>MUST</bcp14> reject an input outside this profile with
+"parser-profile-unsupported" rather than guessing at a tree. A signer <bcp14>MAY</bcp14>
+emit other HTML under an experimental protocol version outside this
+revision, but <bcp14>MUST NOT</bcp14> identify that output as conforming to this revision.</t>
+
+<t>The profile cases in <spanx style="verb">vectors/parser-profile.json</spanx> cover duplicate
+attributes, malformed nesting, table insertion, foreign content, and
+ambiguous character references. A conforming verifier <bcp14>MUST</bcp14> produce the
+specified accept/reject result before accepting a signed section.</t>
+
+</section>
+</section>
+<section anchor="walk-and-text-extraction"><name>Walk and text extraction</name>
+
+<t>The canonicalizer performs a depth-first, document-order traversal of
+the subtree. At each node:</t>
+
+<t><list style="symbols">
+  <t>If the node is a <spanx style="verb">Text</spanx> node, its data contributes to the canonical
+content per Section 4.4.</t>
+  <t>If the node is an <spanx style="verb">Element</spanx>, the canonicalizer:
+  <list style="numbers" type="1">
+      <t>Determines whether the element is included, excluded, or boundary-
+producing per Section 4.3.</t>
+      <t>If included, emits any signed semantic attribute records for the
+element per Section 4.3.2.</t>
+      <t>If included, recurses into its children.</t>
+      <t>If the element produces a block boundary (Section 4.5), emits the
+boundary marker after the recursion result.</t>
+    </list></t>
+  <t>If the node is a <spanx style="verb">Comment</spanx>, <spanx style="verb">ProcessingInstruction</spanx>, or
+<spanx style="verb">DocumentType</spanx>, it is ignored and contributes nothing.</t>
+</list></t>
+
+<t>A signed section element <bcp14>MAY</bcp14> itself be a descendant of another signed
+section element. The inner element and its subtree are canonicalized
+independently; from the outer element's perspective, the inner element
+contributes its canonical content as if it were a transparent block-
+producing element.</t>
+
+</section>
+<section anchor="element-categories"><name>Element categories</name>
+
+<t>Elements are partitioned into three categories.</t>
+
+<section anchor="excluded-elements"><name>Excluded elements</name>
+
+<t>The following elements and their entire subtrees <bcp14>MUST</bcp14> be excluded from
+the canonical content. Their contents do not contribute any bytes.</t>
+
+<t><list style="symbols">
+  <t><spanx style="verb">script</spanx></t>
+  <t><spanx style="verb">style</spanx></t>
+  <t><spanx style="verb">template</spanx></t>
+  <t><spanx style="verb">noscript</spanx></t>
+  <t><spanx style="verb">iframe</spanx></t>
+  <t><spanx style="verb">head</spanx></t>
+  <t><spanx style="verb">link</spanx></t>
+  <t><spanx style="verb">meta</spanx></t>
+  <t>HTML comments and processing instructions (already excluded by 4.2).</t>
+</list></t>
+
+<t><spanx style="verb">&lt;meta&gt;</spanx> elements are excluded from the canonical content in all
+positions: direct-child claim <spanx style="verb">&lt;meta&gt;</spanx> elements (Section 4.6) contribute
+to the canonical claims instead, and any other <spanx style="verb">&lt;meta&gt;</spanx> contributes
+nothing. <spanx style="verb">&lt;head&gt;</spanx> and <spanx style="verb">&lt;link&gt;</spanx> are document-metadata elements that do
+not carry signed body content and likewise contribute no bytes; in
+particular a <spanx style="verb">&lt;link&gt;</spanx>'s <spanx style="verb">href</spanx> is NOT a signed semantic attribute.</t>
+
+</section>
+<section anchor="included-elements"><name>Included elements</name>
+
+<t>All elements not in Section 4.3.1 are included. Their start and end
+tags do not themselves contribute bytes, but they <bcp14>MAY</bcp14> contribute block
+boundaries per Section 4.5 and their descendant text nodes contribute
+to the canonical content.</t>
+
+<t>The following signed semantic attributes also contribute to the
+canonical content when present on an included element:</t>
+
+<t><list style="symbols">
+  <t><spanx style="verb">href</spanx></t>
+  <t><spanx style="verb">src</spanx></t>
+  <t><spanx style="verb">alt</spanx></t>
+  <t><spanx style="verb">aria-label</spanx></t>
+</list></t>
+
+<t>This first signed-attribute list is intentionally small and is open
+for community feedback. Future revisions <bcp14>MAY</bcp14> add attributes to the
+list, but verifiers for this revision <bcp14>MUST</bcp14> use exactly the list above.</t>
+
+<t>For each included element, before visiting the element's children, the
+canonicalizer examines the signed semantic attributes in the order
+listed above. For each present attribute, it appends one attribute
+record to the canonical content:</t>
+
+<figure><artwork><![CDATA[
+@attr ":" element-local-name ":" attribute-name ":" escaped-value "\n"
+]]></artwork></figure>
+
+<t>Immediately before an attribute record is appended, if the canonical output
+is non-empty and its final byte is neither U+0020 SPACE nor U+000A LINE FEED,
+the canonicalizer appends one U+000A. Each attribute record already ends in
+U+000A, so consecutive attribute records need no additional separator.</t>
+
+<t><spanx style="verb">element-local-name</spanx> and <spanx style="verb">attribute-name</spanx> are ASCII-lowercase names as
+exposed by the HTML parser. <spanx style="verb">normalized-value</spanx> for <spanx style="verb">alt</spanx> and <spanx style="verb">aria-label</spanx>
+is produced by applying the plain-text normalization in
+Section 4.4. <spanx style="verb">normalized-value</spanx> for <spanx style="verb">href</spanx> and <spanx style="verb">src</spanx> is produced by
+parsing the attribute value as a URL against the signed document's base
+URL and serializing the resulting URL using the Web URL serializer. If
+URL parsing fails, verification <bcp14>MUST</bcp14> fail with
+"attribute-canonicalization-failed". The normalized value <bcp14>MUST NOT</bcp14>
+contain U+000A; if a canonicalizer cannot guarantee this, verification
+<bcp14>MUST</bcp14> fail with "attribute-canonicalization-failed". <spanx style="verb">escaped-value</spanx> is
+formed from <spanx style="verb">normalized-value</spanx> by replacing every U+0040 COMMERCIAL AT
+with two consecutive U+0040 bytes. The same replacement is applied to
+normalized text nodes immediately before they are emitted. This
+domain-separates attribute records from text records, so literal text
+cannot emit the reserved record prefix <spanx style="verb">@attr:</spanx>. The element and
+attribute names are drawn from fixed ASCII name sets and do not require
+escaping.</t>
+
+<t>For example, a text node containing the literal string <spanx style="verb">@attr:a:href:x</spanx>
+contributes <spanx style="verb">@@attr:a:href:x</spanx>, while a real <spanx style="verb">href</spanx> attribute contributes
+<spanx style="verb">@attr:a:href:x</spanx>. The two byte sequences therefore remain distinguishable.</t>
+
+<t>Editor's Note: The precise expansion list for signed semantic
+attributes is expected to evolve. Candidate additions include <spanx style="verb">title</spanx>,
+<spanx style="verb">cite</spanx>, image dimension attributes, and ARIA attributes used in name
+computation, but this revision deliberately avoids full structural HTML
+signing.</t>
+
+</section>
+<section anchor="boundary-producing-elements"><name>Boundary-producing elements</name>
+
+<t>Block-level elements introduce a paragraph boundary in the canonical
+content (see Section 4.5). The set of boundary-producing element names
+is exactly:</t>
+
+<t><spanx style="verb">address</spanx>, <spanx style="verb">article</spanx>, <spanx style="verb">aside</spanx>, <spanx style="verb">blockquote</spanx>, <spanx style="verb">details</spanx>, <spanx style="verb">dialog</spanx>,
+<spanx style="verb">div</spanx>, <spanx style="verb">dl</spanx>, <spanx style="verb">fieldset</spanx>, <spanx style="verb">figcaption</spanx>, <spanx style="verb">figure</spanx>, <spanx style="verb">footer</spanx>, <spanx style="verb">form</spanx>,
+<spanx style="verb">h1</spanx>, <spanx style="verb">h2</spanx>, <spanx style="verb">h3</spanx>, <spanx style="verb">h4</spanx>, <spanx style="verb">h5</spanx>, <spanx style="verb">h6</spanx>, <spanx style="verb">header</spanx>, <spanx style="verb">hgroup</spanx>, <spanx style="verb">hr</spanx>, <spanx style="verb">li</spanx>,
+<spanx style="verb">main</spanx>, <spanx style="verb">nav</spanx>, <spanx style="verb">ol</spanx>, <spanx style="verb">p</spanx>, <spanx style="verb">pre</spanx>, <spanx style="verb">section</spanx>, <spanx style="verb">signed-section</spanx>, <spanx style="verb">table</spanx>,
+<spanx style="verb">td</spanx>, <spanx style="verb">th</spanx>, <spanx style="verb">tr</spanx>, <spanx style="verb">ul</spanx>.</t>
+
+<t>The element <spanx style="verb">br</spanx> introduces a soft line break (see Section 4.5).</t>
+
+</section>
+</section>
+<section anchor="text-normalization"><name>Text normalization</name>
+
+<t>For each <spanx style="verb">Text</spanx> node included in the walk, its data is normalized as
+follows, in order:</t>
+
+<t><list style="numbers" type="1">
+  <t>Apply Unicode Normalization Form NFKC (<xref target="UNICODE-NFC"></xref>).</t>
+  <t>Strip the formatting characters defined in Section 4.4.2.</t>
+  <t>Apply the whitespace mapping defined in Section 4.4.3.</t>
+  <t>Apply the punctuation normalizations defined in Section 4.4.4.</t>
+</list></t>
+
+<section anchor="rationale"><name>Rationale</name>
+
+<t>These normalizations make the canonical form stable under the silent
+transformations introduced by content management systems, rich-text
+editors, and copy-paste operations across applications (curly versus
+straight quotes, em dash versus double hyphen, fullwidth versus
+halfwidth forms, and similar). A signer's content remains verifiable
+after any such round-trip provided the abstract text is unchanged.</t>
+
+</section>
+<section anchor="stripped-formatting-characters"><name>Stripped formatting characters</name>
+
+<t>The following characters <bcp14>MUST</bcp14> be removed entirely. They carry no
+content semantics in any language.</t>
+
+<t><list style="symbols">
+  <t>U+00AD SOFT HYPHEN</t>
+  <t>U+200B ZERO WIDTH SPACE</t>
+  <t>U+200E LEFT-TO-RIGHT MARK</t>
+  <t>U+200F RIGHT-TO-LEFT MARK</t>
+  <t>U+2060 WORD JOINER</t>
+  <t>U+FEFF BYTE ORDER MARK / ZERO WIDTH NO-BREAK SPACE</t>
+  <t>U+034F COMBINING GRAPHEME JOINER</t>
+  <t>U+061C ARABIC LETTER MARK</t>
+  <t>U+180E MONGOLIAN VOWEL SEPARATOR</t>
+  <t>U+0640 ARABIC TATWEEL</t>
+  <t>U+FE00..U+FE0F VARIATION SELECTORS 1-16</t>
+  <t>U+E0100..U+E01EF VARIATION SELECTORS 17-256</t>
+  <t>U+E0001..U+E007F TAG CHARACTERS</t>
+  <t>U+202A..U+202E BIDI EMBEDDING CONTROLS</t>
+  <t>U+2066..U+2069 BIDI ISOLATE CONTROLS</t>
+  <t>U+2061..U+2064 INVISIBLE MATH OPERATORS</t>
+  <t>U+FFF9..U+FFFC INTERLINEAR ANNOTATION ANCHORS AND OBJECT REPLACEMENT</t>
+</list></t>
+
+<t>The following characters <bcp14>MUST</bcp14> be preserved despite their visual
+invisibility. They are semantically significant in major writing
+systems.</t>
+
+<t><list style="symbols">
+  <t>U+200C ZERO WIDTH NON-JOINER (semantic in Persian, Kurdish, Syriac).</t>
+  <t>U+200D ZERO WIDTH JOINER (semantic in Indic scripts and emoji
+sequences).</t>
+</list></t>
+
+</section>
+<section anchor="whitespace"><name>Whitespace</name>
+
+<t>Outside of a <spanx style="verb">&lt;pre&gt;</spanx> element, each of the following Unicode code
+points <bcp14>MUST</bcp14> be replaced with U+0020 SPACE:</t>
+
+<t>U+0009, U+000A, U+000B, U+000C, U+000D, U+0085, U+00A0, U+1680,
+U+2000..U+200A, U+2028, U+2029, U+202F, U+205F, U+3000.</t>
+
+<t>After replacement, runs of two or more U+0020 SPACE characters <bcp14>MUST</bcp14>
+be collapsed to a single U+0020 SPACE. Leading and trailing whitespace
+within each block (delimited by Section 4.5 boundaries) <bcp14>MUST</bcp14> be
+removed.</t>
+
+<t>In this revision, <spanx style="verb">&lt;pre&gt;</spanx> receives no special whitespace treatment: it
+is a boundary-producing block (Section 4.3.3) and the text within it is
+normalized identically to all other content, including the whitespace
+mapping and collapsing above. Verbatim whitespace preservation inside
+<spanx style="verb">&lt;pre&gt;</spanx> (so that indentation in code samples is bound byte-for-byte) is
+deliberately deferred to a future revision: at the time of writing, no
+byte-identical implementation of per-element preservation across the
+independent HTML parsers used by conforming implementations was
+available, and shipping an under-specified rule here is precisely the
+interoperability failure this document exists to avoid. A signer <bcp14>MUST
+NOT</bcp14> rely on whitespace inside <spanx style="verb">&lt;pre&gt;</spanx> being cryptographically bound in
+this revision. This is consistent with the deliberate semantic-subset
+signing trade-off (see Security Considerations).</t>
+
+</section>
+<section anchor="punctuation-normalization"><name>Punctuation normalization</name>
+
+<t>The following character classes are normalized to ASCII. The intent
+is hash stability across CMS-driven typographic transformations.</t>
+
+<t>Single quotation marks: each of U+2018, U+2019, U+201A, U+201B,
+U+2032, U+2039, U+203A, U+0060, U+00B4 <bcp14>MUST</bcp14> be replaced with U+0027.</t>
+
+<t>Double quotation marks: each of U+201C, U+201D, U+201E, U+201F,
+U+2033, U+00AB, U+00BB, U+300C, U+300D, U+300E, U+300F,
+U+301D..U+301F, U+FE41..U+FE44 <bcp14>MUST</bcp14> be replaced with U+0022.</t>
+
+<t>Dashes and hyphens: each of U+2010, U+2011, U+2012, U+2013, U+2014,
+U+2015, U+2212, U+FE58, U+FE63 <bcp14>MUST</bcp14> be replaced with U+002D.</t>
+
+<t>Ellipsis: each of U+2026, U+FE19 <bcp14>MUST</bcp14> be replaced with the three-byte
+sequence U+002E U+002E U+002E.</t>
+
+</section>
+</section>
+<section anchor="block-structure"><name>Block structure</name>
+
+<t>A boundary-producing element (Section 4.3.3) emits a single U+000A
+LINE FEED character after its descendants have contributed their
+text. The <spanx style="verb">br</spanx> element emits a single U+000A LINE FEED character at
+its position.</t>
+
+<t>After the entire subtree has been walked, the resulting byte sequence
+is trimmed: leading and trailing runs of U+000A and U+0020 are
+removed, and runs of two or more U+000A in a row are collapsed to a
+single U+000A.</t>
+
+<t>The result is a UTF-8 byte string.</t>
+
+</section>
+<section anchor="canonical-claims"><name>Canonical claims</name>
+
+<t>In-band claim metadata is carried by <spanx style="verb">&lt;meta&gt;</spanx> elements that appear as
+direct children of the signed section element, as required by
+<xref target="HTMLTRUST-W3C"></xref>. Claim <spanx style="verb">&lt;meta&gt;</spanx> elements located at greater depth do
+not participate.</t>
+
+<t>Every direct child <spanx style="verb">&lt;meta&gt;</spanx> element of a signed section is a claim.
+A claim <spanx style="verb">&lt;meta&gt;</spanx> element <bcp14>MUST</bcp14> have both a <spanx style="verb">name</spanx> attribute and a
+<spanx style="verb">content</spanx> attribute. If any direct child claim <spanx style="verb">&lt;meta&gt;</spanx> is missing
+either attribute, verification <bcp14>MUST</bcp14> fail with "claim-malformed". If
+the normalized <spanx style="verb">name</spanx> is the empty string, verification <bcp14>MUST</bcp14> fail with
+"claim-malformed".</t>
+
+<t>For each claim <spanx style="verb">&lt;meta&gt;</spanx> element:</t>
+
+<t><list style="numbers" type="1">
+  <t>The <spanx style="verb">name</spanx> attribute value is processed as plain text per
+Section 4.4 (NFKC, formatting strip, whitespace collapse).</t>
+  <t>The <spanx style="verb">content</spanx> attribute value is processed identically.</t>
+  <t>The pair is serialized as  <vspace blankLines='1'/>
+escaped-name <spanx style="verb">:</spanx> escaped-content <spanx style="verb">\n</spanx>  <vspace blankLines='1'/>
+where <spanx style="verb">:</spanx> is U+003A COLON and <spanx style="verb">\n</spanx> is U+000A LINE FEED. Escaping is
+applied after normalization: U+005C REVERSE SOLIDUS becomes <spanx style="verb">\\</spanx>,
+U+003A COLON becomes <spanx style="verb">\:</spanx>, and U+000A LINE FEED becomes <spanx style="verb">\n</spanx>.
+Normalization currently maps line feeds to spaces, but the explicit
+rule keeps the record grammar injective if a future normalization
+profile admits them.</t>
+</list></t>
+
+<t>The resulting <spanx style="verb">name : content</spanx> lines are sorted lexically by the
+UTF-8 byte sequence of the normalized <spanx style="verb">name</spanx>. Ties on name <bcp14>MUST NOT</bcp14>
+occur; signers <bcp14>MUST NOT</bcp14> emit two direct child claim <spanx style="verb">&lt;meta&gt;</spanx> elements
+whose <spanx style="verb">name</spanx> attributes normalize to the same value within a single
+signed section, and verifiers <bcp14>MUST</bcp14> fail with "claim-duplicate" if they
+encounter such duplicates. The concatenation of the sorted lines is
+the canonical claims byte string.</t>
+
+<t>The <spanx style="verb">signed-at</spanx> claim is not special for purposes of the claims hash:
+it is included in canonical claims like every other direct child claim
+<spanx style="verb">&lt;meta&gt;</spanx>. Section 5 also includes the normalized <spanx style="verb">signed-at</spanx> value as
+a separate signing-payload field. This deliberate duplicate binding
+makes the timestamp easy for verifiers and directory indexes to extract
+without weakening claim integrity.</t>
+
+</section>
+<section anchor="opt-out-marker-editors-note"><name>Opt-out marker (Editor's Note)</name>
+
+<t>Editor's Note: Common runtime decorations (copy-to-clipboard buttons,
+client-side syntax highlighting, lazy-loaded share widgets) frequently
+mutate descendants of a signed section after page load. This revision
+addresses that problem by verifying the original server HTML snapshot
+in the companion W3C processing model. A future revision might add an
+author-controlled opt-out marker such as
+<spanx style="verb">data-htmltrust-ignore="true"</spanx>, but that attribute has no normative
+effect in this revision. Conforming canonicalizers <bcp14>MUST NOT</bcp14> exclude a
+subtree solely because it carries that attribute unless operating in an
+explicit experimental mode.</t>
+
+</section>
+</section>
+<section anchor="signing-payload-binding"><name>Signing Payload Binding</name>
+
+<t>The signature is computed over the deterministic UTF-8 byte string
+formed by joining four fields with a single ASCII colon (U+003A)
+between each:</t>
+
+<figure><artwork><![CDATA[
+content-hash ":" claims-hash ":" domain ":" signed-at
+]]></artwork></figure>
+
+<t>The fields are defined as follows.</t>
+
+<dl>
+  <dt>content-hash:</dt>
+  <dd>
+    <t>The content hash as defined in Section 6.2, including the
+algorithm prefix and separator (for example,
+<spanx style="verb">sha256:Zm9vYmFy...</spanx>). Verifiers <bcp14>MUST</bcp14> use the literal value
+serialized into the <spanx style="verb">content-hash</spanx> attribute of the signed section
+element.</t>
+  </dd>
+  <dt>claims-hash:</dt>
+  <dd>
+    <t>The claims hash, formatted identically to <spanx style="verb">content-hash</spanx>. The
+claims hash is not carried in a separate attribute on the wire; it
+is recomputed by the verifier from the canonical claims byte
+string (Section 4.6) using the algorithm given by the prefix of
+the <spanx style="verb">content-hash</spanx> attribute. The hash algorithm for both
+<spanx style="verb">content-hash</spanx> and <spanx style="verb">claims-hash</spanx> <bcp14>MUST</bcp14> be the same.</t>
+  </dd>
+  <dt>domain:</dt>
+  <dd>
+    <t>A legacy field name retained for wire compatibility. Its value is
+the serialized Web origin at which the content is canonically
+published. The value <bcp14>MUST</bcp14> be the result of the URL Standard's origin
+serialization algorithm for the document URL, with no path, query,
+fragment, or credentials. Conforming public signatures <bcp14>MUST</bcp14> use an
+HTTPS tuple origin. An HTTP tuple origin <bcp14>MAY</bcp14> be enabled by an explicitly
+configured local-development profile, but that profile <bcp14>MUST</bcp14> be
+distinguishable from normal verification and <bcp14>MUST NOT</bcp14> be accepted for
+public content by default. Opaque origins (<spanx style="verb">data:</spanx>, <spanx style="verb">file:</spanx>, and
+similar) are invalid. The URL Standard, rather than a host-language URL
+serializer, defines lowercasing, IDNA A-label conversion, IPv6 bracket
+syntax, and default port omission. For example, <spanx style="verb">https://example.org</spanx>
+and <spanx style="verb">https://example.org:8443</spanx> are distinct origins.</t>
+  </dd>
+  <dt>signed-at:</dt>
+  <dd>
+    <t>The value of the <spanx style="verb">signed-at</spanx> claim <spanx style="verb">&lt;meta&gt;</spanx> element, after the
+normalization in Section 4.4 has been applied. The value <bcp14>MUST</bcp14>
+conform to the date-time production of <xref target="RFC3339"></xref> with the time
+offset given in UTC ("Z").</t>
+  </dd>
+</dl>
+
+<t>The fields <bcp14>MUST</bcp14> appear in the order shown. The separator <bcp14>MUST</bcp14> be a
+single U+003A COLON. No leading or trailing whitespace is permitted.</t>
+
+<section anchor="identity-not-bound-directly"><name>Identity not bound directly</name>
+
+<t>The signer's identifier (<spanx style="verb">keyid</spanx>) is intentionally not included in
+the signing payload. The identifier is implicit in key resolution
+(Section 8): any attempt to claim a different identifier would
+resolve to a different public key, and the signature would fail to
+verify. Including the identifier explicitly would add a fragile
+string-matching surface without strengthening the cryptographic
+binding.</t>
+
+</section>
+<section anchor="why-the-publisher-origin"><name>Why the publisher origin</name>
+
+<t>Binding the signature to the publication origin prevents verbatim
+re-publication of signed content with the original signature
+preserved. A reader who encounters apparently signed content at a
+different origin will see a signature verification failure caused by
+the origin mismatch alone, regardless of any other property of the
+content. Legitimate re-publication is supported by a separate
+wrapper-signing mechanism using a <spanx style="verb">claim:CanonicalURL</spanx> field (see
+<xref target="HTMLTRUST-W3C"></xref>); the wrapper signer attests to a republication, not
+to original authorship, and is responsible for the chain.</t>
+
+</section>
+</section>
+<section anchor="hash-and-signature-encoding"><name>Hash and Signature Encoding</name>
+
+<section anchor="encoding-choice"><name>Encoding choice</name>
+
+<t>Binary values on the wire, including hashes, signatures, and raw public
+keys embedded in HTMLTrust JSON documents, <bcp14>MUST</bcp14> be encoded as canonical,
+unpadded Base64 using the standard Base64 alphabet in Section 4 of
+<xref target="RFC4648"></xref>. This is not base64url: the alphabet includes <spanx style="verb">+</spanx> and <spanx style="verb">/</spanx>,
+and does not use <spanx style="verb">-</spanx> or <spanx style="verb">_</spanx>.</t>
+
+<t>Producers <bcp14>MUST</bcp14> emit the shortest canonical unpadded Base64 form:</t>
+
+<t><list style="symbols">
+  <t>no <spanx style="verb">=</spanx> padding characters;</t>
+  <t>no whitespace;</t>
+  <t>only the characters <spanx style="verb">A-Z</spanx>, <spanx style="verb">a-z</spanx>, <spanx style="verb">0-9</spanx>, <spanx style="verb">+</spanx>, and <spanx style="verb">/</spanx>;</t>
+  <t>zero-valued unused pad bits as required by <xref target="RFC4648"></xref>.</t>
+</list></t>
+
+<t>Verifiers <bcp14>MUST</bcp14> reject non-canonical Base64 in signed attributes and
+signed JSON fields. A verifier determines canonicality by decoding the
+value, re-encoding the decoded bytes using the rules above, and
+requiring byte-for-byte equality with the original value. Implementations
+<bcp14>MAY</bcp14> provide an explicit legacy-tooling mode that accepts padded Base64
+or base64url for migration testing, but that mode is non-conforming for
+normal verification and <bcp14>MUST</bcp14> be distinguishable from conforming
+verification in diagnostics.</t>
+
+<t>Because standard Base64 uses <spanx style="verb">+</spanx> and <spanx style="verb">/</spanx>, HTMLTrust values placed in
+URL paths, query strings, or other URL components <bcp14>MUST</bcp14> be
+percent-encoded where required by the URL component's grammar. For
+example, the <spanx style="verb">/</spanx> character in a content hash path segment is encoded as
+<spanx style="verb">%2F</spanx>.</t>
+
+<t>Editor's Note: Hex (familiar from git and TLS tooling) and base32
+(case-insensitive and easier to transcribe) remain useful diagnostic
+formats, but they are not wire encodings for this revision. Ecoji
+<xref target="ECOJI"></xref> has been proposed; it has been rejected on wire-byte grounds
+(32-byte SHA-256 digest is 26 emoji = 104 UTF-8 bytes versus 43
+Base64 characters) and is noted here for completeness.</t>
+
+</section>
+<section anchor="content-hash-and-claims-hash"><name>Content hash and claims hash</name>
+
+<t>A content hash or claims hash is the concatenation of:</t>
+
+<t><list style="numbers" type="1">
+  <t>A hash algorithm identifier from the registry in Section 7.2.</t>
+  <t>A single U+003A COLON.</t>
+  <t>The Base64-encoded, unpadded hash output.</t>
+</list></t>
+
+<t>For example, a SHA-256 hash of an empty string is:</t>
+
+<figure><artwork><![CDATA[
+sha256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU
+]]></artwork></figure>
+
+<t>Verifiers <bcp14>MUST</bcp14> reject a content hash whose algorithm identifier is
+not in the registry, and <bcp14>MUST</bcp14> reject a content hash whose
+Base64-decoded length is not the natural output length of the
+identified algorithm (32 bytes for <spanx style="verb">sha256</spanx>, 48 bytes for <spanx style="verb">sha384</spanx>,
+64 bytes for <spanx style="verb">sha512</spanx>).</t>
+
+</section>
+<section anchor="signature"><name>Signature</name>
+
+<t>The <spanx style="verb">signature</spanx> attribute carries the Base64-encoded, unpadded output of
+the signature algorithm given by the <spanx style="verb">algorithm</spanx> attribute. The byte
+representation is fixed for each registered algorithm:</t>
+
+<t><list style="symbols">
+  <t>For <spanx style="verb">ed25519</spanx>, the signature is the 64-byte Ed25519 signature defined
+by <xref target="RFC8032"></xref> (86 Base64 characters).</t>
+  <t>For <spanx style="verb">ecdsa-p256</spanx>, the signature is the 64-byte <spanx style="verb">R || S</spanx> representation
+defined for ES256 by <xref target="RFC7518"></xref>. <spanx style="verb">R</spanx> and <spanx style="verb">S</spanx> are unsigned, big-endian,
+32-byte integers, left-padded with zero octets when necessary.</t>
+  <t>For <spanx style="verb">ecdsa-p384</spanx>, the signature is the 96-byte <spanx style="verb">R || S</spanx> representation
+defined for ES384 by <xref target="RFC7518"></xref>. <spanx style="verb">R</spanx> and <spanx style="verb">S</spanx> are unsigned, big-endian,
+48-byte integers, left-padded with zero octets when necessary.</t>
+  <t>For either RSA algorithm, the signature is the big-endian signature
+integer encoded in exactly the modulus width in octets, as specified
+by <xref target="RFC8017"></xref>. <spanx style="verb">rsa-pss-sha256</spanx> uses SHA-256, MGF1 with SHA-256, and a
+32-octet salt. <spanx style="verb">rsa-pkcs1-sha256</spanx> uses RSASSA-PKCS1-v1_5 with SHA-256.</t>
+</list></t>
+
+<t>ECDSA ASN.1 DER signatures are not valid HTMLTrust signature values.
+Verifiers <bcp14>MUST</bcp14> reject a signature whose decoded length or representation
+does not match the selected algorithm before attempting verification.</t>
+
+</section>
+</section>
+<section anchor="algorithm-registry"><name>Algorithm Registry</name>
+
+<t>This section requests creation of two IANA registries (see Section
+13). The initial contents are listed here.</t>
+
+<section anchor="signature-algorithms"><name>Signature algorithms</name>
+
+<t>The following identifiers are defined for use in the <spanx style="verb">algorithm</spanx>
+attribute of a signed section.</t>
+
+<texttable>
+      <ttcol align='left'>Identifier</ttcol>
+      <ttcol align='left'>Algorithm</ttcol>
+      <ttcol align='left'>Reference</ttcol>
+      <c><spanx style="verb">ed25519</spanx></c>
+      <c>EdDSA over edwards25519</c>
+      <c><xref target="RFC8032"></xref></c>
+      <c><spanx style="verb">ecdsa-p256</spanx></c>
+      <c>ECDSA with SHA-256 over secp256r1</c>
+      <c><xref target="RFC7518"></xref></c>
+      <c><spanx style="verb">ecdsa-p384</spanx></c>
+      <c>ECDSA with SHA-384 over secp384r1</c>
+      <c><xref target="RFC7518"></xref></c>
+      <c><spanx style="verb">rsa-pss-sha256</spanx></c>
+      <c>RSASSA-PSS with SHA-256, MGF1-SHA-256, and a 32-octet salt</c>
+      <c><xref target="RFC8017"></xref></c>
+      <c><spanx style="verb">rsa-pkcs1-sha256</spanx></c>
+      <c>RSASSA-PKCS1-v1_5 with SHA-256</c>
+      <c><xref target="RFC8017"></xref></c>
+</texttable>
+
+<t>The mandatory-to-implement algorithm for both signers and verifiers
+is <spanx style="verb">ed25519</spanx>. A verifier <bcp14>MAY</bcp14> accept additional algorithms; a verifier
+<bcp14>MUST</bcp14> treat an <spanx style="verb">algorithm</spanx> value not in its accepted set as an
+"algorithm-not-supported" verification failure, not as a generic
+failure.</t>
+
+<t>The resolved public key type and parameters <bcp14>MUST</bcp14> match the selected
+identifier exactly. In particular, an ECDSA key on another curve and a key
+document that names the other registered RSA padding mode are algorithm
+mismatches. A verifier <bcp14>MUST NOT</bcp14> infer an algorithm from key type or try
+multiple algorithms after a mismatch.</t>
+
+</section>
+<section anchor="hash-algorithms"><name>Hash algorithms</name>
+
+<t>The following identifiers are defined for use in the algorithm prefix
+of <spanx style="verb">content-hash</spanx> and <spanx style="verb">claims-hash</spanx>.</t>
+
+<texttable>
+      <ttcol align='left'>Identifier</ttcol>
+      <ttcol align='left'>Algorithm</ttcol>
+      <ttcol align='left'>Output length</ttcol>
+      <c><spanx style="verb">sha256</spanx></c>
+      <c>SHA-256</c>
+      <c>32 bytes</c>
+      <c><spanx style="verb">sha384</spanx></c>
+      <c>SHA-384</c>
+      <c>48 bytes</c>
+      <c><spanx style="verb">sha512</spanx></c>
+      <c>SHA-512</c>
+      <c>64 bytes</c>
+</texttable>
+
+<t>The mandatory-to-implement hash algorithm is <spanx style="verb">sha256</spanx>. The hash
+algorithm used for <spanx style="verb">content-hash</spanx> and <spanx style="verb">claims-hash</spanx> within a single
+signed section <bcp14>MUST</bcp14> be the same.</t>
+
+</section>
+<section anchor="algorithm-agility"><name>Algorithm agility</name>
+
+<t>A future revision of this specification <bcp14>MAY</bcp14> add identifiers via
+expert review (Section 15). Identifiers <bcp14>MUST NOT</bcp14> be removed once
+registered; an identifier <bcp14>MAY</bcp14> be marked "deprecated" with normative
+text recommending non-use. Verifiers <bcp14>SHOULD</bcp14> refuse to verify under a
+deprecated identifier and <bcp14>SHOULD</bcp14> surface the result as an
+"algorithm-not-supported" outcome.</t>
+
+</section>
+</section>
+<section anchor="key-resolution"><name>Key Resolution</name>
+
+<t>The <spanx style="verb">keyid</spanx> attribute of a signed section is opaque to the protocol.
+This section defines three resolution methods. A verifier <bcp14>MUST</bcp14>
+implement at least one and <bcp14>SHOULD</bcp14> implement all three; a signer
+<bcp14>SHOULD</bcp14> use the most decentralized method available in its operating
+context.</t>
+
+<section anchor="did-method-resolution"><name>DID method resolution</name>
+
+<t>A <spanx style="verb">keyid</spanx> whose value begins with <spanx style="verb">did:</spanx> <bcp14>MUST</bcp14> be resolved per the DID
+Core specification <xref target="W3C.did-core"></xref> using the DID method indicated by
+the second URI scheme component. The DID document <bcp14>MUST</bcp14> be retrieved,
+and the public key <bcp14>MUST</bcp14> be selected from its <spanx style="verb">verificationMethod</spanx>
+array.</t>
+
+<t>The verifier <bcp14>MUST</bcp14> select a verification method whose <spanx style="verb">type</spanx> is
+compatible with the <spanx style="verb">algorithm</spanx> attribute of the signed section. If
+multiple verification methods are present, the verifier <bcp14>MUST</bcp14> prefer a
+method whose <spanx style="verb">id</spanx> is referenced from the <spanx style="verb">assertionMethod</spanx> relationship
+of the DID document; if no such method exists, the verifier <bcp14>MAY</bcp14> use
+any verification method of compatible type.</t>
+
+<t>DID resolution failures (DID document not found, signature on DID
+document invalid where the method demands one, expired or revoked
+verification method) <bcp14>MUST</bcp14> be reported as "key-resolution-failed"
+verification failures.</t>
+
+</section>
+<section anchor="direct-https-url"><name>Direct HTTPS URL</name>
+
+<t>A <spanx style="verb">keyid</spanx> whose value is an absolute URL with scheme <spanx style="verb">https</spanx> <bcp14>MUST</bcp14> be
+resolved by issuing a GET request to that URL. The response <bcp14>MUST</bcp14>
+have a media type of <spanx style="verb">application/htmltrust-key+json</spanx> (Section 15)
+or <spanx style="verb">application/jwk+json</spanx> per <xref target="RFC7517"></xref>; verifiers <bcp14>MAY</bcp14> accept
+<spanx style="verb">application/json</spanx> for backward compatibility.</t>
+
+<t>The retrieved document <bcp14>MUST</bcp14> be one of:</t>
+
+<t><list style="symbols">
+  <t>A JSON Web Key per <xref target="RFC7517"></xref>, or</t>
+  <t>An HTMLTrust key document with the following shape:  <vspace blankLines='1'/>
+    <figure><artwork><![CDATA[
+{
+  "kid": "<string, optional>",
+  "algorithm": "<algorithm identifier>",
+  "publicKeyEncoding": "spki-der",
+  "publicKey": "<unpadded standard Base64 SPKI DER>",
+  "expires": "<RFC3339 timestamp, optional>",
+  "revoked": <boolean, optional>,
+  "revokedAt": "<RFC3339 timestamp, optional>",
+  "supersededBy": "<keyid, optional>",
+  "previousKeys": ["<keyid>"]
+}
+]]></artwork></figure>
+  </t>
+</list></t>
+
+<t><spanx style="verb">algorithm</spanx>, <spanx style="verb">publicKeyEncoding</spanx>, and <spanx style="verb">publicKey</spanx> are <bcp14>REQUIRED</bcp14>. The other
+members shown above are <bcp14>OPTIONAL</bcp14>. Unknown members <bcp14>MUST</bcp14> be ignored for key
+resolution and <bcp14>MAY</bcp14> be retained by caches or directories.</t>
+
+<t><spanx style="verb">publicKey</spanx> is the canonical unpadded standard Base64 encoding from
+Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
+<xref target="RFC5280"></xref>. <spanx style="verb">publicKeyEncoding</spanx> <bcp14>MUST</bcp14> be exactly <spanx style="verb">spki-der</spanx>. A verifier <bcp14>MUST</bcp14>
+reject any other encoding in a conforming HTMLTrust key document with a
+"malformed-key-document" result. If <spanx style="verb">kid</spanx> is present, it <bcp14>MUST</bcp14> equal the
+serialized URL used as <spanx style="verb">keyid</spanx>; a mismatch is a "key-resolution-failed" result.
+The <spanx style="verb">algorithm</spanx> value and the decoded key type and parameters <bcp14>MUST</bcp14> match
+Section 7.1.</t>
+
+<t>For an <spanx style="verb">application/jwk+json</spanx> response, the JWK <spanx style="verb">kty</spanx>, <spanx style="verb">crv</spanx>, and <spanx style="verb">alg</spanx>
+members, when applicable, <bcp14>MUST</bcp14> select the same key type, parameters, and
+algorithm. An absent <spanx style="verb">alg</spanx> does not authorize algorithm inference; the
+signed section's <spanx style="verb">algorithm</spanx> still selects the verification operation.</t>
+
+<t>The verifier <bcp14>MUST</bcp14> process <spanx style="verb">expires</spanx> and <spanx style="verb">revoked</spanx> according to Section 9.
+Malformed timestamps, malformed Base64, an invalid SPKI structure, and
+missing or incorrectly typed required members are "malformed-key-document"
+results. A well-formed key whose type, curve, or declared algorithm does not
+match the signed section produces "algorithm-mismatch". A conforming verifier
+<bcp14>MUST NOT</bcp14> use a PEM compatibility field or silently try a different key
+encoding.</t>
+
+</section>
+<section anchor="trust-directory-reference"><name>Trust directory reference</name>
+
+<t>A <spanx style="verb">keyid</spanx> whose value is an absolute URL pointing at a trust
+directory's <spanx style="verb">/keys/{id}</spanx> endpoint (Section 10.6) <bcp14>MUST</bcp14> be resolved by
+issuing a GET request to that URL. The response format is identical
+to Section 8.2.</t>
+
+<t>The verifier <bcp14>SHOULD</bcp14> consider the trustworthiness of the directory
+itself before accepting a key resolved this way; directory-based
+identity centralizes a portion of the trust graph in the directory
+operator.</t>
+
+</section>
+<section anchor="acceptance-policy"><name>Acceptance policy</name>
+
+<t>A verifier <bcp14>MUST</bcp14> permit configuration of which key-resolution methods
+it accepts and <bcp14>SHOULD</bcp14> default to accepting all three. The verifier
+<bcp14>MUST NOT</bcp14> privilege any one method over another within its accepted
+set; selection is determined by the <spanx style="verb">keyid</spanx> value, not by the
+verifier.</t>
+
+</section>
+</section>
+<section anchor="key-lifecycle"><name>Key Lifecycle</name>
+
+<t>A provenance system that binds durable content to keys must define what
+happens when keys change over their lifetime. This section is normative
+for how keys are rotated, expired, revoked, and superseded, and how
+those states interact with signatures already in the wild. The naive
+"one boolean revoked flag" model is insufficient because it cannot
+distinguish an orderly rotation from a compromise, and it destroys the
+verifiability of an author's entire signed history at once.</t>
+
+<section anchor="key-states"><name>Key states</name>
+
+<t>A published key is in exactly one of four states from a verifier's
+perspective:</t>
+
+<t><list style="symbols">
+  <t><strong>active</strong> -- neither expired nor revoked; usable for verification.</t>
+  <t><strong>expired</strong> -- the key document carries an <spanx style="verb">expires</spanx> timestamp in the
+past. The key was retired on schedule. Signatures whose bound
+<spanx style="verb">signed-at</spanx> is at or before <spanx style="verb">expires</spanx> remain cryptographically valid
+and <bcp14>SHOULD</bcp14> be accepted subject to trust policy; a verifier <bcp14>MUST</bcp14> fail
+with "key-revoked" if it cannot establish that the signature predates
+expiry.</t>
+  <t><strong>revoked</strong> -- the key document carries <spanx style="verb">revoked: true</spanx>. Revocation
+signals suspected or confirmed key compromise. See Revocation,
+compromise, and <spanx style="verb">signed-at</spanx> freshness, below.</t>
+  <t><strong>superseded</strong> -- the key is expired and the publisher has designated
+a successor (see Rotation and supersession, below). This is the
+normal rotation end-state.</t>
+</list></t>
+
+</section>
+<section anchor="rotation-and-supersession"><name>Rotation and supersession</name>
+
+<t>Publishers <bcp14>SHOULD</bcp14> rotate signing keys periodically. To rotate without
+invalidating existing content, a publisher:</t>
+
+<t><list style="numbers" type="1">
+  <t>Publishes a new key at a fresh <spanx style="verb">keyid</spanx> and begins signing new content
+with it.</t>
+  <t>Sets an <spanx style="verb">expires</spanx> timestamp on the old key document at or after the
+time it stopped signing with that key, and keeps the old key document
+resolvable so historical signatures continue to verify.</t>
+  <t><bcp14>MAY</bcp14> add a <spanx style="verb">supersededBy</spanx> field to the old key document whose value is
+the successor <spanx style="verb">keyid</spanx>, and a <spanx style="verb">previousKeys</spanx> array to the new key
+document listing prior <spanx style="verb">keyid</spanx>s. These fields let a verifier or
+directory reconstruct an author's key history and attribute an
+author's older content to the same identity across a rotation.</t>
+</list></t>
+
+<t>A verifier <bcp14>MUST NOT</bcp14> treat an expired-but-superseded key as a
+"key-revoked" failure for signatures whose <spanx style="verb">signed-at</spanx> precedes the
+<spanx style="verb">expires</spanx> time; expiry alone is orderly rotation, not compromise.</t>
+
+</section>
+<section anchor="revocation-compromise-and-signed-at-freshness"><name>Revocation, compromise, and <spanx style="verb">signed-at</spanx> freshness</name>
+
+<t><spanx style="verb">signed-at</spanx> (Section 5) is asserted by the signer and, absent an
+external timestamp authority, can be backdated by whoever holds the
+private key. This has a direct consequence for compromise handling: a
+holder of a stolen key can produce signatures bearing any <spanx style="verb">signed-at</spanx>
+value, including one predating the compromise. Therefore:</t>
+
+<t><list style="symbols">
+  <t>A revoked key document <bcp14>SHOULD</bcp14> carry a <spanx style="verb">revokedAt</spanx> RFC 3339 timestamp
+indicating when compromise is believed to have begun.</t>
+  <t>A conservative verifier <bcp14>MUST</bcp14> treat every signature from a <spanx style="verb">revoked</spanx>
+key as untrusted, regardless of its <spanx style="verb">signed-at</spanx>, because the timestamp
+is not independently attestable. This is the safe default.</t>
+  <t>A verifier <bcp14>MAY</bcp14> accept a signature from a revoked key whose <spanx style="verb">signed-at</spanx>
+precedes <spanx style="verb">revokedAt</spanx> ONLY when the signature's timing is corroborated
+by evidence the verifier trusts and that the key holder could not
+forge -- for example an <xref target="RFC3161"></xref> time-stamp token, inclusion in an
+append-only transparency log, or a directory's first-seen record
+established before <spanx style="verb">revokedAt</spanx>. In the absence of such
+evidence, revocation is all-or-nothing.</t>
+</list></t>
+
+<t>Verifiers <bcp14>MAY</bcp14> additionally apply a freshness policy that rejects
+<spanx style="verb">signed-at</spanx> values implausibly far in the past or future relative to
+the time of retrieval; such a policy is a trust-layer decision (out of
+scope for cryptographic verification) and is not part of signature
+verification.</t>
+
+</section>
+<section anchor="key-loss-and-recovery"><name>Key loss and recovery</name>
+
+<t>There is no cryptographic recovery from loss of a signing key: the
+private key is the identity. A publisher that loses a key (without
+compromise) <bcp14>SHOULD</bcp14> mark it expired, publish a successor (see Rotation
+and supersession), and rely on the out-of-band binding between <spanx style="verb">keyid</spanx>
+and publisher
+(the <spanx style="verb">did:web</spanx>/HTTPS origin, or directory registration and
+endorsements) to re-establish continuity of identity. Publishers <bcp14>SHOULD</bcp14>
+therefore keep signing keys recoverable from secure backups precisely
+because the protocol offers no in-band recovery. Directories and
+endorsers <bcp14>MAY</bcp14> vouch for a successor key's continuity with the prior
+identity, but such vouching is a trust-layer signal, not a cryptographic
+guarantee.</t>
+
+</section>
+</section>
+<section anchor="trust-directory-http-api"><name>Trust Directory HTTP API</name>
+
+<t>This section defines the HTTP API exposed by an optional federated
+trust directory. A directory implementing this API conforms to
+<xref target="RFC9110"></xref> and supports content negotiation and standard cache
+directives <xref target="RFC9111"></xref>.</t>
+
+<t>The API shape in this section is normative for conforming trust
+directories. Reference implementations and deployed services that
+diverge from these endpoints, field names, media types, or verification
+requirements need to change to match this specification rather than the
+reverse.</t>
+
+<t>A verifier <bcp14>MAY</bcp14> consult zero, one, or multiple directories. The
+protocol does not require directory consultation for cryptographic
+verification (Section 12.1 through 12.6); only endorsement and
+reputation use cases require directory access.</t>
+
+<section anchor="base-url-and-discovery"><name>Base URL and discovery</name>
+
+<t>A directory <bcp14>MUST</bcp14> be reachable at an <spanx style="verb">https</spanx>-scheme base URL. The
+endpoints below are relative to that base URL.</t>
+
+<t>A directory <bcp14>SHOULD</bcp14> also expose a discovery document at the
+well-known URI <xref target="RFC8615"></xref> <spanx style="verb">/.well-known/htmltrust</spanx> (Section 10.2).</t>
+
+</section>
+<section anchor="get-well-knownhtmltrust"><name>GET /.well-known/htmltrust</name>
+
+<t>Returns a JSON metadata document describing the directory's
+capabilities. The response media type is
+<spanx style="verb">application/htmltrust-directory+json</spanx> (provisional; see Section 15).</t>
+
+<figure><artwork><![CDATA[
+{
+  "directory": "https://directory.example/",
+  "version": "1",
+  "capabilities": {
+    "content": true,
+    "endorsements": true,
+    "keys": true,
+    "reputation": true
+  },
+  "supportedAlgorithms": {
+    "signature": ["ed25519", "ecdsa-p256"],
+    "hash": ["sha256", "sha384"]
+  },
+  "contact": "operator@directory.example",
+  "termsOfService": "https://directory.example/tos"
+}
+]]></artwork></figure>
+
+<t>The fields <spanx style="verb">directory</spanx>, <spanx style="verb">version</spanx>, <spanx style="verb">capabilities</spanx>, and
+<spanx style="verb">supportedAlgorithms</spanx> are <bcp14>REQUIRED</bcp14>. Other fields are <bcp14>OPTIONAL</bcp14>.</t>
+
+<t>JSON members named <spanx style="verb">domain</spanx> in this API carry the serialized origin
+value defined for the signing payload in Section 5. The field name is
+retained for compatibility with early tooling and <bcp14>MUST NOT</bcp14> be
+interpreted as a host-only domain name.</t>
+
+</section>
+<section anchor="get-contenthash"><name>GET /content/{hash}</name>
+
+<t>Retrieves the directory's record for a specific content hash. The
+path parameter is the content hash including the algorithm prefix,
+percent-encoded as a single path segment (the colon becomes <spanx style="verb">%3A</spanx>;
+any <spanx style="verb">/</spanx> in the Base64 value becomes <spanx style="verb">%2F</spanx>).</t>
+
+<t>A successful response is JSON of the form:</t>
+
+<figure><artwork><![CDATA[
+{
+  "contentHash": "sha256:Zm9vYmFy...",
+  "firstSeen": "2026-05-15T12:34:56Z",
+  "signers": [
+    {
+      "keyid": "did:web:author.example",
+      "signedAt": "2026-05-01T10:30:00Z",
+      "domain": "https://author.example",
+      "signature": "3q2+7w8NslfJ..."
+    }
+  ],
+  "endorsementCount": 3
+}
+]]></artwork></figure>
+
+<t>A directory that does not have a record for the requested hash <bcp14>MUST</bcp14>
+return <spanx style="verb">404 Not Found</spanx>.</t>
+
+</section>
+<section anchor="post-content"><name>POST /content</name>
+
+<t>Submits a record of a signed content occurrence for indexing. The
+request body is JSON of the form:</t>
+
+<figure><artwork><![CDATA[
+{
+  "contentHash": "sha256:Zm9vYmFy...",
+  "keyid": "did:web:author.example",
+  "signedAt": "2026-05-01T10:30:00Z",
+  "domain": "https://author.example",
+  "signature": "3q2+7w8NslfJ...",
+  "sourceURL": "https://author.example/posts/123",
+  "claims": [
+    {"name": "author", "content": "Alice Example"},
+    {"name": "claim:License", "content": "CC-BY-4.0"},
+    {"name": "signed-at", "content": "2026-05-01T10:30:00Z"}
+  ]
+}
+]]></artwork></figure>
+
+<t>The submission <bcp14>MUST</bcp14> be authenticated by an HTTP Message Signature
+<xref target="RFC9421"></xref> from a key the directory can resolve. The directory <bcp14>MUST</bcp14>
+re-verify the submitted signature against the canonical signing
+payload (Section 5) before indexing.</t>
+
+<t>The <spanx style="verb">claims</spanx> array <bcp14>MUST</bcp14> contain the complete set of direct-child claim
+records used by the signer, including exactly one <spanx style="verb">signed-at</spanx> record. Each
+array member <bcp14>MUST</bcp14> contain exactly one string <spanx style="verb">name</spanx> and one string
+<spanx style="verb">content</spanx>. The directory <bcp14>MUST</bcp14> normalize, escape, detect duplicates, sort,
+and serialize these records exactly as specified in Section 4.6. It <bcp14>MUST</bcp14>
+derive the claims hash with the hash algorithm selected by <spanx style="verb">contentHash</spanx>,
+and it <bcp14>MUST</bcp14> require the normalized <spanx style="verb">signed-at</spanx> claim value to equal
+<spanx style="verb">signedAt</spanx>. A missing, extra, malformed, or duplicate claim causes the
+submission to fail. The directory <bcp14>MUST</bcp14> use this recomputed claims hash when
+constructing the Section 5 signing payload; it <bcp14>MUST NOT</bcp14> insert a missing
+claim or accept a client-supplied claims hash in its place.</t>
+
+<t>Successful submission returns <spanx style="verb">201 Created</spanx> with a <spanx style="verb">Location</spanx> header
+pointing at the resulting <spanx style="verb">/content/{hash}</spanx> URL. Rejected submissions
+return <spanx style="verb">4xx</spanx> codes per Section 10.9.</t>
+
+</section>
+<section anchor="get-contenthashendorsements"><name>GET /content/{hash}/endorsements</name>
+
+<t>Lists endorsements stored for a given content hash. The response is a
+JSON array of endorsement documents (Section 11), each independently
+verifiable by the requester. The directory <bcp14>MUST NOT</bcp14> alter the
+endorsement payloads in a manner that invalidates the endorser's
+signature.</t>
+
+<t>Pagination, if supported, <bcp14>MUST</bcp14> follow the Web Linking conventions of
+<xref target="RFC9110"></xref> using <spanx style="verb">Link</spanx> headers with <spanx style="verb">rel="next"</spanx>.</t>
+
+</section>
+<section anchor="post-endorsements"><name>POST /endorsements</name>
+
+<t>Submits a signed endorsement document (Section 11). The directory
+<bcp14>MUST</bcp14>:</t>
+
+<t><list style="numbers" type="1">
+  <t>Verify the endorser's signature on the endorsement.</t>
+  <t>Verify that the endorsement's <spanx style="verb">endorsement</spanx> field references a
+content hash for which the directory has a record (or accept new
+content hashes; this is a directory policy choice).</t>
+  <t>Index the endorsement under the content hash for retrieval via
+Section 10.5.</t>
+</list></t>
+
+<t>Successful submission returns <spanx style="verb">201 Created</spanx>. Endorsements with
+invalid signatures <bcp14>MUST</bcp14> be rejected with <spanx style="verb">400 Bad Request</spanx>.</t>
+
+</section>
+<section anchor="get-keysid"><name>GET /keys/{id}</name>
+
+<t>Retrieves a public key document for the given directory-issued key
+identifier. The response is a key document conforming to Section 8.2.</t>
+
+<t>Directories that act as convenience registries for less-technical
+signers expose keys through this endpoint, and signers reference such
+keys by setting <spanx style="verb">keyid</spanx> to the full URL of the endpoint, for example
+<spanx style="verb">https://directory.example/keys/k-abc123</spanx>.</t>
+
+</section>
+<section anchor="get-signersidreputation"><name>GET /signers/{id}/reputation</name>
+
+<t>Returns a directory-computed reputation score for a signer. The
+response is JSON of the form:</t>
+
+<figure><artwork><![CDATA[
+{
+  "keyid": "did:web:author.example",
+  "score": 0.72,
+  "asOf": "2026-05-15T00:00:00Z",
+  "components": ["endorsements", "history", "verified-domain"],
+  "methodology": "https://directory.example/methodology"
+}
+]]></artwork></figure>
+
+<t>The <spanx style="verb">score</spanx> is a directory-specific value with no protocol-level
+semantics; verifiers consume scores from directories that they have
+been explicitly configured to trust. Different directories <bcp14>MAY</bcp14>
+produce different scores for the same signer.</t>
+
+</section>
+<section anchor="authentication"><name>Authentication</name>
+
+<t>POST endpoints <bcp14>MUST</bcp14> be authenticated using HTTP Message Signatures
+<xref target="RFC9421"></xref> with a key that the directory can resolve via Section 8.
+The signature input <bcp14>MUST</bcp14> be an RFC 9421 structured field. A conforming
+directory <bcp14>MUST</bcp14> accept the <spanx style="verb">sig1</spanx> label only when its covered-component
+identifier list includes, in this order, <spanx style="verb">@method</spanx>, <spanx style="verb">@target-uri</spanx>,
+<spanx style="verb">host</spanx>, <spanx style="verb">date</spanx>, and <spanx style="verb">content-digest</spanx>. The legacy <spanx style="verb">(request-target)</spanx>
+identifier is an earlier HTTP Signatures convention and <bcp14>MUST NOT</bcp14> be used in a
+conforming HTMLTrust signature. The <spanx style="verb">@target-uri</spanx> value <bcp14>MUST</bcp14> be the
+absolute request target, and <spanx style="verb">host</spanx> and <spanx style="verb">date</spanx> <bcp14>MUST</bcp14> be the received HTTP
+fields. <spanx style="verb">content-digest</spanx> <bcp14>MUST</bcp14> use the representation from <xref target="RFC9530"></xref>
+and <bcp14>MUST</bcp14> cover the exact UTF-8 request body bytes. The signature
+parameters <bcp14>MUST</bcp14> include <spanx style="verb">created</spanx>, <spanx style="verb">keyid</spanx>, and <spanx style="verb">alg</spanx>; <spanx style="verb">created</spanx> <bcp14>MUST</bcp14> be
+within the directory's configured clock-skew window and implementations
+<bcp14>SHOULD</bcp14> include a <spanx style="verb">nonce</spanx> to prevent replay of otherwise valid requests.</t>
+
+<t>The <spanx style="verb">alg</spanx> parameter identifies the HTTP Message Signature algorithm
+profile. For this revision, <spanx style="verb">ed25519</spanx> means an Ed25519 signature over
+the RFC 9421 signature base, encoded as unpadded standard Base64. It is
+independent of the HTMLTrust signed-section <spanx style="verb">algorithm</spanx> field. A
+directory <bcp14>MUST</bcp14> reject a request whose signature base, body digest, or
+freshness checks do not verify; API keys <bcp14>MAY</bcp14> be offered as a separately
+documented deployment convenience, but are not a conforming substitute
+for this authentication profile.</t>
+
+<t>GET endpoints <bcp14>SHOULD</bcp14> be accessible without authentication to support
+public verification. A directory <bcp14>MAY</bcp14> require authentication for
+specific endpoints subject to its operational policy; in that case
+unauthenticated requests <bcp14>MUST</bcp14> receive <spanx style="verb">401 Unauthorized</spanx> with a
+<spanx style="verb">WWW-Authenticate</spanx> header.</t>
+
+</section>
+<section anchor="errors"><name>Errors</name>
+
+<t>The directory <bcp14>MUST</bcp14> return errors using the problem-details format
+defined in <xref target="RFC9457"></xref> (which obsoletes RFC 7807), with media type
+<spanx style="verb">application/problem+json</spanx>:</t>
+
+<figure><artwork><![CDATA[
+{
+  "type": "https://htmltrust.org/errors/signature-invalid",
+  "title": "Signature verification failed",
+  "status": 400,
+  "detail": "The submitted signature did not verify against the
+  canonical signing payload.",
+  "contentHash": "sha256:..."
+}
+]]></artwork></figure>
+
+<t>Directories <bcp14>SHOULD</bcp14> apply rate limits per IP, per submitter key, and
+per content hash, and <bcp14>SHOULD</bcp14> signal exhaustion with <spanx style="verb">429 Too Many
+Requests</spanx> and a <spanx style="verb">Retry-After</spanx> header.</t>
+
+</section>
+</section>
+<section anchor="endorsement-format"><name>Endorsement Format</name>
+
+<t>An endorsement is a standalone, signed JSON document attesting to an
+endorser's opinion of a specific content hash at a specific moment in
+time. Endorsements target content hashes, not signers; an ongoing
+opinion of a signer is expressed through directory reputation, not
+through a persistent signer-level endorsement artifact.</t>
+
+<t>The structured endorsement format defined in this section is normative.
+Conforming directories <bcp14>MUST</bcp14> store, return, and verify endorsement
+documents in this shape and <bcp14>MUST NOT</bcp14> replace it with an implementation-
+specific flat signature record.</t>
+
+<section anchor="document-shape"><name>Document shape</name>
+
+<t>The endorsement document is a JSON object with the following fields.</t>
+
+<texttable>
+      <ttcol align='left'>Field</ttcol>
+      <ttcol align='left'>Type</ttcol>
+      <ttcol align='left'>Required</ttcol>
+      <ttcol align='left'>Description</ttcol>
+      <c><spanx style="verb">endorser</spanx></c>
+      <c>string</c>
+      <c>yes</c>
+      <c>Key identifier of the endorser, resolved per Section 8.</c>
+      <c><spanx style="verb">endorsement</spanx></c>
+      <c>string</c>
+      <c>yes</c>
+      <c>Content hash being endorsed, including algorithm prefix.</c>
+      <c><spanx style="verb">signature</spanx></c>
+      <c>string</c>
+      <c>yes</c>
+      <c>Base64-encoded signature over the canonicalized document; see Section 11.2.</c>
+      <c><spanx style="verb">algorithm</spanx></c>
+      <c>string</c>
+      <c>yes</c>
+      <c>Signature algorithm identifier from Section 7.1.</c>
+      <c><spanx style="verb">timestamp</spanx></c>
+      <c>string</c>
+      <c>yes</c>
+      <c>RFC 3339 UTC timestamp at which the endorsement was issued.</c>
+      <c><spanx style="verb">expires</spanx></c>
+      <c>string</c>
+      <c>no</c>
+      <c>RFC 3339 UTC timestamp at which the endorsement ceases to be valid.</c>
+      <c><spanx style="verb">claim</spanx></c>
+      <c>string</c>
+      <c>no</c>
+      <c>Free-text human-readable rationale for the endorsement.</c>
+      <c><spanx style="verb">revokedBy</spanx></c>
+      <c>string</c>
+      <c>no</c>
+      <c>If present, the endorsement has been superseded by the document with this content hash.</c>
+</texttable>
+
+<t>Additional fields <bcp14>MAY</bcp14> be present and <bcp14>SHOULD</bcp14> be preserved by
+directories. Verifiers <bcp14>MUST</bcp14> ignore fields they do not recognize for
+purposes of trust decisions, but <bcp14>MUST</bcp14> include them when computing the
+signed payload (Section 11.2) so that signature verification
+succeeds.</t>
+
+</section>
+<section anchor="canonicalization-for-signing"><name>Canonicalization for signing</name>
+
+<t>The signing payload for an endorsement is the JSON Canonicalization
+Scheme <xref target="RFC8785"></xref> serialization of the endorsement document with the
+<spanx style="verb">signature</spanx> field omitted. The endorser signs that byte string using
+the algorithm given by <spanx style="verb">algorithm</spanx>. Verifiers reproduce the same
+serialization, omit <spanx style="verb">signature</spanx>, and verify using the endorser's
+resolved public key.</t>
+
+<t>JSON Canonicalization Scheme is chosen because it is purpose-built
+for signed JSON, is widely implemented, and avoids the parser-
+divergence problems that have historically plagued ad-hoc JSON
+canonicalization. Implementations <bcp14>MUST</bcp14> implement RFC 8785 rather than
+an object-key sorter layered on the host language's ordinary JSON
+serializer. In particular, they <bcp14>MUST</bcp14> use RFC 8785's UTF-16 property-name
+ordering, ECMAScript-compatible number serialization, JSON string
+serialization rules, and no insignificant whitespace. This includes the
+required escaping of control characters and rejection of lone UTF-16
+surrogate code units. JSON parsers
+<bcp14>MUST</bcp14> reject duplicate member names before JCS serialization; accepting
+the last duplicate member is non-conforming. Values that JSON cannot
+represent under RFC 8259, including NaN and Infinity, <bcp14>MUST</bcp14> be rejected.
+The <spanx style="verb">signature</spanx> member is omitted only at the signing step; all other
+members, including optional and implementation-extension members, remain
+in the JCS input. A verifier <bcp14>MUST</bcp14> preserve and include unknown members
+rather than silently dropping them.</t>
+
+</section>
+<section anchor="revocation-and-expiry"><name>Revocation and expiry</name>
+
+<t>An endorsement with an <spanx style="verb">expires</spanx> value in the past <bcp14>MUST</bcp14> be treated
+by verifiers as invalid for purposes of any current trust decision.
+An endorsement with a <spanx style="verb">revokedBy</spanx> value <bcp14>MUST</bcp14> be treated as
+superseded; the verifier <bcp14>MAY</bcp14> retrieve the superseding endorsement
+from the same directory and apply its semantics in place.</t>
+
+<t>An endorser <bcp14>MAY</bcp14> publish a revocation endorsement (an endorsement
+whose <spanx style="verb">claim</spanx> field names the revoked endorsement's hash and whose
+<spanx style="verb">revokedBy</spanx> field references the document being revoked). A
+directory that holds both <bcp14>MUST</bcp14> serve both in response to
+<spanx style="verb">GET /content/{hash}/endorsements</spanx> so that verifiers can observe the
+revocation chain.</t>
+
+</section>
+<section anchor="endorsement-of-an-endorsement"><name>Endorsement of an endorsement</name>
+
+<t>Endorsement documents are themselves content. An endorser <bcp14>MAY</bcp14> in
+turn endorse another endorser's document by computing the content
+hash of the endorsement (as canonicalized in Section 11.2) and
+issuing a new endorsement against that hash. This provides a
+mechanism for chained reputation without protocol-level signer
+endorsements.</t>
+
+</section>
+</section>
+<section anchor="verification-procedure"><name>Verification Procedure</name>
+
+<t>A conforming verifier <bcp14>MUST</bcp14> perform the following steps in order for
+each signed section it intends to verify. Steps 11.1 through 11.6
+are the cryptographic verification ("layer 1" in <xref target="HTMLTRUST-W3C"></xref>).
+Step 11.7 is the trust decision and is out of scope for this
+document; the verifier returns the cryptographic result to the
+trust-decision layer for further evaluation.</t>
+
+<section anchor="step-1-extract-attributes-and-content"><name>Step 1: Extract attributes and content</name>
+
+<t>Obtain an accepted source representation under Section 4.1 and validate the
+portable parser profile before extracting the section. If source cannot be
+obtained, return "source-refetch-failed". If the source or parser diagnostics
+cannot establish the portable profile, return "parser-profile-unsupported".
+If a Section 12.10 resource ceiling is reached, return
+"resource-limit-exceeded". Stop after any of these failures.</t>
+
+<t>Obtain the four required attributes <spanx style="verb">keyid</spanx>, <spanx style="verb">signature</spanx>,
+<spanx style="verb">content-hash</spanx>, and <spanx style="verb">algorithm</spanx> and the inner content of the signed
+section. If any required attribute is missing, the verifier <bcp14>MUST</bcp14>
+return an "incomplete" outcome and stop.</t>
+
+<t>Validate the <spanx style="verb">content-hash</spanx> and <spanx style="verb">signature</spanx> encodings against Section 6.
+A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
+the wrong natural output length produces "invalid-encoding". If the
+signature or hash algorithm is not registered or is outside the verifier's
+accepted set, return "algorithm-not-supported". For Ed25519 and ECDSA, a
+decoded signature whose length or representation does not match Section 6.3
+produces "malformed-signature". RSA signature length is checked after key
+resolution in Step 6.</t>
+
+</section>
+<section anchor="step-2-canonicalize-content-compute-and-compare-content-hash"><name>Step 2: Canonicalize content; compute and compare content hash</name>
+
+<t>Apply the canonicalization algorithm of Section 4 to the inner
+content. Compute the hash using the algorithm given by the prefix of
+the <spanx style="verb">content-hash</spanx> attribute. Compare the computed hash to the
+attribute value (excluding the prefix and separator, after Base64
+decoding).</t>
+
+<t>If URL resolution or another signed-attribute operation cannot produce the
+canonical value required by Section 4.3.2, the verifier <bcp14>MUST</bcp14> return
+"attribute-canonicalization-failed" and stop.</t>
+
+<t>If the hashes do not match, the verifier <bcp14>MUST</bcp14> return a
+"content-hash-mismatch" failure and stop.</t>
+
+</section>
+<section anchor="step-3-canonicalize-claims-compute-claims-hash"><name>Step 3: Canonicalize claims; compute claims hash</name>
+
+<t>Apply Section 4.6 to the claim <spanx style="verb">&lt;meta&gt;</spanx> element children of the
+signed section. Compute the hash using the same algorithm as Step 2.
+Form the claims-hash string per Section 6.2.</t>
+
+<t>A missing <spanx style="verb">name</spanx> or <spanx style="verb">content</spanx>, or an empty normalized name, produces
+"claim-malformed". Duplicate normalized names produce "claim-duplicate".</t>
+
+</section>
+<section anchor="step-4-construct-signing-payload"><name>Step 4: Construct signing payload</name>
+
+<t>Construct the byte string defined in Section 5 from <spanx style="verb">content-hash</spanx>
+(verbatim from the attribute), the claims hash from Step 3, the
+serialized origin of the current document (the legacy-named <spanx style="verb">domain</spanx>
+field in Section 5), and the value
+of the <spanx style="verb">signed-at</spanx> claim <spanx style="verb">&lt;meta&gt;</spanx> element after normalization
+(Section 4.4). If the <spanx style="verb">signed-at</spanx> claim is absent, the verifier <bcp14>MUST</bcp14>
+return a "claim-missing" failure and stop.</t>
+
+<t>If the normalized <spanx style="verb">signed-at</spanx> value is not an RFC 3339 date-time with the
+UTC <spanx style="verb">Z</spanx> offset required by Section 5, the verifier <bcp14>MUST</bcp14> return
+"claim-malformed" and stop.</t>
+
+<t>If the document URL does not produce an allowed tuple origin under Section 5,
+the verifier <bcp14>MUST</bcp14> return "origin-not-supported" and stop. A signature copied
+to another allowed origin fails cryptographic verification because the
+verifier constructs the payload from the current document origin.</t>
+
+</section>
+<section anchor="step-5-resolve-keyid"><name>Step 5: Resolve keyid</name>
+
+<t>Resolve the <spanx style="verb">keyid</spanx> attribute per Section 8 to obtain a public key and the
+algorithm it is suitable for. A retrieval or DID-resolution failure produces
+"key-resolution-failed". A key response that violates the required document
+schema produces "malformed-key-document". A revoked key, or an expired key
+that Section 9 does not permit for this signature, produces "key-revoked".
+The verifier <bcp14>MUST</bcp14> stop after any of these results.</t>
+
+<t>If the algorithm associated with the resolved key is incompatible
+with the <spanx style="verb">algorithm</spanx> attribute of the signed section, the verifier
+<bcp14>MUST</bcp14> return an "algorithm-mismatch" failure and stop.</t>
+
+</section>
+<section anchor="step-6-verify-signature"><name>Step 6: Verify signature</name>
+
+<t>Verify the Base64-decoded <spanx style="verb">signature</spanx> against the signing payload
+from Step 4 using the public key from Step 5 and the algorithm given
+by the <spanx style="verb">algorithm</spanx> attribute. Before RSA verification, require the decoded
+signature to be exactly the resolved modulus width; otherwise return
+"malformed-signature". If the cryptographic operation completes and the
+signature does not verify, return "signature-invalid". The verifier <bcp14>MUST</bcp14> stop
+after either failure.</t>
+
+<t>If the verification succeeds, the verifier <bcp14>MUST</bcp14> return a "valid"
+cryptographic outcome.</t>
+
+</section>
+<section anchor="step-7-trust-decision-out-of-scope"><name>Step 7: Trust decision (out of scope)</name>
+
+<t>The verifier returns the cryptographic outcome to the trust-decision
+layer (in browsers, the user agent's trust policy; see
+<xref target="HTMLTRUST-W3C"></xref>). The trust layer composes endorsement,
+reputation, and personal-trust-list inputs and <bcp14>MUST NOT</bcp14> alter the
+cryptographic outcome.</t>
+
+</section>
+<section anchor="failure-outcomes"><name>Failure outcomes</name>
+
+<t>The following identifiers are the closed failure vocabulary for this
+revision. A verifier <bcp14>MAY</bcp14> attach private diagnostic detail, but the
+cryptographic result <bcp14>MUST</bcp14> use one of these identifiers and <bcp14>MUST</bcp14> never
+map a listed failure to <spanx style="verb">valid</spanx>:</t>
+
+<t><spanx style="verb">incomplete</spanx>, <spanx style="verb">content-hash-mismatch</spanx>,
+<spanx style="verb">claim-missing</spanx>, <spanx style="verb">claim-malformed</spanx>, <spanx style="verb">claim-duplicate</spanx>,
+<spanx style="verb">attribute-canonicalization-failed</spanx>, <spanx style="verb">parser-profile-unsupported</spanx>,
+<spanx style="verb">invalid-encoding</spanx>, <spanx style="verb">malformed-signature</spanx>, <spanx style="verb">signature-invalid</spanx>,
+<spanx style="verb">key-resolution-failed</spanx>, <spanx style="verb">malformed-key-document</spanx>, <spanx style="verb">key-revoked</spanx>,
+<spanx style="verb">algorithm-not-supported</spanx>, <spanx style="verb">algorithm-mismatch</spanx>, <spanx style="verb">origin-not-supported</spanx>,
+<spanx style="verb">resource-limit-exceeded</spanx>, <spanx style="verb">network-policy-blocked</spanx>,
+<spanx style="verb">source-refetch-failed</spanx>, and <spanx style="verb">directory-unavailable</spanx>.</t>
+
+<t>Failures that occur before a key is resolved <bcp14>MUST NOT</bcp14> trigger signature
+verification. Network and resource failures <bcp14>MUST NOT</bcp14> be retried without
+the same finite limits. User-agent integrations <bcp14>MUST</bcp14> expose at most the
+identifier and a privacy-safe explanation to page scripts.</t>
+
+<t><spanx style="verb">directory-unavailable</spanx> is reserved for an optional trust-directory
+consultation in the layer-2 processing model. A layer-1 cryptographic result
+<bcp14>MUST NOT</bcp14> use that identifier, and directory failure <bcp14>MUST NOT</bcp14> change a valid
+cryptographic result into an invalid one.</t>
+
+</section>
+<section anchor="verifier-network-fetch-policy"><name>Verifier network fetch policy</name>
+
+<t>This section defines a provisional network model for verifier-initiated
+fetches. It is expected to be refined as browser, extension, and native
+verifier implementations mature.</t>
+
+<t>Remote key documents and trust-directory endpoints <bcp14>MUST</bcp14> be fetched over
+HTTPS URLs. Verifiers <bcp14>MUST NOT</bcp14> send cookies, HTTP authentication state,
+client certificates, or other ambient credentials on key or directory
+fetches by default. A browser verifier <bcp14>MAY</bcp14> send credentials only for a
+same-origin source refetch of the document being verified, and only when
+that refetch is needed to obtain the original server HTML for the
+<xref target="HTMLTRUST-W3C"></xref> processing model.</t>
+
+<t>Verifier fetches <bcp14>SHOULD</bcp14> send no <spanx style="verb">Referer</spanx> header. If a platform cannot
+omit the header, it <bcp14>MUST</bcp14> trim it no less strictly than
+<spanx style="verb">strict-origin-when-cross-origin</spanx>.</t>
+
+<t>Web-page JavaScript verifiers are subject to the Fetch CORS model and
+therefore require key and directory servers to opt in with appropriate
+CORS response headers. Browser extensions, native user agents, crawlers,
+and command-line verifiers <bcp14>MAY</bcp14> have broader network authority, but they
+<bcp14>SHOULD</bcp14> apply the same credential, referrer, redirect, timeout, and cache
+constraints for privacy and interoperability.</t>
+
+<t>Verifiers <bcp14>MAY</bcp14> follow HTTPS-to-HTTPS redirects for key and directory
+fetches subject to a small implementation-defined limit. They <bcp14>MUST NOT</bcp14>
+follow redirects to non-HTTPS URLs. They <bcp14>SHOULD</bcp14> impose finite timeouts,
+<bcp14>SHOULD</bcp14> honor HTTP cache semantics <xref target="RFC9111"></xref>, and <bcp14>SHOULD</bcp14> cap cached key
+freshness when no explicit freshness information is present.</t>
+
+<t>Browser verifiers that fetch through the page's fetch context <bcp14>MUST</bcp14> account
+for service-worker interception. A service worker on the publisher origin
+<bcp14>MAY</bcp14> intercept a same-origin source refetch; service workers on unrelated
+origins <bcp14>MUST NOT</bcp14> be allowed to intercept key or directory fetches outside
+their normal scope. User agents that provide a privileged verification
+path <bcp14>SHOULD</bcp14> bypass page script and extension mutation when preserving the
+original response snapshot.</t>
+
+<t>Trust-directory consultation <bcp14>MUST</bcp14> be user opt-in. If a directory fetch,
+key fetch, source refetch, CORS check, redirect policy, timeout, cache
+validation, or user-permission check fails, the verifier <bcp14>MUST</bcp14> surface a
+specific failure outcome such as "key-resolution-failed",
+"directory-unavailable", "source-refetch-failed", or
+"network-policy-blocked" rather than treating the content as valid.</t>
+
+</section>
+<section anchor="resource-limits"><name>Resource limits</name>
+
+<t>Verifiers <bcp14>MUST</bcp14> apply finite resource limits before parsing or fetching
+untrusted input. The following limits are the interoperable baseline for
+this revision; an implementation <bcp14>MAY</bcp14> choose lower values, but <bcp14>MUST NOT</bcp14>
+silently continue beyond them:</t>
+
+<texttable>
+      <ttcol align='left'>Resource</ttcol>
+      <ttcol align='right'>Maximum</ttcol>
+      <c>Source response or signed-section input</c>
+      <c>1 MiB</c>
+      <c>Canonical content output for one section</c>
+      <c>1 MiB</c>
+      <c>Direct-child claims in one section</c>
+      <c>64</c>
+      <c>Normalized claim name or value</c>
+      <c>4 KiB each</c>
+      <c>Remote key document, including headers</c>
+      <c>64 KiB</c>
+      <c>Endorsement response body</c>
+      <c>256 KiB</c>
+      <c>Endorsements processed for one content hash</c>
+      <c>100</c>
+      <c>HTTPS redirects for one verifier fetch</c>
+      <c>3</c>
+      <c>Wall-clock time for one verifier fetch</c>
+      <c>5 seconds</c>
+      <c>Concurrent verifier fetches per document</c>
+      <c>4</c>
+</texttable>
+
+<t>The limits apply independently to source verification, key resolution,
+and optional directory consultation. A verifier that reaches a limit <bcp14>MUST</bcp14>
+stop the affected operation, <bcp14>MUST NOT</bcp14> return a valid cryptographic result,
+and <bcp14>MUST</bcp14> report the machine-readable failure <spanx style="verb">resource-limit-exceeded</spanx>.
+It <bcp14>MUST NOT</bcp14> expose the rejected input or canonical bytes to page scripts.
+An implementation <bcp14>MAY</bcp14> expose the precise limit to privileged diagnostics.</t>
+
+</section>
+</section>
+<section anchor="security-considerations"><name>Security Considerations</name>
+
+<section anchor="threat-model"><name>Threat model</name>
+
+<t>This document considers the following adversaries.</t>
+
+<dl>
+  <dt>Passive eavesdropper:</dt>
+  <dd>
+    <t>An adversary observing traffic on the network. Out of scope; this
+threat is addressed by TLS <xref target="RFC8446"></xref>, on which HTMLTrust
+cryptographic verification does not directly depend.</t>
+  </dd>
+  <dt>Active rewriter:</dt>
+  <dd>
+    <t>An adversary capable of modifying HTML in transit or at a non-
+origin endpoint. HTMLTrust detects any modification of canonical
+text or signed semantic attributes inside a signed section. It does
+not detect modifications to surrounding markup or to non-signed
+regions; verifiers and trust policies <bcp14>MUST</bcp14> present cryptographic
+outcomes per signed section, not per document.</t>
+  </dd>
+  <dt>Origin compromise:</dt>
+  <dd>
+    <t>An adversary in control of the publisher origin. Such an adversary
+can serve content under an origin that the signer's binding
+permits. Detection requires the signer to publish content hashes
+to a trust directory or other independent index; the protocol does
+not prevent the attack in isolation.</t>
+  </dd>
+  <dt>Key compromise:</dt>
+  <dd>
+    <t>An adversary in possession of a signer's private key. HTMLTrust
+cannot prevent forgery in this case. Mitigations are revocation
+(Section 8.2, <spanx style="verb">revoked</spanx> field) and short-lived keys with
+<spanx style="verb">expires</spanx>.</t>
+  </dd>
+  <dt>Replay across origins:</dt>
+  <dd>
+    <t>An adversary copying a signed section from one site to another.
+Prevented by origin binding (Section 5); verification on the new
+origin will fail.</t>
+  </dd>
+  <dt>Replay within origin (long-tail):</dt>
+  <dd>
+    <t>An adversary re-publishing old signed content on the same origin
+out of context. Not prevented by the protocol; mitigated by
+external research and by the inclusion of <spanx style="verb">signed-at</spanx> in the
+signing payload, which dates the attestation.</t>
+  </dd>
+  <dt>Downgrade:</dt>
+  <dd>
+    <t>An adversary inducing a verifier to use a weak algorithm. Mitigated
+by the verifier's right to refuse algorithms (Section 7.3) and by
+the requirement that <spanx style="verb">algorithm</spanx> mismatch produce a distinct
+failure outcome.</t>
+  </dd>
+</dl>
+
+</section>
+<section anchor="deliberate-semantic-subset-signing-trade-off"><name>Deliberate semantic-subset signing trade-off</name>
+
+<t>This revision signs canonical text plus a small list of semantic
+attributes (<spanx style="verb">href</spanx>, <spanx style="verb">src</spanx>, <spanx style="verb">alt</spanx>, and <spanx style="verb">aria-label</spanx>). An adversary in
+possession of signed material <bcp14>MAY</bcp14> still rewrap it in misleading
+block-level markup, alter non-covered attributes, or surround it with
+hostile media without invalidating the cryptographic signature. The
+HTMLTrust system addresses these residual risks through layered means:</t>
+
+<t><list style="symbols">
+  <t>Origin binding (Section 5) ensures that the signed material appears
+only on the publication origin under the original signature.</t>
+  <t>Trust-directory indexing and external research (out of band, but
+enabled by the content hash being globally addressable) catches
+altered surrounding context on mirror sites.</t>
+  <t>Future revisions <bcp14>MAY</bcp14> extend hash coverage to more semantic
+attributes, addressing a larger subset of context-swapping attacks.</t>
+</list></t>
+
+<t>The deliberate trade-off is implementational simplicity and
+cross-implementation stability versus full structural integrity. XML
+Digital Signatures <xref target="XMLDSIG"></xref> is the canonical cautionary tale for
+the latter end of that spectrum.</t>
+
+</section>
+<section anchor="claim-metadata-normalization-and-duplicate-binding"><name>Claim metadata normalization and duplicate binding</name>
+
+<t>All direct child claim <spanx style="verb">&lt;meta&gt;</spanx> elements participate in the claims hash.
+This prevents a metadata sanitizer from silently dropping, reordering, or
+renaming visible author claims without invalidating the signature, but it
+also means that sanitizers which remove unknown <spanx style="verb">&lt;meta&gt;</spanx> elements inside a
+signed section will break verification. Authoring tools <bcp14>SHOULD</bcp14> place only
+claims that they intend to sign as direct child <spanx style="verb">&lt;meta&gt;</spanx> elements and
+<bcp14>SHOULD</bcp14> keep unrelated machine metadata outside the signed section.</t>
+
+<t>The <spanx style="verb">signed-at</spanx> value is intentionally included twice: once as a normal
+claim inside the claims hash and once as an explicit signing-payload
+field. The duplicate binding is not ambiguous because both uses consume
+the same normalized direct child claim. If the claim is missing,
+malformed, or duplicated after name normalization, verification fails
+before signature verification. This keeps timestamp extraction simple for
+directories and user interfaces while preserving the integrity of the
+complete claim set.</t>
+
+<section anchor="injective-record-encoding"><name>Injective record encoding</name>
+
+<t>Claim names and values use the escaping rule in Section 4.6, and signed
+attribute values use the U+0040 escaping rule in Section 4.3.2. These
+rules make the record encodings injective: a literal text sequence cannot
+be mistaken for an attribute record, and a colon or reverse solidus in a
+claim cannot move the name/value boundary. The cases in
+<spanx style="verb">vectors/claims-escaping.json</spanx> are normative examples.</t>
+
+<t>Implementations <bcp14>MUST</bcp14> apply the escaping before hashing; accepting the
+historical unescaped form is a legacy mode and <bcp14>MUST</bcp14> be clearly
+distinguished from this revision.</t>
+
+</section>
+</section>
+<section anchor="revocation-latency"><name>Revocation latency</name>
+
+<t>Revocation under Section 8.2 depends on the verifier re-fetching the
+key document. Verifiers cache key documents subject to HTTP cache
+semantics <xref target="RFC9111"></xref>; an aggressive cache may serve stale key data
+after a <spanx style="verb">revoked: true</spanx> update. Verifiers <bcp14>SHOULD</bcp14> set a relatively
+short maximum cache age for HTMLTrust key documents (recommended:
+one hour) and <bcp14>SHOULD</bcp14> honor <spanx style="verb">Cache-Control: no-cache</spanx> directives from
+the key-document server.</t>
+
+</section>
+<section anchor="algorithm-agility-risks"><name>Algorithm agility risks</name>
+
+<t>The registry in Section 7 is designed to permit new algorithms
+without breaking deployed verifiers. However, a verifier that
+accepts the union of all registered algorithms inherits the security
+of the weakest. Verifiers <bcp14>SHOULD</bcp14> limit their accepted-algorithm set
+to those required by their threat model and <bcp14>SHOULD</bcp14> log or surface
+verifications performed under deprecated algorithms.</t>
+
+</section>
+<section anchor="side-channels"><name>Side channels</name>
+
+<t>A verifier <bcp14>MUST NOT</bcp14> distinguish verification failure from
+verification success via observable side channels (timing,
+network-request differences, console output visible to page
+scripts). The user-agent processing model in <xref target="HTMLTRUST-W3C"></xref>
+specifies the channel through which verification outcomes are
+exposed; verifiers in non-browser contexts <bcp14>SHOULD</bcp14> follow analogous
+discipline.</t>
+
+</section>
+</section>
+<section anchor="privacy-considerations"><name>Privacy Considerations</name>
+
+<section anchor="directory-query-exposure"><name>Directory query exposure</name>
+
+<t>Trust-directory queries during endorsement retrieval or reputation
+lookup reveal the requesting verifier's IP address, request headers,
+and the content hashes it is interested in. A directory operator
+that logs queries can derive a fingerprint of the verifier's
+reading patterns.</t>
+
+<t>Mitigations:</t>
+
+<t><list style="symbols">
+  <t>Verifiers <bcp14>SHOULD</bcp14> cache directory responses (subject to <xref target="RFC9111"></xref>)
+to reduce repeated identical queries.</t>
+  <t>Verifiers <bcp14>MAY</bcp14> batch endorsement requests for multiple content
+hashes encountered in the same document.</t>
+  <t>Verifiers <bcp14>SHOULD</bcp14> support a "no directory" mode that limits the
+verifier to local cryptographic verification only.</t>
+  <t>Verifiers <bcp14>MAY</bcp14> use HTTP via Tor or another anonymizing transport
+for directory queries; directories <bcp14>SHOULD</bcp14> accept anonymized
+traffic.</t>
+</list></t>
+
+</section>
+<section anchor="key-resolution-exposure"><name>Key resolution exposure</name>
+
+<t>Resolving a <spanx style="verb">keyid</spanx> via the methods of Section 8 reveals the
+verifier's interest to the key-hosting server. For directory-hosted
+keys, this collapses into Section 14.1. For DID and direct-URL
+methods, the exposure is to the signer's chosen identity host.</t>
+
+<t>Signers <bcp14>SHOULD NOT</bcp14> publish key documents from origins that would
+draw inferences from key-fetch traffic that would otherwise be
+unavailable.</t>
+
+</section>
+<section anchor="endorsement-disclosure"><name>Endorsement disclosure</name>
+
+<t>An endorsement is intentionally public. Endorsers who do not wish
+their endorsement to be public-facing <bcp14>MUST NOT</bcp14> submit it to a
+public directory; the protocol does not provide a private-
+endorsement mechanism.</t>
+
+</section>
+</section>
+<section anchor="iana-considerations"><name>IANA Considerations</name>
+
+<t>This document requests the following IANA actions.</t>
+
+<section anchor="media-types"><name>Media types</name>
+
+<t>The following media types are to be registered in the "Media Types"
+registry.</t>
+
+<section anchor="applicationhtmltrust-keyjson"><name>application/htmltrust-key+json</name>
+
+<t><list style="symbols">
+  <t>Type name: application</t>
+  <t>Subtype name: htmltrust-key+json</t>
+  <t>Required parameters: none</t>
+  <t>Optional parameters: charset (must be <spanx style="verb">utf-8</spanx> if present)</t>
+  <t>Encoding considerations: binary</t>
+  <t>Security considerations: see Section 13 of this document</t>
+  <t>Interoperability considerations: see Section 8.2</t>
+  <t>Published specification: this document (Section 8.2)</t>
+  <t>Applications that use this media type: HTMLTrust verifiers,
+publishers, and trust directories</t>
+  <t>Fragment identifier considerations: none</t>
+  <t>Author / change controller: IETF / IESG</t>
+</list></t>
+
+</section>
+<section anchor="applicationhtmltrust-endorsementjson"><name>application/htmltrust-endorsement+json</name>
+
+<t>Identical fields as Section 15.1.1, with subtype name
+<spanx style="verb">htmltrust-endorsement+json</spanx> and a reference to Section 11.</t>
+
+</section>
+<section anchor="applicationhtmltrust-directoryjson"><name>application/htmltrust-directory+json</name>
+
+<t>Identical fields as Section 15.1.1, with subtype name
+<spanx style="verb">htmltrust-directory+json</spanx> and a reference to Section 10.2.</t>
+
+</section>
+<section anchor="applicationhtmltrust-contentjson"><name>application/htmltrust-content+json</name>
+
+<t>Identical fields as Section 15.1.1, with subtype name
+<spanx style="verb">htmltrust-content+json</spanx> and a reference to Section 10.3 (the
+<spanx style="verb">/content/{hash}</spanx> response format).</t>
+
+</section>
+</section>
+<section anchor="well-known-uri"><name>Well-known URI</name>
+
+<t>The suffix <spanx style="verb">htmltrust</spanx> is to be registered in the "Well-Known URIs"
+registry per <xref target="RFC8615"></xref>.</t>
+
+<t><list style="symbols">
+  <t>URI suffix: htmltrust</t>
+  <t>Change controller: IETF</t>
+  <t>Specification document: this document, Section 10.2</t>
+  <t>Related information: identifies trust directory discovery
+metadata</t>
+</list></t>
+
+</section>
+<section anchor="signature-algorithm-registry"><name>Signature algorithm registry</name>
+
+<t>IANA is requested to establish a new registry titled "HTMLTrust
+Signature Algorithms" under a new "HTMLTrust Parameters" group. The
+registry is policy "Specification Required" per <xref target="RFC8126"></xref>; the
+initial contents are those of Section 7.1.</t>
+
+<t>Each registration <bcp14>MUST</bcp14> include:</t>
+
+<t><list style="symbols">
+  <t>Identifier (the string used in the <spanx style="verb">algorithm</spanx> attribute)</t>
+  <t>Algorithm description</t>
+  <t>Reference</t>
+  <t>Status: "current" or "deprecated"</t>
+</list></t>
+
+</section>
+<section anchor="hash-algorithm-registry"><name>Hash algorithm registry</name>
+
+<t>IANA is requested to establish a new registry titled "HTMLTrust Hash
+Algorithms" under the "HTMLTrust Parameters" group. The registry is
+policy "Specification Required". The initial contents are those of
+Section 7.2.</t>
+
+<t>Each registration <bcp14>MUST</bcp14> include:</t>
+
+<t><list style="symbols">
+  <t>Identifier (the string used as the hash prefix in <spanx style="verb">content-hash</spanx>
+values)</t>
+  <t>Algorithm description</t>
+  <t>Output length in bytes</t>
+  <t>Reference</t>
+  <t>Status: "current" or "deprecated"</t>
+</list></t>
+
+</section>
+<section anchor="htmltrust-error-type-prefix"><name>HTMLTrust error type prefix</name>
+
+<t>This document does not request an IANA registry for the
+<spanx style="verb">https://htmltrust.org/errors/...</spanx> URIs used in problem-details
+responses (Section 10.9); those URIs are stewarded by the document
+author and the Community Group.</t>
+
+</section>
+</section>
+
+
+  </middle>
+
+  <back>
+
+
+<references title='References' anchor="sec-combined-references">
+
+    <references title='Normative References' anchor="sec-normative-references">
+
+
+
+<reference anchor="RFC8785">
+  <front>
+    <title>JSON Canonicalization Scheme (JCS)</title>
+    <author fullname="A. Rundgren" initials="A." surname="Rundgren"/>
+    <author fullname="B. Jordan" initials="B." surname="Jordan"/>
+    <author fullname="S. Erdtman" initials="S." surname="Erdtman"/>
+    <date month="June" year="2020"/>
+    <abstract>
+      <t>Cryptographic operations like hashing and signing need the data to be expressed in an invariant format so that the operations are reliably repeatable. One way to address this is to create a canonical representation of the data. Canonicalization also permits data to be exchanged in its original form on the "wire" while cryptographic operations performed on the canonicalized counterpart of the data in the producer and consumer endpoints generate consistent results.</t>
+      <t>This document describes the JSON Canonicalization Scheme (JCS). This specification defines how to create a canonical representation of JSON data by building on the strict serialization methods for JSON primitives defined by ECMAScript, constraining JSON data to the Internet JSON (I-JSON) subset, and by using deterministic property sorting.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="8785"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8785"/>
+</reference>
+<reference anchor="RFC8032">
+  <front>
+    <title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title>
+    <author fullname="S. Josefsson" initials="S." surname="Josefsson"/>
+    <author fullname="I. Liusvaara" initials="I." surname="Liusvaara"/>
+    <date month="January" year="2017"/>
+    <abstract>
+      <t>This document describes elliptic curve signature scheme Edwards-curve Digital Signature Algorithm (EdDSA). The algorithm is instantiated with recommended parameters for the edwards25519 and edwards448 curves. An example implementation and test vectors are provided.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="8032"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8032"/>
+</reference>
+<reference anchor="RFC8017">
+  <front>
+    <title>PKCS #1: RSA Cryptography Specifications Version 2.2</title>
+    <author fullname="K. Moriarty" initials="K." role="editor" surname="Moriarty"/>
+    <author fullname="B. Kaliski" initials="B." surname="Kaliski"/>
+    <author fullname="J. Jonsson" initials="J." surname="Jonsson"/>
+    <author fullname="A. Rusch" initials="A." surname="Rusch"/>
+    <date month="November" year="2016"/>
+    <abstract>
+      <t>This document provides recommendations for the implementation of public-key cryptography based on the RSA algorithm, covering cryptographic primitives, encryption schemes, signature schemes with appendix, and ASN.1 syntax for representing keys and for identifying the schemes.</t>
+      <t>This document represents a republication of PKCS #1 v2.2 from RSA Laboratories' Public-Key Cryptography Standards (PKCS) series. By publishing this RFC, change control is transferred to the IETF.</t>
+      <t>This document also obsoletes RFC 3447.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="8017"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8017"/>
+</reference>
+<reference anchor="RFC7518">
+  <front>
+    <title>JSON Web Algorithms (JWA)</title>
+    <author fullname="M. Jones" initials="M." surname="Jones"/>
+    <date month="May" year="2015"/>
+    <abstract>
+      <t>This specification registers cryptographic algorithms and identifiers to be used with the JSON Web Signature (JWS), JSON Web Encryption (JWE), and JSON Web Key (JWK) specifications. It defines several IANA registries for these identifiers.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="7518"/>
+  <seriesInfo name="DOI" value="10.17487/RFC7518"/>
+</reference>
+<reference anchor="RFC7515">
+  <front>
+    <title>JSON Web Signature (JWS)</title>
+    <author fullname="M. Jones" initials="M." surname="Jones"/>
+    <author fullname="J. Bradley" initials="J." surname="Bradley"/>
+    <author fullname="N. Sakimura" initials="N." surname="Sakimura"/>
+    <date month="May" year="2015"/>
+    <abstract>
+      <t>JSON Web Signature (JWS) represents content secured with digital signatures or Message Authentication Codes (MACs) using JSON-based data structures. Cryptographic algorithms and identifiers for use with this specification are described in the separate JSON Web Algorithms (JWA) specification and an IANA registry defined by that specification. Related encryption capabilities are described in the separate JSON Web Encryption (JWE) specification.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="7515"/>
+  <seriesInfo name="DOI" value="10.17487/RFC7515"/>
+</reference>
+<reference anchor="RFC4648">
+  <front>
+    <title>The Base16, Base32, and Base64 Data Encodings</title>
+    <author fullname="S. Josefsson" initials="S." surname="Josefsson"/>
+    <date month="October" year="2006"/>
+    <abstract>
+      <t>This document describes the commonly used base 64, base 32, and base 16 encoding schemes. It also discusses the use of line-feeds in encoded data, use of padding in encoded data, use of non-alphabet characters in encoded data, use of different encoding alphabets, and canonical encodings. [STANDARDS-TRACK]</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="4648"/>
+  <seriesInfo name="DOI" value="10.17487/RFC4648"/>
+</reference>
+<reference anchor="RFC8615">
+  <front>
+    <title>Well-Known Uniform Resource Identifiers (URIs)</title>
+    <author fullname="M. Nottingham" initials="M." surname="Nottingham"/>
+    <date month="May" year="2019"/>
+    <abstract>
+      <t>This memo defines a path prefix for "well-known locations", "/.well-known/", in selected Uniform Resource Identifier (URI) schemes.</t>
+      <t>In doing so, it obsoletes RFC 5785 and updates the URI schemes defined in RFC 7230 to reserve that space. It also updates RFC 7595 to track URI schemes that support well-known URIs in their registry.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="8615"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8615"/>
+</reference>
+<reference anchor="RFC3339">
+  <front>
+    <title>Date and Time on the Internet: Timestamps</title>
+    <author fullname="G. Klyne" initials="G." surname="Klyne"/>
+    <author fullname="C. Newman" initials="C." surname="Newman"/>
+    <date month="July" year="2002"/>
+    <abstract>
+      <t>This document defines a date and time format for use in Internet protocols that is a profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="3339"/>
+  <seriesInfo name="DOI" value="10.17487/RFC3339"/>
+</reference>
+<reference anchor="RFC9110">
+  <front>
+    <title>HTTP Semantics</title>
+    <author fullname="R. Fielding" initials="R." role="editor" surname="Fielding"/>
+    <author fullname="M. Nottingham" initials="M." role="editor" surname="Nottingham"/>
+    <author fullname="J. Reschke" initials="J." role="editor" surname="Reschke"/>
+    <date month="June" year="2022"/>
+    <abstract>
+      <t>The Hypertext Transfer Protocol (HTTP) is a stateless application-level protocol for distributed, collaborative, hypertext information systems. This document describes the overall architecture of HTTP, establishes common terminology, and defines aspects of the protocol that are shared by all versions. In this definition are core protocol elements, extensibility mechanisms, and the "http" and "https" Uniform Resource Identifier (URI) schemes.</t>
+      <t>This document updates RFC 3864 and obsoletes RFCs 2818, 7231, 7232, 7233, 7235, 7538, 7615, 7694, and portions of 7230.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="STD" value="97"/>
+  <seriesInfo name="RFC" value="9110"/>
+  <seriesInfo name="DOI" value="10.17487/RFC9110"/>
+</reference>
+<reference anchor="RFC9111">
+  <front>
+    <title>HTTP Caching</title>
+    <author fullname="R. Fielding" initials="R." role="editor" surname="Fielding"/>
+    <author fullname="M. Nottingham" initials="M." role="editor" surname="Nottingham"/>
+    <author fullname="J. Reschke" initials="J." role="editor" surname="Reschke"/>
+    <date month="June" year="2022"/>
+    <abstract>
+      <t>The Hypertext Transfer Protocol (HTTP) is a stateless application-level protocol for distributed, collaborative, hypertext information systems. This document defines HTTP caches and the associated header fields that control cache behavior or indicate cacheable response messages.</t>
+      <t>This document obsoletes RFC 7234.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="STD" value="98"/>
+  <seriesInfo name="RFC" value="9111"/>
+  <seriesInfo name="DOI" value="10.17487/RFC9111"/>
+</reference>
+<reference anchor="RFC9530">
+  <front>
+    <title>Digest Fields</title>
+    <author fullname="R. Polli" initials="R." surname="Polli"/>
+    <author fullname="L. Pardue" initials="L." surname="Pardue"/>
+    <date month="February" year="2024"/>
+    <abstract>
+      <t>This document defines HTTP fields that support integrity digests. The Content-Digest field can be used for the integrity of HTTP message content. The Repr-Digest field can be used for the integrity of HTTP representations. Want-Content-Digest and Want-Repr-Digest can be used to indicate a sender's interest and preferences for receiving the respective Integrity fields.</t>
+      <t>This document obsoletes RFC 3230 and the Digest and Want-Digest HTTP fields.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="9530"/>
+  <seriesInfo name="DOI" value="10.17487/RFC9530"/>
+</reference>
+<reference anchor="RFC9457">
+  <front>
+    <title>Problem Details for HTTP APIs</title>
+    <author fullname="M. Nottingham" initials="M." surname="Nottingham"/>
+    <author fullname="E. Wilde" initials="E." surname="Wilde"/>
+    <author fullname="S. Dalal" initials="S." surname="Dalal"/>
+    <date month="July" year="2023"/>
+    <abstract>
+      <t>This document defines a "problem detail" to carry machine-readable details of errors in HTTP response content to avoid the need to define new error response formats for HTTP APIs.</t>
+      <t>This document obsoletes RFC 7807.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="9457"/>
+  <seriesInfo name="DOI" value="10.17487/RFC9457"/>
+</reference>
+<reference anchor="RFC9421">
+  <front>
+    <title>HTTP Message Signatures</title>
+    <author fullname="A. Backman" initials="A." role="editor" surname="Backman"/>
+    <author fullname="J. Richer" initials="J." role="editor" surname="Richer"/>
+    <author fullname="M. Sporny" initials="M." surname="Sporny"/>
+    <date month="February" year="2024"/>
+    <abstract>
+      <t>This document describes a mechanism for creating, encoding, and verifying digital signatures or message authentication codes over components of an HTTP message. This mechanism supports use cases where the full HTTP message may not be known to the signer and where the message may be transformed (e.g., by intermediaries) before reaching the verifier. This document also describes a means for requesting that a signature be applied to a subsequent HTTP message in an ongoing HTTP exchange.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="9421"/>
+  <seriesInfo name="DOI" value="10.17487/RFC9421"/>
+</reference>
+<reference anchor="RFC7517">
+  <front>
+    <title>JSON Web Key (JWK)</title>
+    <author fullname="M. Jones" initials="M." surname="Jones"/>
+    <date month="May" year="2015"/>
+    <abstract>
+      <t>A JSON Web Key (JWK) is a JavaScript Object Notation (JSON) data structure that represents a cryptographic key. This specification also defines a JWK Set JSON data structure that represents a set of JWKs. Cryptographic algorithms and identifiers for use with this specification are described in the separate JSON Web Algorithms (JWA) specification and IANA registries established by that specification.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="7517"/>
+  <seriesInfo name="DOI" value="10.17487/RFC7517"/>
+</reference>
+<reference anchor="RFC6454">
+  <front>
+    <title>The Web Origin Concept</title>
+    <author fullname="A. Barth" initials="A." surname="Barth"/>
+    <date month="December" year="2011"/>
+    <abstract>
+      <t>This document defines the concept of an "origin", which is often used as the scope of authority or privilege by user agents. Typically, user agents isolate content retrieved from different origins to prevent malicious web site operators from interfering with the operation of benign web sites. In addition to outlining the principles that underlie the concept of origin, this document details how to determine the origin of a URI and how to serialize an origin into a string. It also defines an HTTP header field, named "Origin", that indicates which origins are associated with an HTTP request. [STANDARDS-TRACK]</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="6454"/>
+  <seriesInfo name="DOI" value="10.17487/RFC6454"/>
+</reference>
+<reference anchor="RFC5280">
+  <front>
+    <title>Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile</title>
+    <author fullname="D. Cooper" initials="D." surname="Cooper"/>
+    <author fullname="S. Santesson" initials="S." surname="Santesson"/>
+    <author fullname="S. Farrell" initials="S." surname="Farrell"/>
+    <author fullname="S. Boeyen" initials="S." surname="Boeyen"/>
+    <author fullname="R. Housley" initials="R." surname="Housley"/>
+    <author fullname="W. Polk" initials="W." surname="Polk"/>
+    <date month="May" year="2008"/>
+    <abstract>
+      <t>This memo profiles the X.509 v3 certificate and X.509 v2 certificate revocation list (CRL) for use in the Internet. An overview of this approach and model is provided as an introduction. The X.509 v3 certificate format is described in detail, with additional information regarding the format and semantics of Internet name forms. Standard certificate extensions are described and two Internet-specific extensions are defined. A set of required certificate extensions is specified. The X.509 v2 CRL format is described in detail along with standard and Internet-specific extensions. An algorithm for X.509 certification path validation is described. An ASN.1 module and examples are provided in the appendices. [STANDARDS-TRACK]</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="5280"/>
+  <seriesInfo name="DOI" value="10.17487/RFC5280"/>
+</reference>
+<reference anchor="RFC8126">
+  <front>
+    <title>Guidelines for Writing an IANA Considerations Section in RFCs</title>
+    <author fullname="M. Cotton" initials="M." surname="Cotton"/>
+    <author fullname="B. Leiba" initials="B." surname="Leiba"/>
+    <author fullname="T. Narten" initials="T." surname="Narten"/>
+    <date month="June" year="2017"/>
+    <abstract>
+      <t>Many protocols make use of points of extensibility that use constants to identify various protocol parameters. To ensure that the values in these fields do not have conflicting uses and to promote interoperability, their allocations are often coordinated by a central record keeper. For IETF protocols, that role is filled by the Internet Assigned Numbers Authority (IANA).</t>
+      <t>To make assignments in a given registry prudently, guidance describing the conditions under which new values should be assigned, as well as when and how modifications to existing values can be made, is needed. This document defines a framework for the documentation of these guidelines by specification authors, in order to assure that the provided guidance for the IANA Considerations is clear and addresses the various issues that are likely in the operation of a registry.</t>
+      <t>This is the third edition of this document; it obsoletes RFC 5226.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="BCP" value="26"/>
+  <seriesInfo name="RFC" value="8126"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8126"/>
+</reference>
+
+<reference anchor="UNICODE-NFC" target="https://www.unicode.org/reports/tr15/">
+  <front>
+    <title>Unicode Standard Annex #15: Unicode Normalization Forms</title>
+    <author >
+      <organization>The Unicode Consortium</organization>
+    </author>
+    <date year="2023"/>
+  </front>
+</reference>
+<reference anchor="W3C.did-core" target="https://www.w3.org/TR/did-core/">
+  <front>
+    <title>Decentralized Identifiers (DIDs) v1.0</title>
+    <author >
+      <organization>W3C</organization>
+    </author>
+    <date year="2022"/>
+  </front>
+</reference>
+
+
+<reference anchor="RFC2119">
+  <front>
+    <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+    <author fullname="S. Bradner" initials="S." surname="Bradner"/>
+    <date month="March" year="1997"/>
+    <abstract>
+      <t>In many standards track documents several words are used to signify the requirements in the specification. These words are often capitalized. This document defines these words as they should be interpreted in IETF documents. This document specifies an Internet Best Current Practices for the Internet Community, and requests discussion and suggestions for improvements.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="BCP" value="14"/>
+  <seriesInfo name="RFC" value="2119"/>
+  <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+</reference>
+<reference anchor="RFC8174">
+  <front>
+    <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+    <author fullname="B. Leiba" initials="B." surname="Leiba"/>
+    <date month="May" year="2017"/>
+    <abstract>
+      <t>RFC 2119 specifies common key words that may be used in protocol specifications. This document aims to reduce the ambiguity by clarifying that only UPPERCASE usage of the key words have the defined special meanings.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="BCP" value="14"/>
+  <seriesInfo name="RFC" value="8174"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+</reference>
+
+
+
+    </references>
+
+    <references title='Informative References' anchor="sec-informative-references">
+
+
+
+<reference anchor="RFC6376">
+  <front>
+    <title>DomainKeys Identified Mail (DKIM) Signatures</title>
+    <author fullname="D. Crocker" initials="D." role="editor" surname="Crocker"/>
+    <author fullname="T. Hansen" initials="T." role="editor" surname="Hansen"/>
+    <author fullname="M. Kucherawy" initials="M." role="editor" surname="Kucherawy"/>
+    <date month="September" year="2011"/>
+    <abstract>
+      <t>DomainKeys Identified Mail (DKIM) permits a person, role, or organization that owns the signing domain to claim some responsibility for a message by associating the domain with the message. This can be an author's organization, an operational relay, or one of their agents. DKIM separates the question of the identity of the Signer of the message from the purported author of the message. Assertion of responsibility is validated through a cryptographic signature and by querying the Signer's domain directly to retrieve the appropriate public key. Message transit from author to recipient is through relays that typically make no substantive change to the message content and thus preserve the DKIM signature.</t>
+      <t>This memo obsoletes RFC 4871 and RFC 5672. [STANDARDS-TRACK]</t>
+    </abstract>
+  </front>
+  <seriesInfo name="STD" value="76"/>
+  <seriesInfo name="RFC" value="6376"/>
+  <seriesInfo name="DOI" value="10.17487/RFC6376"/>
+</reference>
+<reference anchor="RFC3161">
+  <front>
+    <title>Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)</title>
+    <author fullname="C. Adams" initials="C." surname="Adams"/>
+    <author fullname="P. Cain" initials="P." surname="Cain"/>
+    <author fullname="D. Pinkas" initials="D." surname="Pinkas"/>
+    <author fullname="R. Zuccherato" initials="R." surname="Zuccherato"/>
+    <date month="August" year="2001"/>
+    <abstract>
+      <t>This document describes the format of a request sent to a Time Stamping Authority (TSA) and of the response that is returned. It also establishes several security-relevant requirements for TSA operation, with regards to processing requests to generate responses. [STANDARDS-TRACK]</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="3161"/>
+  <seriesInfo name="DOI" value="10.17487/RFC3161"/>
+</reference>
+<reference anchor="RFC8446">
+  <front>
+    <title>The Transport Layer Security (TLS) Protocol Version 1.3</title>
+    <author fullname="E. Rescorla" initials="E." surname="Rescorla"/>
+    <date month="August" year="2018"/>
+    <abstract>
+      <t>This document specifies version 1.3 of the Transport Layer Security (TLS) protocol. TLS allows client/server applications to communicate over the Internet in a way that is designed to prevent eavesdropping, tampering, and message forgery.</t>
+      <t>This document updates RFCs 5705 and 6066, and obsoletes RFCs 5077, 5246, and 6961. This document also specifies new requirements for TLS 1.2 implementations.</t>
+    </abstract>
+  </front>
+  <seriesInfo name="RFC" value="8446"/>
+  <seriesInfo name="DOI" value="10.17487/RFC8446"/>
+</reference>
+
+<reference anchor="HTMLTRUST-W3C" target="https://htmltrust.org/spec/">
+  <front>
+    <title>HTMLTrust: Signed Sections for the Web (W3C Community Group Report)</title>
+    <author initials="J." surname="Grey" fullname="Jason Grey">
+      <organization></organization>
+    </author>
+    <date year="2026"/>
+  </front>
+</reference>
+<reference anchor="C2PA" target="https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html">
+  <front>
+    <title>C2PA Technical Specification 2.0</title>
+    <author >
+      <organization>Coalition for Content Provenance and Authenticity</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="SXG" target="https://datatracker.ietf.org/doc/draft-yasskin-http-origin-signed-responses/">
+  <front>
+    <title>Signed HTTP Exchanges</title>
+    <author initials="J." surname="Yasskin" fullname="J. Yasskin">
+      <organization></organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="SRI" target="https://www.w3.org/TR/SRI/">
+  <front>
+    <title>Subresource Integrity</title>
+    <author >
+      <organization>W3C</organization>
+    </author>
+    <date year="2023"/>
+  </front>
+</reference>
+<reference anchor="XMLDSIG" target="https://www.w3.org/TR/xmldsig-core2/">
+  <front>
+    <title>XML Signature Syntax and Processing Version 2.0</title>
+    <author >
+      <organization>W3C</organization>
+    </author>
+    <date year="2015"/>
+  </front>
+</reference>
+<reference anchor="ECOJI" target="https://github.com/keith-turner/ecoji">
+  <front>
+    <title>Ecoji: A base-1024 encoding using emoji</title>
+    <author initials="K." surname="Turner" fullname="K. Turner">
+      <organization></organization>
+    </author>
+    <date year="2018"/>
+  </front>
+</reference>
+<reference anchor="CREDIBLE-WEB" target="https://credweb.org/">
+  <front>
+    <title>Credible Web Community Group</title>
+    <author >
+      <organization>W3C Credible Web Community Group</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="DEFACTO" target="https://www.w3.org/community/defacto/">
+  <front>
+    <title>Decentralized Fact-checking and Provenance Organization (DeFacto) Community Group</title>
+    <author >
+      <organization>W3C DeFacto Community Group</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="AI-CONTENT-DISCLOSURE" target="https://www.w3.org/community/ai-content-disclosure/">
+  <front>
+    <title>AI Content Disclosure Community Group</title>
+    <author >
+      <organization>W3C AI Content Disclosure Community Group</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="CREDENTIALS-CG" target="https://www.w3.org/community/credentials/">
+  <front>
+    <title>Credentials Community Group</title>
+    <author >
+      <organization>W3C Credentials Community Group</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="ANTIFRAUD-CG" target="https://www.w3.org/community/antifraud/">
+  <front>
+    <title>Anti-Fraud Community Group</title>
+    <author >
+      <organization>W3C Anti-Fraud Community Group</organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+<reference anchor="ORIGINATOR-PROFILE" target="https://originator-profile.org/">
+  <front>
+    <title>Originator Profile</title>
+    <author >
+      <organization></organization>
+    </author>
+    <date year="2024"/>
+  </front>
+</reference>
+
+
+    </references>
+
+</references>
+
+
+<?line 1930?>
+
+<section anchor="acknowledgements"><name>Acknowledgements</name>
+
+<t>The author thanks early reviewers of the HTMLTrust whitepaper for
+feedback that shaped this draft, and acknowledges the conceptual
+debt to DKIM <xref target="RFC6376"></xref>, JSON Web Signature <xref target="RFC7515"></xref>, JSON
+Canonicalization Scheme <xref target="RFC8785"></xref>, HTTP Message Signatures
+<xref target="RFC9421"></xref>, and Signed HTTP Exchanges <xref target="SXG"></xref>. The two-layer split of
+cryptographic verification from trust evaluation is influenced by
+the operational experience of DKIM deployment.</t>
+
+</section>
+<section anchor="test-vectors"><name>Test Vectors</name>
+
+<t>This appendix gives a complete, reproducible end-to-end vector. The same
+vector is maintained machine-readable in the conformance suite at
+<spanx style="verb">conformance/vectors/vector-01.json</spanx> in the canonicalization repository at
+commit <spanx style="verb">a756dbaf27fd32799da7f2a1276cc16964e8d41f</spanx>
+(https://github.com/HTMLTrust/htmltrust-canonicalization), where every
+signer and verifier binding reproduces it in CI. All hashes are SHA-256
+encoded as unpadded standard Base64 with the <spanx style="verb">sha256:</spanx> prefix
+(Section 6); the signature is Ed25519 over the Section 5 payload, also
+unpadded standard Base64.</t>
+
+<section anchor="test-key-ed25519"><name>Test key (Ed25519)</name>
+
+<t>The 32-byte private seed is the ASCII string
+<spanx style="verb">htmltrust-test-vector-ed25519-01</spanx>:</t>
+
+<figure><artwork><![CDATA[
+seed (hex):       68746d6c74727573742d746573742d766563746f722d656432353531392d3031
+public key (hex): ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c19
+]]></artwork></figure>
+
+<t>Public key (SubjectPublicKeyInfo, PEM):</t>
+
+<figure><artwork><![CDATA[
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAro5HTnkh3VG+ZQ3PaEerRS3uY0ITOe/D1rBBsuhfTBk=
+-----END PUBLIC KEY-----
+]]></artwork></figure>
+
+</section>
+<section anchor="inputs-1"><name>Inputs</name>
+
+<t>Signed document base URL (for resolving relative signed URL attributes):
+<spanx style="verb">https://example.com/essays/engines</spanx>. Serialized publisher origin
+(<spanx style="verb">domain</spanx> field): <spanx style="verb">https://example.com</spanx>. <spanx style="verb">signed-at</spanx>:
+<spanx style="verb">2026-01-15T12:00:00Z</spanx>.</t>
+
+<t>Signed section (source HTML):</t>
+
+<figure><sourcecode type="html"><![CDATA[
+<signed-section>
+<meta name="author" content="Ada Lovelace">
+<meta name="signed-at" content="2026-01-15T12:00:00Z">
+<meta name="license" content="CC-BY-4.0">
+<h1>On Analytical Engines</h1>
+<p>The engine weaves algebraic patterns &mdash; just as the loom weaves flowers.</p>
+<p>See <a href="/notes/engine">the notes</a> and <img src="/img/ada.png" alt="Portrait of Ada">.</p>
+</signed-section>
+]]></sourcecode></figure>
+
+</section>
+<section anchor="canonical-content"><name>Canonical content</name>
+
+<t>The three claim <spanx style="verb">&lt;meta&gt;</spanx> elements are excluded from content (they
+contribute to the claims). <spanx style="verb">&amp;mdash;</spanx> decodes and normalizes to <spanx style="verb">-</spanx>; the
+relative <spanx style="verb">href</spanx>/<spanx style="verb">src</spanx> values resolve against the base URL and serialize
+with the Web URL serializer. Canonical content (UTF-8, U+000A shown as
+literal line breaks):</t>
+
+<figure><artwork><![CDATA[
+On Analytical Engines
+The engine weaves algebraic patterns - just as the loom weaves flowers.
+See @attr:a:href:https://example.com/notes/engine
+the notes and @attr:img:src:https://example.com/img/ada.png
+@attr:img:alt:Portrait of Ada
+.
+]]></artwork></figure>
+
+<t>Content hash:</t>
+
+<figure><artwork><![CDATA[
+sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
+]]></artwork></figure>
+
+</section>
+<section anchor="canonical-claims-1"><name>Canonical claims</name>
+
+<t>Sorted lexically by the UTF-8 bytes of the normalized name:</t>
+
+<figure><artwork><![CDATA[
+author:Ada Lovelace
+license:CC-BY-4.0
+signed-at:2026-01-15T12:00:00Z
+]]></artwork></figure>
+
+<t>(The serialized string ends with a trailing U+000A after the last
+record.) Claims hash:</t>
+
+<figure><artwork><![CDATA[
+sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs
+]]></artwork></figure>
+
+</section>
+<section anchor="signing-payload-and-signature"><name>Signing payload and signature</name>
+
+<t>Signing payload (Section 5, four colon-joined fields):</t>
+
+<figure><artwork><![CDATA[
+sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8:sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs:https://example.com:2026-01-15T12:00:00Z
+]]></artwork></figure>
+
+<t>Ed25519 signature over that payload, unpadded standard Base64:</t>
+
+<figure><artwork><![CDATA[
+kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg
+]]></artwork></figure>
+
+</section>
+</section>
+<section anchor="example-directory-exchange"><name>Example Directory Exchange</name>
+
+<section anchor="submitting-a-content-record"><name>Submitting a content record</name>
+
+<t>Request:</t>
+
+<figure><artwork><![CDATA[
+POST /content HTTP/1.1
+Host: directory.example
+Date: Thu, 15 Jan 2026 12:00:00 GMT
+Content-Type: application/json
+Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="did:web:author.example";alg="ed25519"
+Signature: sig1=:gdWl4N5vUFjVBFg8HDJu49u03bCfSvu/m0A5Ql8omqsoBIbiMXiyyaRQmgBQ7pS7ze7dA0VSx1rD+VbBi2qADg:
+Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
+
+{
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "keyid": "did:web:author.example",
+  "signedAt": "2026-01-15T12:00:00Z",
+  "domain": "https://example.com",
+  "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg",
+  "sourceURL": "https://example.com/essays/engines",
+  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"license","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
+}
+]]></artwork></figure>
+
+<t>Response:</t>
+
+<figure><artwork><![CDATA[
+HTTP/1.1 201 Created
+Location: https://directory.example/content/sha256%3AIVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
+Content-Type: application/htmltrust-content+json
+
+{
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "firstSeen": "2026-05-15T12:34:56Z",
+  "signers": [
+    {
+      "keyid": "did:web:author.example",
+      "signedAt": "2026-01-15T12:00:00Z",
+      "domain": "https://example.com",
+      "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg"
+    }
+  ],
+  "endorsementCount": 0
+}
+]]></artwork></figure>
+
+</section>
+<section anchor="submitting-an-endorsement"><name>Submitting an endorsement</name>
+
+<t>Request body (after canonicalization per Section 11.2 and signing):</t>
+
+<figure><artwork><![CDATA[
+{
+  "endorser": "did:web:reviewer.example",
+  "endorsement": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "algorithm": "ed25519",
+  "timestamp": "2026-05-10T09:00:00Z",
+  "claim": "Verified original publication.",
+  "expires": "2026-12-31T00:00:00Z",
+  "signature": "wRGf14sbPTYebexyPALRMCo122Gaei+wQaQIh/taes/LQWKTQTSW2yBDIOUkBkG/uDGMMU7D1W6AveDClZNPCg"
+}
+]]></artwork></figure>
+
+<t>For the endorsement example, the JCS input (the document above with the
+<spanx style="verb">signature</spanx> member removed) is:</t>
+
+<figure><sourcecode type="json"><![CDATA[
+{"algorithm":"ed25519","claim":"Verified original publication.","endorsement":"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8","endorser":"did:web:reviewer.example","expires":"2026-12-31T00:00:00Z","timestamp":"2026-05-10T09:00:00Z"}
+]]></sourcecode></figure>
+
+<t>The Ed25519 signature above is reproducible with the test seed in this
+appendix. Its canonical payload hash is
+<spanx style="verb">sha256:sPBnoFyxiTmeBOQHaTyhdJy6prv3jmTdoTZpDXP5xrg</spanx>.</t>
+
+</section>
+</section>
+<section anchor="open-issues"><name>Open Issues</name>
+
+<t>The following issues are open in this revision and are expected to
+be addressed in subsequent revisions or in the companion W3C
+Community Group Report.</t>
+
+<t><list style="numbers" type="1">
+  <t>Semantic attribute coverage. This revision signs canonicalized text
+plus the provisional semantic attribute list <spanx style="verb">href</spanx>, <spanx style="verb">src</spanx>, <spanx style="verb">alt</spanx>,
+and <spanx style="verb">aria-label</spanx>. The exact expansion list remains open for
+community feedback. See Section 4.3.2 and the security
+considerations.</t>
+  <t>Runtime DOM mutation. A <spanx style="verb">data-htmltrust-ignore</spanx> opt-out marker
+is reserved but not yet normative. See Section 4.7.</t>
+  <t>Mandatory-to-implement key resolution methods. This revision
+requires verifiers to implement at least one of three methods.
+A future revision may strengthen the requirement, particularly
+around DID methods.</t>
+  <t>Reputation-score interoperability. The <spanx style="verb">/signers/{id}/reputation</spanx>
+endpoint is intentionally directory-specific. A future revision
+may define a small interoperable subset.</t>
+</list></t>
+
+</section>
+
+
+  </back>
+
+<!-- ##markdown-source:
+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
+4dhGNx5aYJhW/gX0GVp7M1sBAA==
+
+-->
+
+</rfc>

@@ -1,104 +1,127 @@
-# HTMLTrust Specification
+# HTMLTrust specifications and research paper
 
-**Toward Decentralized Trust and Verifiable Content on the Web**
+| Field | Value |
+|---|---|
+| Status | Working drafts |
+| Version | Internet-Draft `-00` |
+| Updated | 2026-08-27 |
+| Author | Jason Grey |
+| Primary readers | Protocol implementers, standards reviewers, and researchers |
+| Reading time | 5 minutes |
 
-HTMLTrust is a decentralized, standards-aligned framework for embedding cryptographic trust directly into HTML content. Using a proposed `<signed-section>` element, content creators and publishing platforms can sign semantically meaningful regions of web pages and include identity-linked metadata in-band.
+This repository contains the protocol drafts and paper for HTMLTrust. Start
+with the IETF draft when implementing signatures. Read the W3C Community
+Group draft for the HTML element and browser processing model.
 
-This repository contains the scholarly paper and technical specification that defines the HTMLTrust system.
+## Build and check the repository
 
-## What Is HTMLTrust?
-
-The web lacks a standardized mechanism for proving who wrote a given piece of content. TLS certifies the domain, but not the author. As AI-generated and republished material becomes ubiquitous, users face increasing difficulty determining what content is trustworthy.
-
-HTMLTrust addresses this by allowing authors to **cryptographically sign blocks of HTML content**, with signatures validated using public key infrastructure (such as [DIDs](https://www.w3.org/TR/did-core/)) and optionally enhanced by third-party endorsements via federated trust directories.
-
-Unlike blockchain-based or DRM-centric systems, HTMLTrust is **lightweight, browser-compatible, and web-native** — designed to scale across publishing workflows, civic media, and knowledge networks.
-
-## Repository Contents
-
-```
-paper/
-├── htmltrust.tex          # The paper/specification (LaTeX)
-├── references.bib         # Bibliography
-└── images/
-    └── architecture1.png  # System architecture diagram
-diagrams/
-└── architecture1.md       # Mermaid source for the architecture diagram
-```
-
-## Building the Paper
-
-Requires a LaTeX distribution with `biblatex` and `biber` (e.g., [TeX Live](https://tug.org/texlive/) or [MacTeX](https://tug.org/mactex/)).
+From the repository root:
 
 ```sh
-cd paper
-pdflatex htmltrust.tex
-biber htmltrust
-pdflatex htmltrust.tex
-pdflatex htmltrust.tex
+make check       # validate vectors and repository invariants
+make ietf        # regenerate the IETF XML, HTML, and text artifacts
+make paper       # build paper/htmltrust.pdf
+make w3c         # serve the W3C draft at http://localhost:8000
+make w3c-check   # render the W3C draft and fail on ReSpec diagnostics
 ```
 
-The compiled PDF will be output as `paper/htmltrust.pdf`.
+`make check` needs Bash, Git, grep, jq, and Node.js 22 or newer. The other
+targets list their tool requirements below.
 
-## Known Issue: Runtime DOM Mutation Breaks Verification
+## Choose the document you need
 
-HTMLTrust signs the **static HTML** that leaves the publishing pipeline. Browser verifiers, however, read the **live DOM** — the state of the page after every script on the page has finished running. If anything inside a `<signed-section>` is mutated between page load and verification, the verifier's recomputed `content-hash` will not match the signed one, and the signature will be reported as invalid even though it is cryptographically correct.
+| Document | Use it for | Canonical source |
+|---|---|---|
+| [IETF Internet-Draft](ietf-draft/README.md) | Canonicalization, signing payloads, key resolution, verification, endorsements, and the directory API | `ietf-draft/draft-grey-htmltrust-00.md` |
+| [Proposed W3C Community Group draft](w3c-cg/README.md) | The `signed-section` element, DOM interface, browser lifecycle, UI, and accessibility | `w3c-cg/index.html` |
+| [Research paper](paper/README.md) | Architecture, motivation, prototype results, and related work | `paper/htmltrust.tex` |
+| [IETF review](IETF_SPEC_REVIEW.md) | Security and interoperability findings, including the current disposition | Markdown review |
+| [W3C review](W3C_SPEC_REVIEW.md) | Browser and Web-platform findings, including the current disposition | Markdown review |
 
-### Concrete cases we have observed
+The generated IETF `.xml`, `.html`, and `.txt` files are committed so
+reviewers can read the draft without installing the build tools.
 
-- **Hugo Blox docs theme** injects a `<button class="copy-button">Copy</button>` into every `<pre>` block at runtime. When a signed page contains a code block, the verifier sees an extra `Copy` token inside the signed region that the signer never saw.
-- Any **client-side syntax-highlighting** library (Prism, highlight.js) that rewrites a code block's inner HTML at load time has the same effect.
-- **Analytics, lazy-loading, or social-share injection** libraries that add nodes inside content containers will break verification if they touch a signed region.
+## Install the document toolchains
 
-### Mitigations available today
+### IETF draft
 
-| Mitigation | Trade-off |
+The target uses installed generators when available. On a clean workstation,
+it can use Docker for kramdown-rfc and `uvx` for xml2rfc. Install those two
+tools, then run `make ietf`.
+
+To install the generators directly, use Ruby 3.3, Python 3, and these pinned
+versions:
+
+```sh
+gem install kramdown-rfc --version 1.7.43
+python3 -m pip install xml2rfc==3.34.0
+```
+
+The target regenerates all three committed outputs.
+
+### Research paper
+
+Install a TeX Live distribution with `pdflatex`, `biblatex`, and `biber`.
+On Debian or Ubuntu, the CI workflow uses:
+
+```sh
+sudo apt-get install texlive-latex-recommended texlive-latex-extra \
+  texlive-bibtex-extra texlive-fonts-recommended texlive-fonts-extra \
+  biber cm-super
+```
+
+Then run `make paper`. The PDF is ignored by Git.
+
+### W3C draft
+
+The W3C draft uses ReSpec. Run `make w3c`, open <http://localhost:8000>, and
+inspect the rendered draft. `make w3c-check` uses pinned ReSpec 37.3.5 and
+writes its temporary snapshot under `$TMPDIR` when set, then `RUNNER_TEMP` or
+`/var/tmp`. It needs Node.js 24 or newer and Chrome or Chromium.
+
+## Understand implementation status
+
+The drafts define the target protocol. The reference repositories implement
+the stable `v0.2.2` canonicalization profile and the current end-to-end flow.
+The newest draft rules for parser-profile rejection, U+0040 attribute-record
+escaping, complete RFC 8785 processing, resource ceilings, and native browser
+DOM integration still require downstream implementation work. The review
+documents identify each remaining gap.
+
+Current prototype repositories:
+
+| Repository | Role |
 |---|---|
-| Ensure no client-side script writes into `<signed-section>` descendants | Simplest, but constrains theme/framework choice |
-| Pre-render any decoration server-side (e.g., emit the "Copy" button into the static HTML so the signer hashes it) | Works, but every page-template change requires a re-bake |
-| Move runtime-injected decoration **outside** the `<signed-section>` (sibling, not child) | Often the cleanest fix when you control the script |
-| Read `outerHTML` from a pristine fetch instead of `element.innerHTML` for verification | Requires a verifier-side change; doesn't help current extensions |
+| [htmltrust-canonicalization](https://github.com/HTMLTrust/htmltrust-canonicalization) | Shared canonicalization bindings and conformance vectors |
+| [htmltrust-browser-client](https://github.com/HTMLTrust/htmltrust-browser-client) | Browser verification library |
+| [htmltrust-browser-reference](https://github.com/HTMLTrust/htmltrust-browser-reference) | Reference browser extension |
+| [htmltrust-server-reference](https://github.com/HTMLTrust/htmltrust-server-reference) | Node trust-directory server |
+| [htmltrust-cms-reference](https://github.com/HTMLTrust/htmltrust-cms-reference) | WordPress and Hugo publishing integrations |
+| [htmltrust-hugo](https://github.com/HTMLTrust/htmltrust-hugo) | Standalone Hugo integration |
+| [htmltrust-e2e](https://github.com/HTMLTrust/htmltrust-e2e) | Combined system tests |
+| [htmltrust-website](https://github.com/HTMLTrust/htmltrust-website) | Project website and published draft copies |
 
-### Open spec question
+For a workspace-wide checkout and the combined run order, use the umbrella
+[developer guide](../README.md).
 
-This is a real, general challenge for any content-signing protocol that targets browser-side verification. The spec needs to give implementations explicit guidance — likely a combination of:
+## Contribute or report a problem
 
-1. **Stage 1 canonicalization** SHOULD define a "skip-on-mutation-marker" mechanism (e.g., `data-htmltrust-ignore="true"` on a subtree) so themes can mark decoration that must be excluded from the hash.
-2. **Authoring guidance** SHOULD warn against injecting nodes inside signed regions at runtime.
-3. **Verifier guidance** MAY recommend fetching the original document and verifying against that, treating DOM-state verification as a separate, optional capability.
+Open a GitHub issue or pull request in the repository that owns the behavior.
+Protocol changes belong here. Implementation bugs belong in the affected
+reference repository. Include a minimal input and the expected canonical
+bytes when reporting interoperability failures.
 
-This is tracked as an active open design question (see also [open design questions on the implementation page](https://www.htmltrust.org/implementation/#open-design-questions)). Community input is welcome.
-
-## Companion Repositories
-
-| Repository | Description |
-|---|---|
-| [htmltrust-browser-reference](https://github.com/HTMLTrust/htmltrust-browser-reference) | Reference browser extension for client-side signature validation |
-| [htmltrust-server-reference](https://github.com/HTMLTrust/htmltrust-server-reference) | Reference trust directory API server |
-| [htmltrust-cms-reference](https://github.com/HTMLTrust/htmltrust-cms-reference) | Reference CMS plugin (WordPress) for content signing |
-| [htmltrust-website](https://github.com/HTMLTrust/htmltrust-website) | Project website |
-
-## Author
-
-**Jason Grey** — [jason@jason-grey.com](mailto:jason@jason-grey.com)
+Contributions may use AI-assisted tools. Contributors remain responsible for
+the accuracy and licensing of submitted work.
 
 ## License
 
+The documents use the [Creative Commons Attribution-NonCommercial-
+NoDerivatives 4.0 International license](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+See [LICENSE](LICENSE).
 
-This work is licensed under [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0)](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+## Related documents
 
-## Origin & Contributions
-
-HTMLTrust is an idea I (Jason Grey) have been chewing on since 2024. I'm not an academic — I'm an engineer with a day job and a family — so the spec, the reference implementations, and most of this prose have been written with significant help from AI tools acting as research assistant, technical writer, and pair programmer. I wrote the original architectural sketches and reviewed every line; the assistants filled in the gaps and saved me from re-typing the same explanation for the hundredth time.
-
-**Contributions are welcome — human or AI-assisted, doesn't matter to me.** What matters is whether the code, the spec text, or the conformance vectors move the project forward. Open a PR.
-
-What this project is **not** a forum for:
-
-- Debates about whether AI should be used to write code or specifications.
-- Opinions on who is or isn't trustworthy on the web.
-- Politics, religion, professional practice, or personal philosophy.
-
-HTMLTrust is a mechanism — a way for *anyone* to sign content they publish and for *anyone* to decide whom they trust, on their own terms. The project takes no position on what the right answers are; it just provides the tools. If you want to debate the answers, there are entire continents of the internet better suited to it.
-
-If this work is useful to you and you'd like to support it, see [GitHub Sponsors](https://github.com/sponsors/jt55401) or the other channels in [`.github/FUNDING.yml`](.github/FUNDING.yml).
+- [Contribution guide](CONTRIBUTING.md)
+- [IETF Independent Submission process](https://www.rfc-editor.org/about/independent/)
+- [W3C Community Groups](https://www.w3.org/community/)

@@ -1,0 +1,17 @@
+{
+  "description": "Signed attributes use explicit record framing and escape leading at signs in text.",
+  "cases": [
+    {
+      "description": "An attribute record begins on a new line after preceding text.",
+      "baseURL": "https://example.com/articles/one",
+      "html": "<signed-section><p>Before<a href=\"/x\">link</a></p></signed-section>",
+      "canonicalContent": "Before\n@attr:a:href:https://example.com/x\nlink"
+    },
+    {
+      "description": "Text that begins like an attribute record doubles its leading at sign.",
+      "baseURL": "https://example.com/",
+      "html": "<signed-section><p>@attr:a:href:https://attacker.example/</p></signed-section>",
+      "canonicalContent": "@@attr:a:href:https://attacker.example/"
+    }
+  ]
+}
