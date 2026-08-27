@@ -1,0 +1,18 @@
+{
+  "description": "HTMLTrust RFC 8785 endorsement vector 01",
+  "key": {
+    "seedHex": "68746d6c74727573742d746573742d766563746f722d656432353531392d3031",
+    "publicKeyRawHex": "ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c19"
+  },
+  "document": {
+    "endorser": "did:web:reviewer.example",
+    "endorsement": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+    "algorithm": "ed25519",
+    "timestamp": "2026-05-10T09:00:00Z",
+    "expires": "2026-12-31T00:00:00Z",
+    "claim": "Verified original publication.",
+    "signature": "wRGf14sbPTYebexyPALRMCo122Gaei+wQaQIh/taes/LQWKTQTSW2yBDIOUkBkG/uDGMMU7D1W6AveDClZNPCg"
+  },
+  "jcsWithoutSignature": "{\"algorithm\":\"ed25519\",\"claim\":\"Verified original publication.\",\"endorsement\":\"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8\",\"endorser\":\"did:web:reviewer.example\",\"expires\":\"2026-12-31T00:00:00Z\",\"timestamp\":\"2026-05-10T09:00:00Z\"}",
+  "jcsSha256": "sha256:sPBnoFyxiTmeBOQHaTyhdJy6prv3jmTdoTZpDXP5xrg"
+}

@@ -1,0 +1,2122 @@
+---
+title: "HTMLTrust: Cryptographically Signed Sections of HTML"
+abbrev: "HTMLTrust"
+category: exp
+docname: draft-grey-htmltrust-00
+submissiontype: independent
+date: 2026-08-27
+consensus: false
+v: 3
+area: "Applications and Real-Time"
+workgroup: "Independent Submission"
+keyword:
+  - html
+  - signatures
+  - provenance
+  - content authenticity
+  - canonicalization
+  - decentralized identity
+venue:
+  github: "jasongrey/htmltrust-spec"
+  latest: "https://htmltrust.org/spec/"
+
+author:
+  - fullname: Jason Grey
+    organization: Improbability Engineers, LLC
+    email: jason@jason-grey.com
+
+normative:
+  RFC8785:
+  RFC8032:
+  RFC8017:
+  RFC7518:
+  RFC7515:
+  RFC4648:
+  RFC8615:
+  RFC3339:
+  RFC9110:
+  RFC9111:
+  RFC9530:
+  RFC9457:
+  RFC9421:
+  RFC7517:
+  RFC6454:
+  RFC5280:
+  RFC8126:
+  UNICODE-NFC:
+    title: "Unicode Standard Annex #15: Unicode Normalization Forms"
+    target: https://www.unicode.org/reports/tr15/
+    author:
+      - org: The Unicode Consortium
+    date: 2023
+  W3C.did-core:
+    title: "Decentralized Identifiers (DIDs) v1.0"
+    target: https://www.w3.org/TR/did-core/
+    author:
+      - org: W3C
+    date: 2022
+
+informative:
+  RFC6376:
+  RFC3161:
+  RFC8446:
+  HTMLTRUST-W3C:
+    title: "HTMLTrust: Signed Sections for the Web (W3C Community Group Report)"
+    target: https://htmltrust.org/spec/
+    author:
+      - name: Jason Grey
+    date: 2026
+  C2PA:
+    title: "C2PA Technical Specification 2.0"
+    target: https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html
+    author:
+      - org: Coalition for Content Provenance and Authenticity
+    date: 2024
+  SXG:
+    title: "Signed HTTP Exchanges"
+    target: https://datatracker.ietf.org/doc/draft-yasskin-http-origin-signed-responses/
+    author:
+      - name: J. Yasskin
+    date: 2024
+  SRI:
+    title: "Subresource Integrity"
+    target: https://www.w3.org/TR/SRI/
+    author:
+      - org: W3C
+    date: 2023
+  XMLDSIG:
+    title: "XML Signature Syntax and Processing Version 2.0"
+    target: https://www.w3.org/TR/xmldsig-core2/
+    author:
+      - org: W3C
+    date: 2015
+  ECOJI:
+    title: "Ecoji: A base-1024 encoding using emoji"
+    target: https://github.com/keith-turner/ecoji
+    author:
+      - name: K. Turner
+    date: 2018
+  CREDIBLE-WEB:
+    title: "Credible Web Community Group"
+    target: https://credweb.org/
+    author:
+      - org: W3C Credible Web Community Group
+    date: 2024
+  DEFACTO:
+    title: "Decentralized Fact-checking and Provenance Organization (DeFacto) Community Group"
+    target: https://www.w3.org/community/defacto/
+    author:
+      - org: W3C DeFacto Community Group
+    date: 2024
+  AI-CONTENT-DISCLOSURE:
+    title: "AI Content Disclosure Community Group"
+    target: https://www.w3.org/community/ai-content-disclosure/
+    author:
+      - org: W3C AI Content Disclosure Community Group
+    date: 2024
+  CREDENTIALS-CG:
+    title: "Credentials Community Group"
+    target: https://www.w3.org/community/credentials/
+    author:
+      - org: W3C Credentials Community Group
+    date: 2024
+  ANTIFRAUD-CG:
+    title: "Anti-Fraud Community Group"
+    target: https://www.w3.org/community/antifraud/
+    author:
+      - org: W3C Anti-Fraud Community Group
+    date: 2024
+  ORIGINATOR-PROFILE:
+    title: "Originator Profile"
+    target: https://originator-profile.org/
+    date: 2024
+
+--- abstract
+
+This document specifies the on-the-wire protocol elements of HTMLTrust: a
+canonicalization algorithm for HTML text regions, a deterministic signing
+payload, encodings for hashes and signatures, an endorsement format, and an
+optional HTTP API for federated trust directories. Together these allow
+authors to cryptographically attest authorship of arbitrary semantic regions
+of an HTML document and allow verifiers to confirm those attestations
+without relying on any privileged authority.
+
+This document defines only the wire protocol. The HTML element through which
+HTMLTrust is exposed in browsers, its DOM interface, and the user-agent
+processing model are defined in a companion W3C Community Group Report,
+referenced here as [HTMLTRUST-W3C], and are out of scope for this document.
+
+--- middle
+
+# Introduction
+
+Transport-layer security on the Web certifies the origin that served a
+response; it does not certify the author of any particular passage within
+that response. As large-scale republication and machine-generated content
+have become routine, readers, downstream systems, and aggregators
+increasingly lack a reliable means to determine who stands behind a
+particular passage of text on a page, or whether that text has been altered
+since publication.
+
+HTMLTrust addresses this gap with a single, narrowly-scoped mechanism: a
+cryptographic signature, carried in band, over the canonicalized text of a
+region of an HTML document, bound to the publication origin and to a
+resolvable signer identifier. Verifiers re-derive the canonical text,
+recompute the hash, resolve the signer's public key, and verify the
+signature, all without any required network call to a trusted third party.
+
+A companion Community Group Report [HTMLTRUST-W3C] defines the HTML element
+through which signed regions are expressed in the document, its DOM
+interface, and the user-agent processing model. This document defines only
+the protocol artifacts that an interoperable implementation must agree on:
+the canonicalization algorithm, the signing payload, the encoding of hashes
+and signatures, the endorsement document format, and the optional HTTP API
+exposed by a federated trust directory.
+
+## Scope
+
+This document specifies:
+
+- The canonicalization algorithm that transforms an HTML subtree into a
+  byte string suitable for hashing (Section 4).
+- The signing payload binding (Section 5).
+- The encoding of hashes and signatures on the wire (Section 6).
+- An IANA-style registry of signature and hash algorithms (Section 7).
+- Key resolution mechanisms for the signer identifier (Section 8).
+- The HTTP API exposed by a federated trust directory (Section 10).
+- The endorsement document format (Section 11).
+- The verification procedure that a verifier MUST follow (Section 12).
+
+This document does not specify the HTML element, its DOM interface, parsing
+behavior, rendering, user-agent UI, or accessibility considerations. Those
+are defined in [HTMLTRUST-W3C].
+
+## Related Work and Adjacent Efforts
+
+HTMLTrust composes with rather than replaces several existing web-platform
+mechanisms. Subresource Integrity [SRI] provides byte-level integrity for
+fetched subresources and does not attest to authorship. Signed HTTP
+Exchanges [SXG] sign complete HTTP responses bound to an origin, at response
+granularity rather than per-region authorship. C2PA Content Credentials
+[C2PA] provides provenance metadata for media assets through sidecars;
+HTMLTrust extends an analogous goal to in-document HTML text regions, in
+band rather than via sidecars. XML Digital Signatures [XMLDSIG] attempted
+full structural signing of XML; its operational fragility across
+implementations informs the deliberately narrow semantic-subset signing
+specified in Section 4.
+
+DomainKeys Identified Mail [RFC6376] provided the operational template of
+separating cryptographic verification from policy-driven trust decision.
+JSON Web Signature [RFC7515] and HTTP Message Signatures [RFC9421] are used
+as building blocks for endorsement signing (Section 11.2) and directory
+submission authentication (Section 10.8) respectively. The W3C Decentralized
+Identifiers specification [W3C.did-core] supplies one of the key-resolution
+methods defined in Section 8.1.
+
+Several active W3C Community Groups address concerns adjacent to HTMLTrust.
+The Credible Web Community Group [CREDIBLE-WEB] has produced the
+Credibility Signals catalog and hosts research on reputation graphs,
+credibility scoring, and originator-profile mechanisms; the Originator
+Profile initiative [ORIGINATOR-PROFILE] presented to that group in August
+2024 is an independent author-attestation effort whose goals overlap with
+this work. The Decentralized Fact-checking and Provenance Organization
+Community Group [DEFACTO] researches decentralized provenance for
+text-based content, with architectural overlap with the endorsement and
+trust-directory model defined in Sections 10 and 11. The AI Content
+Disclosure Community Group [AI-CONTENT-DISCLOSURE] is defining structured
+syntax for declaring AI-authored content under emerging regulatory regimes;
+HTMLTrust's claim namespace, defined in the companion [HTMLTRUST-W3C], is
+intended to compose with such disclosure metadata when carried inside a
+signed section. The Credentials Community Group [CREDENTIALS-CG] is the
+originating community for [W3C.did-core] and the Verifiable Credentials
+work, both used as building blocks. The Anti-Fraud Community Group
+[ANTIFRAUD-CG] addresses web-platform mitigations for fraudulent content
+delivery, an adjacent threat surface to author impersonation.
+
+## Conventions and Definitions
+
+{::boilerplate bcp14-tagged}
+
+# Terminology
+
+The following terms are used throughout this document.
+
+Signer:
+: An entity that produces a signature over a signed section. A signer is
+  identified by a key identifier (see "key identifier") that resolves to a
+  public key.
+
+Verifier:
+: An entity that consumes a signed section, re-derives the canonical
+  representation, resolves the signer's public key, and validates the
+  signature. The reference verifier is typically a user agent, but
+  command-line tools, search-engine crawlers, and aggregators are also
+  conforming verifiers.
+
+Signed section:
+: A region of an HTML document that has been signed under this
+  specification. The HTML element that delimits a signed section is the
+  HTMLTrust signed section element as defined in [HTMLTRUST-W3C]. Within
+  this document, references to "the signed section" refer to the abstract
+  region of content and its associated attributes, not to any particular
+  parser representation.
+
+Canonical content:
+: The deterministic UTF-8 byte string produced by applying the algorithm in
+  Section 4 to the signed text and signed semantic attributes of a signed
+  section.
+
+Canonical claims:
+: The deterministic UTF-8 byte string produced by applying the algorithm in
+  Section 4.6 to the in-band claim metadata of a signed section.
+
+Content hash:
+: The cryptographic hash of the canonical content, prefixed with a hash
+  algorithm identifier per Section 6.
+
+Claims hash:
+: The cryptographic hash of the canonical claims, prefixed with a hash
+  algorithm identifier per Section 6.
+
+Signing payload:
+: The deterministic byte string defined in Section 5 over which the
+  signature is computed.
+
+Key identifier:
+: An opaque string ("keyid") that identifies a signer. A key identifier is
+  resolved to a public key by one of the methods in Section 8.
+
+Trust directory:
+: An optional federated service that indexes signed content, stores
+  endorsements, serves public keys, and may produce reputation scores. The
+  HTTP API is defined in Section 10.
+
+Endorsement:
+: A signed JSON document attesting that an endorser holds an opinion about
+  a specific content hash at a specific point in time. The format is
+  defined in Section 11.
+
+Origin:
+: The Web origin at which signed content is canonically published, as
+  defined by [RFC6454]: the tuple of scheme, host, and port. HTMLTrust
+  serializes origins as described in Section 5.
+
+# Architecture Overview
+
+The HTMLTrust protocol involves four actors:
+
+Signer:
+: Produces canonicalized content, computes hashes, constructs the signing
+  payload, and signs it with a private key. Typically embedded in a
+  publishing pipeline (content management system, static-site generator,
+  authoring tool).
+
+Publisher origin:
+: Serves the resulting HTML to verifiers over the Web. The publisher
+  origin is bound into the signing payload via the legacy-named `domain`
+  field (Section 5). The publisher origin and the signer MAY be different
+  entities; the origin attests transport, the signer attests authorship.
+
+Verifier:
+: Performs the procedure in Section 12. The verifier re-derives canonical
+  content, recomputes hashes, resolves the signer's public key, and
+  validates the signature. Verification is local except for key
+  resolution, which MAY require a network fetch.
+
+Trust directory:
+: Optional. Indexes content hashes for discovery, stores endorsements,
+  serves public keys for signers who choose directory-based identity, and
+  MAY compute reputation scores. No directory is privileged by the
+  protocol. A verifier MAY perform full cryptographic verification without
+  ever contacting a directory.
+
+The basic data flow is:
+
+1. The signer canonicalizes a content region per Section 4 and computes
+   the content hash.
+2. The signer collects in-band claim metadata, canonicalizes the claims
+   per Section 4.6, and computes the claims hash.
+3. The signer constructs the signing payload per Section 5 and signs it
+   with the private key corresponding to the signer's key identifier.
+4. The signer emits the HTML region annotated with key identifier,
+   signature, content hash, and algorithm attributes per [HTMLTRUST-W3C].
+5. The publisher origin serves the resulting HTML.
+6. A verifier obtains the HTML, extracts the signed section's attributes
+   and content, and performs the procedure in Section 12.
+7. The verifier MAY consult a trust directory for endorsements,
+   reputation, or key resolution, depending on configuration.
+
+# Canonicalization
+
+This section defines the deterministic transformation from an HTML
+subtree to a UTF-8 byte string suitable for hashing. A conforming
+implementation MUST produce byte-for-byte identical output for inputs
+that this section declares equivalent.
+
+## Inputs
+
+The input to canonicalization is a DOM subtree rooted at the signed
+section element. For the purposes of this document, the subtree is
+treated as the abstract tree defined by the HTML Living Standard parser
+applied to the source octets. A verifier MUST use that parser model, or
+an implementation with the same tokenization, tree-construction, and
+character-reference behavior. A live DOM is suitable only when it is the
+parser snapshot before script-driven mutation; a post-mutation DOM is a
+different verification input and MUST be reported as such by the W3C
+processing model.
+
+A verifier that operates on bytes (for example, a crawler verifying
+without instantiating a DOM) MUST produce the same result as a
+DOM-aware verifier on the same source octets.
+
+The signed document URL is the final response URL after redirects. The
+base URL used to resolve signed `href` and `src` values is the document base
+URL computed by the HTML Standard from the accepted source snapshot, with
+the signed document URL as its fallback base URL. Runtime mutation of the
+document URL or a `base` element MUST NOT change the base URL of an existing
+source-snapshot result. A verifier operating outside a browser MUST receive
+the signed document URL and MUST apply the same HTML base-URL algorithm. The
+origin in the signing payload is derived from the signed document URL, not
+from the document base URL.
+
+Portable-profile validation is performed on the source octets and parser
+diagnostics before the recovered DOM tree is accepted as verification input.
+A verifier MUST retain enough tokenizer and tree-construction diagnostics to
+detect the rejected cases in Section 4.1.1. A DOM that has already discarded
+duplicate attributes or repaired malformed markup is insufficient by itself.
+If the source octets are unavailable, verification MUST fail with
+"source-refetch-failed". If the verifier cannot produce the required parser
+diagnostics from available source, it MUST fail with
+"parser-profile-unsupported". It MUST NOT treat a live or reconstructed DOM
+as portable input.
+
+In particular, HTML character references are resolved by the parse
+model before text normalization (Section 4.4). A byte-oriented
+implementation MUST decode the full set of HTML5 named character
+references, matched case-sensitively (`&Omega;` and `&omega;` are
+distinct). This document requires character references in signed
+content to be semicolon-terminated and does not define canonical
+behavior for the legacy unterminated forms. Numeric character
+references are decoded using the HTML5 rules: a value of zero, a value
+greater than U+10FFFF, or a surrogate code point (U+D800..U+DFFF)
+becomes U+FFFD, and a C1 control in the range U+0080..U+009F maps
+through the standard windows-1252 replacement table. The abbreviated
+"common entity" tables shipped by some early implementations are NOT
+conforming.
+
+### Portable parser profile
+
+To make independent implementations interoperable, this revision defines
+a portable input profile. Every signed section conforming to this revision
+MUST satisfy this profile. This revision defines no in-band profile
+negotiation. A signed section MUST be encoded as UTF-8, contain no duplicate
+attributes, and contain no parse
+errors involving unclosed or misnested elements, table foster parenting,
+foreign-content integration points, or ambiguous character references.
+The profile excludes `template` and nested browsing contexts from the
+signed subtree as specified in Section 4.3.1. A parser-backed verifier
+MUST reject an input outside this profile with
+"parser-profile-unsupported" rather than guessing at a tree. A signer MAY
+emit other HTML under an experimental protocol version outside this
+revision, but MUST NOT identify that output as conforming to this revision.
+
+The profile cases in `vectors/parser-profile.json` cover duplicate
+attributes, malformed nesting, table insertion, foreign content, and
+ambiguous character references. A conforming verifier MUST produce the
+specified accept/reject result before accepting a signed section.
+
+## Walk and text extraction
+
+The canonicalizer performs a depth-first, document-order traversal of
+the subtree. At each node:
+
+- If the node is a `Text` node, its data contributes to the canonical
+  content per Section 4.4.
+- If the node is an `Element`, the canonicalizer:
+  1. Determines whether the element is included, excluded, or boundary-
+     producing per Section 4.3.
+  2. If included, emits any signed semantic attribute records for the
+     element per Section 4.3.2.
+  3. If included, recurses into its children.
+  4. If the element produces a block boundary (Section 4.5), emits the
+     boundary marker after the recursion result.
+- If the node is a `Comment`, `ProcessingInstruction`, or
+  `DocumentType`, it is ignored and contributes nothing.
+
+A signed section element MAY itself be a descendant of another signed
+section element. The inner element and its subtree are canonicalized
+independently; from the outer element's perspective, the inner element
+contributes its canonical content as if it were a transparent block-
+producing element.
+
+## Element categories
+
+Elements are partitioned into three categories.
+
+### Excluded elements
+
+The following elements and their entire subtrees MUST be excluded from
+the canonical content. Their contents do not contribute any bytes.
+
+- `script`
+- `style`
+- `template`
+- `noscript`
+- `iframe`
+- `head`
+- `link`
+- `meta`
+- HTML comments and processing instructions (already excluded by 4.2).
+
+`<meta>` elements are excluded from the canonical content in all
+positions: direct-child claim `<meta>` elements (Section 4.6) contribute
+to the canonical claims instead, and any other `<meta>` contributes
+nothing. `<head>` and `<link>` are document-metadata elements that do
+not carry signed body content and likewise contribute no bytes; in
+particular a `<link>`'s `href` is NOT a signed semantic attribute.
+
+### Included elements
+
+All elements not in Section 4.3.1 are included. Their start and end
+tags do not themselves contribute bytes, but they MAY contribute block
+boundaries per Section 4.5 and their descendant text nodes contribute
+to the canonical content.
+
+The following signed semantic attributes also contribute to the
+canonical content when present on an included element:
+
+- `href`
+- `src`
+- `alt`
+- `aria-label`
+
+This first signed-attribute list is intentionally small and is open
+for community feedback. Future revisions MAY add attributes to the
+list, but verifiers for this revision MUST use exactly the list above.
+
+For each included element, before visiting the element's children, the
+canonicalizer examines the signed semantic attributes in the order
+listed above. For each present attribute, it appends one attribute
+record to the canonical content:
+
+~~~
+@attr ":" element-local-name ":" attribute-name ":" escaped-value "\n"
+~~~
+
+Immediately before an attribute record is appended, if the canonical output
+is non-empty and its final byte is neither U+0020 SPACE nor U+000A LINE FEED,
+the canonicalizer appends one U+000A. Each attribute record already ends in
+U+000A, so consecutive attribute records need no additional separator.
+
+`element-local-name` and `attribute-name` are ASCII-lowercase names as
+exposed by the HTML parser. `normalized-value` for `alt` and `aria-label`
+is produced by applying the plain-text normalization in
+Section 4.4. `normalized-value` for `href` and `src` is produced by
+parsing the attribute value as a URL against the signed document's base
+URL and serializing the resulting URL using the Web URL serializer. If
+URL parsing fails, verification MUST fail with
+"attribute-canonicalization-failed". The normalized value MUST NOT
+contain U+000A; if a canonicalizer cannot guarantee this, verification
+MUST fail with "attribute-canonicalization-failed". `escaped-value` is
+formed from `normalized-value` by replacing every U+0040 COMMERCIAL AT
+with two consecutive U+0040 bytes. The same replacement is applied to
+normalized text nodes immediately before they are emitted. This
+domain-separates attribute records from text records, so literal text
+cannot emit the reserved record prefix `@attr:`. The element and
+attribute names are drawn from fixed ASCII name sets and do not require
+escaping.
+
+For example, a text node containing the literal string `@attr:a:href:x`
+contributes `@@attr:a:href:x`, while a real `href` attribute contributes
+`@attr:a:href:x`. The two byte sequences therefore remain distinguishable.
+
+Editor's Note: The precise expansion list for signed semantic
+attributes is expected to evolve. Candidate additions include `title`,
+`cite`, image dimension attributes, and ARIA attributes used in name
+computation, but this revision deliberately avoids full structural HTML
+signing.
+
+### Boundary-producing elements
+
+Block-level elements introduce a paragraph boundary in the canonical
+content (see Section 4.5). The set of boundary-producing element names
+is exactly:
+
+`address`, `article`, `aside`, `blockquote`, `details`, `dialog`,
+`div`, `dl`, `fieldset`, `figcaption`, `figure`, `footer`, `form`,
+`h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `header`, `hgroup`, `hr`, `li`,
+`main`, `nav`, `ol`, `p`, `pre`, `section`, `signed-section`, `table`,
+`td`, `th`, `tr`, `ul`.
+
+The element `br` introduces a soft line break (see Section 4.5).
+
+## Text normalization
+
+For each `Text` node included in the walk, its data is normalized as
+follows, in order:
+
+1. Apply Unicode Normalization Form NFKC ([UNICODE-NFC]).
+2. Strip the formatting characters defined in Section 4.4.2.
+3. Apply the whitespace mapping defined in Section 4.4.3.
+4. Apply the punctuation normalizations defined in Section 4.4.4.
+
+### Rationale
+
+These normalizations make the canonical form stable under the silent
+transformations introduced by content management systems, rich-text
+editors, and copy-paste operations across applications (curly versus
+straight quotes, em dash versus double hyphen, fullwidth versus
+halfwidth forms, and similar). A signer's content remains verifiable
+after any such round-trip provided the abstract text is unchanged.
+
+### Stripped formatting characters
+
+The following characters MUST be removed entirely. They carry no
+content semantics in any language.
+
+- U+00AD SOFT HYPHEN
+- U+200B ZERO WIDTH SPACE
+- U+200E LEFT-TO-RIGHT MARK
+- U+200F RIGHT-TO-LEFT MARK
+- U+2060 WORD JOINER
+- U+FEFF BYTE ORDER MARK / ZERO WIDTH NO-BREAK SPACE
+- U+034F COMBINING GRAPHEME JOINER
+- U+061C ARABIC LETTER MARK
+- U+180E MONGOLIAN VOWEL SEPARATOR
+- U+0640 ARABIC TATWEEL
+- U+FE00..U+FE0F VARIATION SELECTORS 1-16
+- U+E0100..U+E01EF VARIATION SELECTORS 17-256
+- U+E0001..U+E007F TAG CHARACTERS
+- U+202A..U+202E BIDI EMBEDDING CONTROLS
+- U+2066..U+2069 BIDI ISOLATE CONTROLS
+- U+2061..U+2064 INVISIBLE MATH OPERATORS
+- U+FFF9..U+FFFC INTERLINEAR ANNOTATION ANCHORS AND OBJECT REPLACEMENT
+
+The following characters MUST be preserved despite their visual
+invisibility. They are semantically significant in major writing
+systems.
+
+- U+200C ZERO WIDTH NON-JOINER (semantic in Persian, Kurdish, Syriac).
+- U+200D ZERO WIDTH JOINER (semantic in Indic scripts and emoji
+  sequences).
+
+### Whitespace
+
+Outside of a `<pre>` element, each of the following Unicode code
+points MUST be replaced with U+0020 SPACE:
+
+U+0009, U+000A, U+000B, U+000C, U+000D, U+0085, U+00A0, U+1680,
+U+2000..U+200A, U+2028, U+2029, U+202F, U+205F, U+3000.
+
+After replacement, runs of two or more U+0020 SPACE characters MUST
+be collapsed to a single U+0020 SPACE. Leading and trailing whitespace
+within each block (delimited by Section 4.5 boundaries) MUST be
+removed.
+
+In this revision, `<pre>` receives no special whitespace treatment: it
+is a boundary-producing block (Section 4.3.3) and the text within it is
+normalized identically to all other content, including the whitespace
+mapping and collapsing above. Verbatim whitespace preservation inside
+`<pre>` (so that indentation in code samples is bound byte-for-byte) is
+deliberately deferred to a future revision: at the time of writing, no
+byte-identical implementation of per-element preservation across the
+independent HTML parsers used by conforming implementations was
+available, and shipping an under-specified rule here is precisely the
+interoperability failure this document exists to avoid. A signer MUST
+NOT rely on whitespace inside `<pre>` being cryptographically bound in
+this revision. This is consistent with the deliberate semantic-subset
+signing trade-off (see Security Considerations).
+
+### Punctuation normalization
+
+The following character classes are normalized to ASCII. The intent
+is hash stability across CMS-driven typographic transformations.
+
+Single quotation marks: each of U+2018, U+2019, U+201A, U+201B,
+U+2032, U+2039, U+203A, U+0060, U+00B4 MUST be replaced with U+0027.
+
+Double quotation marks: each of U+201C, U+201D, U+201E, U+201F,
+U+2033, U+00AB, U+00BB, U+300C, U+300D, U+300E, U+300F,
+U+301D..U+301F, U+FE41..U+FE44 MUST be replaced with U+0022.
+
+Dashes and hyphens: each of U+2010, U+2011, U+2012, U+2013, U+2014,
+U+2015, U+2212, U+FE58, U+FE63 MUST be replaced with U+002D.
+
+Ellipsis: each of U+2026, U+FE19 MUST be replaced with the three-byte
+sequence U+002E U+002E U+002E.
+
+## Block structure
+
+A boundary-producing element (Section 4.3.3) emits a single U+000A
+LINE FEED character after its descendants have contributed their
+text. The `br` element emits a single U+000A LINE FEED character at
+its position.
+
+After the entire subtree has been walked, the resulting byte sequence
+is trimmed: leading and trailing runs of U+000A and U+0020 are
+removed, and runs of two or more U+000A in a row are collapsed to a
+single U+000A.
+
+The result is a UTF-8 byte string.
+
+## Canonical claims
+
+In-band claim metadata is carried by `<meta>` elements that appear as
+direct children of the signed section element, as required by
+[HTMLTRUST-W3C]. Claim `<meta>` elements located at greater depth do
+not participate.
+
+Every direct child `<meta>` element of a signed section is a claim.
+A claim `<meta>` element MUST have both a `name` attribute and a
+`content` attribute. If any direct child claim `<meta>` is missing
+either attribute, verification MUST fail with "claim-malformed". If
+the normalized `name` is the empty string, verification MUST fail with
+"claim-malformed".
+
+For each claim `<meta>` element:
+
+1. The `name` attribute value is processed as plain text per
+   Section 4.4 (NFKC, formatting strip, whitespace collapse).
+2. The `content` attribute value is processed identically.
+3. The pair is serialized as
+
+   escaped-name `:` escaped-content `\n`
+
+   where `:` is U+003A COLON and `\n` is U+000A LINE FEED. Escaping is
+   applied after normalization: U+005C REVERSE SOLIDUS becomes `\\`,
+   U+003A COLON becomes `\:`, and U+000A LINE FEED becomes `\n`.
+   Normalization currently maps line feeds to spaces, but the explicit
+   rule keeps the record grammar injective if a future normalization
+   profile admits them.
+
+The resulting `name : content` lines are sorted lexically by the
+UTF-8 byte sequence of the normalized `name`. Ties on name MUST NOT
+occur; signers MUST NOT emit two direct child claim `<meta>` elements
+whose `name` attributes normalize to the same value within a single
+signed section, and verifiers MUST fail with "claim-duplicate" if they
+encounter such duplicates. The concatenation of the sorted lines is
+the canonical claims byte string.
+
+The `signed-at` claim is not special for purposes of the claims hash:
+it is included in canonical claims like every other direct child claim
+`<meta>`. Section 5 also includes the normalized `signed-at` value as
+a separate signing-payload field. This deliberate duplicate binding
+makes the timestamp easy for verifiers and directory indexes to extract
+without weakening claim integrity.
+
+## Opt-out marker (Editor's Note)
+
+Editor's Note: Common runtime decorations (copy-to-clipboard buttons,
+client-side syntax highlighting, lazy-loaded share widgets) frequently
+mutate descendants of a signed section after page load. This revision
+addresses that problem by verifying the original server HTML snapshot
+in the companion W3C processing model. A future revision might add an
+author-controlled opt-out marker such as
+`data-htmltrust-ignore="true"`, but that attribute has no normative
+effect in this revision. Conforming canonicalizers MUST NOT exclude a
+subtree solely because it carries that attribute unless operating in an
+explicit experimental mode.
+
+# Signing Payload Binding
+
+The signature is computed over the deterministic UTF-8 byte string
+formed by joining four fields with a single ASCII colon (U+003A)
+between each:
+
+~~~
+content-hash ":" claims-hash ":" domain ":" signed-at
+~~~
+
+The fields are defined as follows.
+
+content-hash:
+: The content hash as defined in Section 6.2, including the
+  algorithm prefix and separator (for example,
+  `sha256:Zm9vYmFy...`). Verifiers MUST use the literal value
+  serialized into the `content-hash` attribute of the signed section
+  element.
+
+claims-hash:
+: The claims hash, formatted identically to `content-hash`. The
+  claims hash is not carried in a separate attribute on the wire; it
+  is recomputed by the verifier from the canonical claims byte
+  string (Section 4.6) using the algorithm given by the prefix of
+  the `content-hash` attribute. The hash algorithm for both
+  `content-hash` and `claims-hash` MUST be the same.
+
+domain:
+: A legacy field name retained for wire compatibility. Its value is
+  the serialized Web origin at which the content is canonically
+  published. The value MUST be the result of the URL Standard's origin
+  serialization algorithm for the document URL, with no path, query,
+  fragment, or credentials. Conforming public signatures MUST use an
+  HTTPS tuple origin. An HTTP tuple origin MAY be enabled by an explicitly
+  configured local-development profile, but that profile MUST be
+  distinguishable from normal verification and MUST NOT be accepted for
+  public content by default. Opaque origins (`data:`, `file:`, and
+  similar) are invalid. The URL Standard, rather than a host-language URL
+  serializer, defines lowercasing, IDNA A-label conversion, IPv6 bracket
+  syntax, and default port omission. For example, `https://example.org`
+  and `https://example.org:8443` are distinct origins.
+
+signed-at:
+: The value of the `signed-at` claim `<meta>` element, after the
+  normalization in Section 4.4 has been applied. The value MUST
+  conform to the date-time production of [RFC3339] with the time
+  offset given in UTC ("Z").
+
+The fields MUST appear in the order shown. The separator MUST be a
+single U+003A COLON. No leading or trailing whitespace is permitted.
+
+## Identity not bound directly
+
+The signer's identifier (`keyid`) is intentionally not included in
+the signing payload. The identifier is implicit in key resolution
+(Section 8): any attempt to claim a different identifier would
+resolve to a different public key, and the signature would fail to
+verify. Including the identifier explicitly would add a fragile
+string-matching surface without strengthening the cryptographic
+binding.
+
+## Why the publisher origin
+
+Binding the signature to the publication origin prevents verbatim
+re-publication of signed content with the original signature
+preserved. A reader who encounters apparently signed content at a
+different origin will see a signature verification failure caused by
+the origin mismatch alone, regardless of any other property of the
+content. Legitimate re-publication is supported by a separate
+wrapper-signing mechanism using a `claim:CanonicalURL` field (see
+[HTMLTRUST-W3C]); the wrapper signer attests to a republication, not
+to original authorship, and is responsible for the chain.
+
+# Hash and Signature Encoding
+
+## Encoding choice
+
+Binary values on the wire, including hashes, signatures, and raw public
+keys embedded in HTMLTrust JSON documents, MUST be encoded as canonical,
+unpadded Base64 using the standard Base64 alphabet in Section 4 of
+[RFC4648]. This is not base64url: the alphabet includes `+` and `/`,
+and does not use `-` or `_`.
+
+Producers MUST emit the shortest canonical unpadded Base64 form:
+
+- no `=` padding characters;
+- no whitespace;
+- only the characters `A-Z`, `a-z`, `0-9`, `+`, and `/`;
+- zero-valued unused pad bits as required by [RFC4648].
+
+Verifiers MUST reject non-canonical Base64 in signed attributes and
+signed JSON fields. A verifier determines canonicality by decoding the
+value, re-encoding the decoded bytes using the rules above, and
+requiring byte-for-byte equality with the original value. Implementations
+MAY provide an explicit legacy-tooling mode that accepts padded Base64
+or base64url for migration testing, but that mode is non-conforming for
+normal verification and MUST be distinguishable from conforming
+verification in diagnostics.
+
+Because standard Base64 uses `+` and `/`, HTMLTrust values placed in
+URL paths, query strings, or other URL components MUST be
+percent-encoded where required by the URL component's grammar. For
+example, the `/` character in a content hash path segment is encoded as
+`%2F`.
+
+Editor's Note: Hex (familiar from git and TLS tooling) and base32
+(case-insensitive and easier to transcribe) remain useful diagnostic
+formats, but they are not wire encodings for this revision. Ecoji
+[ECOJI] has been proposed; it has been rejected on wire-byte grounds
+(32-byte SHA-256 digest is 26 emoji = 104 UTF-8 bytes versus 43
+Base64 characters) and is noted here for completeness.
+
+## Content hash and claims hash
+
+A content hash or claims hash is the concatenation of:
+
+1. A hash algorithm identifier from the registry in Section 7.2.
+2. A single U+003A COLON.
+3. The Base64-encoded, unpadded hash output.
+
+For example, a SHA-256 hash of an empty string is:
+
+~~~
+sha256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU
+~~~
+
+Verifiers MUST reject a content hash whose algorithm identifier is
+not in the registry, and MUST reject a content hash whose
+Base64-decoded length is not the natural output length of the
+identified algorithm (32 bytes for `sha256`, 48 bytes for `sha384`,
+64 bytes for `sha512`).
+
+## Signature
+
+The `signature` attribute carries the Base64-encoded, unpadded output of
+the signature algorithm given by the `algorithm` attribute. The byte
+representation is fixed for each registered algorithm:
+
+- For `ed25519`, the signature is the 64-byte Ed25519 signature defined
+  by [RFC8032] (86 Base64 characters).
+- For `ecdsa-p256`, the signature is the 64-byte `R || S` representation
+  defined for ES256 by [RFC7518]. `R` and `S` are unsigned, big-endian,
+  32-byte integers, left-padded with zero octets when necessary.
+- For `ecdsa-p384`, the signature is the 96-byte `R || S` representation
+  defined for ES384 by [RFC7518]. `R` and `S` are unsigned, big-endian,
+  48-byte integers, left-padded with zero octets when necessary.
+- For either RSA algorithm, the signature is the big-endian signature
+  integer encoded in exactly the modulus width in octets, as specified
+  by [RFC8017]. `rsa-pss-sha256` uses SHA-256, MGF1 with SHA-256, and a
+  32-octet salt. `rsa-pkcs1-sha256` uses RSASSA-PKCS1-v1_5 with SHA-256.
+
+ECDSA ASN.1 DER signatures are not valid HTMLTrust signature values.
+Verifiers MUST reject a signature whose decoded length or representation
+does not match the selected algorithm before attempting verification.
+
+# Algorithm Registry
+
+This section requests creation of two IANA registries (see Section
+13). The initial contents are listed here.
+
+## Signature algorithms
+
+The following identifiers are defined for use in the `algorithm`
+attribute of a signed section.
+
+| Identifier | Algorithm | Reference |
+|---|---|---|
+| `ed25519` | EdDSA over edwards25519 | [RFC8032] |
+| `ecdsa-p256` | ECDSA with SHA-256 over secp256r1 | [RFC7518] |
+| `ecdsa-p384` | ECDSA with SHA-384 over secp384r1 | [RFC7518] |
+| `rsa-pss-sha256` | RSASSA-PSS with SHA-256, MGF1-SHA-256, and a 32-octet salt | [RFC8017] |
+| `rsa-pkcs1-sha256` | RSASSA-PKCS1-v1_5 with SHA-256 | [RFC8017] |
+
+The mandatory-to-implement algorithm for both signers and verifiers
+is `ed25519`. A verifier MAY accept additional algorithms; a verifier
+MUST treat an `algorithm` value not in its accepted set as an
+"algorithm-not-supported" verification failure, not as a generic
+failure.
+
+The resolved public key type and parameters MUST match the selected
+identifier exactly. In particular, an ECDSA key on another curve and a key
+document that names the other registered RSA padding mode are algorithm
+mismatches. A verifier MUST NOT infer an algorithm from key type or try
+multiple algorithms after a mismatch.
+
+## Hash algorithms
+
+The following identifiers are defined for use in the algorithm prefix
+of `content-hash` and `claims-hash`.
+
+| Identifier | Algorithm | Output length |
+|---|---|---|
+| `sha256` | SHA-256 | 32 bytes |
+| `sha384` | SHA-384 | 48 bytes |
+| `sha512` | SHA-512 | 64 bytes |
+
+The mandatory-to-implement hash algorithm is `sha256`. The hash
+algorithm used for `content-hash` and `claims-hash` within a single
+signed section MUST be the same.
+
+## Algorithm agility
+
+A future revision of this specification MAY add identifiers via
+expert review (Section 15). Identifiers MUST NOT be removed once
+registered; an identifier MAY be marked "deprecated" with normative
+text recommending non-use. Verifiers SHOULD refuse to verify under a
+deprecated identifier and SHOULD surface the result as an
+"algorithm-not-supported" outcome.
+
+# Key Resolution
+
+The `keyid` attribute of a signed section is opaque to the protocol.
+This section defines three resolution methods. A verifier MUST
+implement at least one and SHOULD implement all three; a signer
+SHOULD use the most decentralized method available in its operating
+context.
+
+## DID method resolution
+
+A `keyid` whose value begins with `did:` MUST be resolved per the DID
+Core specification [W3C.did-core] using the DID method indicated by
+the second URI scheme component. The DID document MUST be retrieved,
+and the public key MUST be selected from its `verificationMethod`
+array.
+
+The verifier MUST select a verification method whose `type` is
+compatible with the `algorithm` attribute of the signed section. If
+multiple verification methods are present, the verifier MUST prefer a
+method whose `id` is referenced from the `assertionMethod` relationship
+of the DID document; if no such method exists, the verifier MAY use
+any verification method of compatible type.
+
+DID resolution failures (DID document not found, signature on DID
+document invalid where the method demands one, expired or revoked
+verification method) MUST be reported as "key-resolution-failed"
+verification failures.
+
+## Direct HTTPS URL
+
+A `keyid` whose value is an absolute URL with scheme `https` MUST be
+resolved by issuing a GET request to that URL. The response MUST
+have a media type of `application/htmltrust-key+json` (Section 15)
+or `application/jwk+json` per [RFC7517]; verifiers MAY accept
+`application/json` for backward compatibility.
+
+The retrieved document MUST be one of:
+
+- A JSON Web Key per [RFC7517], or
+- An HTMLTrust key document with the following shape:
+
+  ~~~
+  {
+    "kid": "<string, optional>",
+    "algorithm": "<algorithm identifier>",
+    "publicKeyEncoding": "spki-der",
+    "publicKey": "<unpadded standard Base64 SPKI DER>",
+    "expires": "<RFC3339 timestamp, optional>",
+    "revoked": <boolean, optional>,
+    "revokedAt": "<RFC3339 timestamp, optional>",
+    "supersededBy": "<keyid, optional>",
+    "previousKeys": ["<keyid>"]
+  }
+  ~~~
+
+`algorithm`, `publicKeyEncoding`, and `publicKey` are REQUIRED. The other
+members shown above are OPTIONAL. Unknown members MUST be ignored for key
+resolution and MAY be retained by caches or directories.
+
+`publicKey` is the canonical unpadded standard Base64 encoding from
+Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
+[RFC5280]. `publicKeyEncoding` MUST be exactly `spki-der`. A verifier MUST
+reject any other encoding in a conforming HTMLTrust key document with a
+"malformed-key-document" result. If `kid` is present, it MUST equal the
+serialized URL used as `keyid`; a mismatch is a "key-resolution-failed" result.
+The `algorithm` value and the decoded key type and parameters MUST match
+Section 7.1.
+
+For an `application/jwk+json` response, the JWK `kty`, `crv`, and `alg`
+members, when applicable, MUST select the same key type, parameters, and
+algorithm. An absent `alg` does not authorize algorithm inference; the
+signed section's `algorithm` still selects the verification operation.
+
+The verifier MUST process `expires` and `revoked` according to Section 9.
+Malformed timestamps, malformed Base64, an invalid SPKI structure, and
+missing or incorrectly typed required members are "malformed-key-document"
+results. A well-formed key whose type, curve, or declared algorithm does not
+match the signed section produces "algorithm-mismatch". A conforming verifier
+MUST NOT use a PEM compatibility field or silently try a different key
+encoding.
+
+## Trust directory reference
+
+A `keyid` whose value is an absolute URL pointing at a trust
+directory's `/keys/{id}` endpoint (Section 10.6) MUST be resolved by
+issuing a GET request to that URL. The response format is identical
+to Section 8.2.
+
+The verifier SHOULD consider the trustworthiness of the directory
+itself before accepting a key resolved this way; directory-based
+identity centralizes a portion of the trust graph in the directory
+operator.
+
+## Acceptance policy
+
+A verifier MUST permit configuration of which key-resolution methods
+it accepts and SHOULD default to accepting all three. The verifier
+MUST NOT privilege any one method over another within its accepted
+set; selection is determined by the `keyid` value, not by the
+verifier.
+
+# Key Lifecycle
+
+A provenance system that binds durable content to keys must define what
+happens when keys change over their lifetime. This section is normative
+for how keys are rotated, expired, revoked, and superseded, and how
+those states interact with signatures already in the wild. The naive
+"one boolean revoked flag" model is insufficient because it cannot
+distinguish an orderly rotation from a compromise, and it destroys the
+verifiability of an author's entire signed history at once.
+
+## Key states
+
+A published key is in exactly one of four states from a verifier's
+perspective:
+
+- **active** -- neither expired nor revoked; usable for verification.
+- **expired** -- the key document carries an `expires` timestamp in the
+  past. The key was retired on schedule. Signatures whose bound
+  `signed-at` is at or before `expires` remain cryptographically valid
+  and SHOULD be accepted subject to trust policy; a verifier MUST fail
+  with "key-revoked" if it cannot establish that the signature predates
+  expiry.
+- **revoked** -- the key document carries `revoked: true`. Revocation
+  signals suspected or confirmed key compromise. See Revocation,
+  compromise, and `signed-at` freshness, below.
+- **superseded** -- the key is expired and the publisher has designated
+  a successor (see Rotation and supersession, below). This is the
+  normal rotation end-state.
+
+## Rotation and supersession
+
+Publishers SHOULD rotate signing keys periodically. To rotate without
+invalidating existing content, a publisher:
+
+1. Publishes a new key at a fresh `keyid` and begins signing new content
+   with it.
+2. Sets an `expires` timestamp on the old key document at or after the
+   time it stopped signing with that key, and keeps the old key document
+   resolvable so historical signatures continue to verify.
+3. MAY add a `supersededBy` field to the old key document whose value is
+   the successor `keyid`, and a `previousKeys` array to the new key
+   document listing prior `keyid`s. These fields let a verifier or
+   directory reconstruct an author's key history and attribute an
+   author's older content to the same identity across a rotation.
+
+A verifier MUST NOT treat an expired-but-superseded key as a
+"key-revoked" failure for signatures whose `signed-at` precedes the
+`expires` time; expiry alone is orderly rotation, not compromise.
+
+## Revocation, compromise, and `signed-at` freshness
+
+`signed-at` (Section 5) is asserted by the signer and, absent an
+external timestamp authority, can be backdated by whoever holds the
+private key. This has a direct consequence for compromise handling: a
+holder of a stolen key can produce signatures bearing any `signed-at`
+value, including one predating the compromise. Therefore:
+
+- A revoked key document SHOULD carry a `revokedAt` RFC 3339 timestamp
+  indicating when compromise is believed to have begun.
+- A conservative verifier MUST treat every signature from a `revoked`
+  key as untrusted, regardless of its `signed-at`, because the timestamp
+  is not independently attestable. This is the safe default.
+- A verifier MAY accept a signature from a revoked key whose `signed-at`
+  precedes `revokedAt` ONLY when the signature's timing is corroborated
+  by evidence the verifier trusts and that the key holder could not
+  forge -- for example an [RFC3161] time-stamp token, inclusion in an
+  append-only transparency log, or a directory's first-seen record
+  established before `revokedAt`. In the absence of such
+  evidence, revocation is all-or-nothing.
+
+Verifiers MAY additionally apply a freshness policy that rejects
+`signed-at` values implausibly far in the past or future relative to
+the time of retrieval; such a policy is a trust-layer decision (out of
+scope for cryptographic verification) and is not part of signature
+verification.
+
+## Key loss and recovery
+
+There is no cryptographic recovery from loss of a signing key: the
+private key is the identity. A publisher that loses a key (without
+compromise) SHOULD mark it expired, publish a successor (see Rotation
+and supersession), and rely on the out-of-band binding between `keyid`
+and publisher
+(the `did:web`/HTTPS origin, or directory registration and
+endorsements) to re-establish continuity of identity. Publishers SHOULD
+therefore keep signing keys recoverable from secure backups precisely
+because the protocol offers no in-band recovery. Directories and
+endorsers MAY vouch for a successor key's continuity with the prior
+identity, but such vouching is a trust-layer signal, not a cryptographic
+guarantee.
+
+# Trust Directory HTTP API
+
+This section defines the HTTP API exposed by an optional federated
+trust directory. A directory implementing this API conforms to
+[RFC9110] and supports content negotiation and standard cache
+directives [RFC9111].
+
+The API shape in this section is normative for conforming trust
+directories. Reference implementations and deployed services that
+diverge from these endpoints, field names, media types, or verification
+requirements need to change to match this specification rather than the
+reverse.
+
+A verifier MAY consult zero, one, or multiple directories. The
+protocol does not require directory consultation for cryptographic
+verification (Section 12.1 through 12.6); only endorsement and
+reputation use cases require directory access.
+
+## Base URL and discovery
+
+A directory MUST be reachable at an `https`-scheme base URL. The
+endpoints below are relative to that base URL.
+
+A directory SHOULD also expose a discovery document at the
+well-known URI [RFC8615] `/.well-known/htmltrust` (Section 10.2).
+
+## GET /.well-known/htmltrust
+
+Returns a JSON metadata document describing the directory's
+capabilities. The response media type is
+`application/htmltrust-directory+json` (provisional; see Section 15).
+
+~~~
+{
+  "directory": "https://directory.example/",
+  "version": "1",
+  "capabilities": {
+    "content": true,
+    "endorsements": true,
+    "keys": true,
+    "reputation": true
+  },
+  "supportedAlgorithms": {
+    "signature": ["ed25519", "ecdsa-p256"],
+    "hash": ["sha256", "sha384"]
+  },
+  "contact": "operator@directory.example",
+  "termsOfService": "https://directory.example/tos"
+}
+~~~
+
+The fields `directory`, `version`, `capabilities`, and
+`supportedAlgorithms` are REQUIRED. Other fields are OPTIONAL.
+
+JSON members named `domain` in this API carry the serialized origin
+value defined for the signing payload in Section 5. The field name is
+retained for compatibility with early tooling and MUST NOT be
+interpreted as a host-only domain name.
+
+## GET /content/{hash}
+
+Retrieves the directory's record for a specific content hash. The
+path parameter is the content hash including the algorithm prefix,
+percent-encoded as a single path segment (the colon becomes `%3A`;
+any `/` in the Base64 value becomes `%2F`).
+
+A successful response is JSON of the form:
+
+~~~
+{
+  "contentHash": "sha256:Zm9vYmFy...",
+  "firstSeen": "2026-05-15T12:34:56Z",
+  "signers": [
+    {
+      "keyid": "did:web:author.example",
+      "signedAt": "2026-05-01T10:30:00Z",
+      "domain": "https://author.example",
+      "signature": "3q2+7w8NslfJ..."
+    }
+  ],
+  "endorsementCount": 3
+}
+~~~
+
+A directory that does not have a record for the requested hash MUST
+return `404 Not Found`.
+
+## POST /content
+
+Submits a record of a signed content occurrence for indexing. The
+request body is JSON of the form:
+
+~~~
+{
+  "contentHash": "sha256:Zm9vYmFy...",
+  "keyid": "did:web:author.example",
+  "signedAt": "2026-05-01T10:30:00Z",
+  "domain": "https://author.example",
+  "signature": "3q2+7w8NslfJ...",
+  "sourceURL": "https://author.example/posts/123",
+  "claims": [
+    {"name": "author", "content": "Alice Example"},
+    {"name": "claim:License", "content": "CC-BY-4.0"},
+    {"name": "signed-at", "content": "2026-05-01T10:30:00Z"}
+  ]
+}
+~~~
+
+The submission MUST be authenticated by an HTTP Message Signature
+[RFC9421] from a key the directory can resolve. The directory MUST
+re-verify the submitted signature against the canonical signing
+payload (Section 5) before indexing.
+
+The `claims` array MUST contain the complete set of direct-child claim
+records used by the signer, including exactly one `signed-at` record. Each
+array member MUST contain exactly one string `name` and one string
+`content`. The directory MUST normalize, escape, detect duplicates, sort,
+and serialize these records exactly as specified in Section 4.6. It MUST
+derive the claims hash with the hash algorithm selected by `contentHash`,
+and it MUST require the normalized `signed-at` claim value to equal
+`signedAt`. A missing, extra, malformed, or duplicate claim causes the
+submission to fail. The directory MUST use this recomputed claims hash when
+constructing the Section 5 signing payload; it MUST NOT insert a missing
+claim or accept a client-supplied claims hash in its place.
+
+Successful submission returns `201 Created` with a `Location` header
+pointing at the resulting `/content/{hash}` URL. Rejected submissions
+return `4xx` codes per Section 10.9.
+
+## GET /content/{hash}/endorsements
+
+Lists endorsements stored for a given content hash. The response is a
+JSON array of endorsement documents (Section 11), each independently
+verifiable by the requester. The directory MUST NOT alter the
+endorsement payloads in a manner that invalidates the endorser's
+signature.
+
+Pagination, if supported, MUST follow the Web Linking conventions of
+[RFC9110] using `Link` headers with `rel="next"`.
+
+## POST /endorsements
+
+Submits a signed endorsement document (Section 11). The directory
+MUST:
+
+1. Verify the endorser's signature on the endorsement.
+2. Verify that the endorsement's `endorsement` field references a
+   content hash for which the directory has a record (or accept new
+   content hashes; this is a directory policy choice).
+3. Index the endorsement under the content hash for retrieval via
+   Section 10.5.
+
+Successful submission returns `201 Created`. Endorsements with
+invalid signatures MUST be rejected with `400 Bad Request`.
+
+## GET /keys/{id}
+
+Retrieves a public key document for the given directory-issued key
+identifier. The response is a key document conforming to Section 8.2.
+
+Directories that act as convenience registries for less-technical
+signers expose keys through this endpoint, and signers reference such
+keys by setting `keyid` to the full URL of the endpoint, for example
+`https://directory.example/keys/k-abc123`.
+
+## GET /signers/{id}/reputation
+
+Returns a directory-computed reputation score for a signer. The
+response is JSON of the form:
+
+~~~
+{
+  "keyid": "did:web:author.example",
+  "score": 0.72,
+  "asOf": "2026-05-15T00:00:00Z",
+  "components": ["endorsements", "history", "verified-domain"],
+  "methodology": "https://directory.example/methodology"
+}
+~~~
+
+The `score` is a directory-specific value with no protocol-level
+semantics; verifiers consume scores from directories that they have
+been explicitly configured to trust. Different directories MAY
+produce different scores for the same signer.
+
+## Authentication
+
+POST endpoints MUST be authenticated using HTTP Message Signatures
+[RFC9421] with a key that the directory can resolve via Section 8.
+The signature input MUST be an RFC 9421 structured field. A conforming
+directory MUST accept the `sig1` label only when its covered-component
+identifier list includes, in this order, `@method`, `@target-uri`,
+`host`, `date`, and `content-digest`. The legacy `(request-target)`
+identifier is an earlier HTTP Signatures convention and MUST NOT be used in a
+conforming HTMLTrust signature. The `@target-uri` value MUST be the
+absolute request target, and `host` and `date` MUST be the received HTTP
+fields. `content-digest` MUST use the representation from [RFC9530]
+and MUST cover the exact UTF-8 request body bytes. The signature
+parameters MUST include `created`, `keyid`, and `alg`; `created` MUST be
+within the directory's configured clock-skew window and implementations
+SHOULD include a `nonce` to prevent replay of otherwise valid requests.
+
+The `alg` parameter identifies the HTTP Message Signature algorithm
+profile. For this revision, `ed25519` means an Ed25519 signature over
+the RFC 9421 signature base, encoded as unpadded standard Base64. It is
+independent of the HTMLTrust signed-section `algorithm` field. A
+directory MUST reject a request whose signature base, body digest, or
+freshness checks do not verify; API keys MAY be offered as a separately
+documented deployment convenience, but are not a conforming substitute
+for this authentication profile.
+
+GET endpoints SHOULD be accessible without authentication to support
+public verification. A directory MAY require authentication for
+specific endpoints subject to its operational policy; in that case
+unauthenticated requests MUST receive `401 Unauthorized` with a
+`WWW-Authenticate` header.
+
+## Errors
+
+The directory MUST return errors using the problem-details format
+defined in [RFC9457] (which obsoletes RFC 7807), with media type
+`application/problem+json`:
+
+~~~
+{
+  "type": "https://htmltrust.org/errors/signature-invalid",
+  "title": "Signature verification failed",
+  "status": 400,
+  "detail": "The submitted signature did not verify against the
+  canonical signing payload.",
+  "contentHash": "sha256:..."
+}
+~~~
+
+Directories SHOULD apply rate limits per IP, per submitter key, and
+per content hash, and SHOULD signal exhaustion with `429 Too Many
+Requests` and a `Retry-After` header.
+
+# Endorsement Format
+
+An endorsement is a standalone, signed JSON document attesting to an
+endorser's opinion of a specific content hash at a specific moment in
+time. Endorsements target content hashes, not signers; an ongoing
+opinion of a signer is expressed through directory reputation, not
+through a persistent signer-level endorsement artifact.
+
+The structured endorsement format defined in this section is normative.
+Conforming directories MUST store, return, and verify endorsement
+documents in this shape and MUST NOT replace it with an implementation-
+specific flat signature record.
+
+## Document shape
+
+The endorsement document is a JSON object with the following fields.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `endorser` | string | yes | Key identifier of the endorser, resolved per Section 8. |
+| `endorsement` | string | yes | Content hash being endorsed, including algorithm prefix. |
+| `signature` | string | yes | Base64-encoded signature over the canonicalized document; see Section 11.2. |
+| `algorithm` | string | yes | Signature algorithm identifier from Section 7.1. |
+| `timestamp` | string | yes | RFC 3339 UTC timestamp at which the endorsement was issued. |
+| `expires` | string | no | RFC 3339 UTC timestamp at which the endorsement ceases to be valid. |
+| `claim` | string | no | Free-text human-readable rationale for the endorsement. |
+| `revokedBy` | string | no | If present, the endorsement has been superseded by the document with this content hash. |
+
+Additional fields MAY be present and SHOULD be preserved by
+directories. Verifiers MUST ignore fields they do not recognize for
+purposes of trust decisions, but MUST include them when computing the
+signed payload (Section 11.2) so that signature verification
+succeeds.
+
+## Canonicalization for signing
+
+The signing payload for an endorsement is the JSON Canonicalization
+Scheme [RFC8785] serialization of the endorsement document with the
+`signature` field omitted. The endorser signs that byte string using
+the algorithm given by `algorithm`. Verifiers reproduce the same
+serialization, omit `signature`, and verify using the endorser's
+resolved public key.
+
+JSON Canonicalization Scheme is chosen because it is purpose-built
+for signed JSON, is widely implemented, and avoids the parser-
+divergence problems that have historically plagued ad-hoc JSON
+canonicalization. Implementations MUST implement RFC 8785 rather than
+an object-key sorter layered on the host language's ordinary JSON
+serializer. In particular, they MUST use RFC 8785's UTF-16 property-name
+ordering, ECMAScript-compatible number serialization, JSON string
+serialization rules, and no insignificant whitespace. This includes the
+required escaping of control characters and rejection of lone UTF-16
+surrogate code units. JSON parsers
+MUST reject duplicate member names before JCS serialization; accepting
+the last duplicate member is non-conforming. Values that JSON cannot
+represent under RFC 8259, including NaN and Infinity, MUST be rejected.
+The `signature` member is omitted only at the signing step; all other
+members, including optional and implementation-extension members, remain
+in the JCS input. A verifier MUST preserve and include unknown members
+rather than silently dropping them.
+
+## Revocation and expiry
+
+An endorsement with an `expires` value in the past MUST be treated
+by verifiers as invalid for purposes of any current trust decision.
+An endorsement with a `revokedBy` value MUST be treated as
+superseded; the verifier MAY retrieve the superseding endorsement
+from the same directory and apply its semantics in place.
+
+An endorser MAY publish a revocation endorsement (an endorsement
+whose `claim` field names the revoked endorsement's hash and whose
+`revokedBy` field references the document being revoked). A
+directory that holds both MUST serve both in response to
+`GET /content/{hash}/endorsements` so that verifiers can observe the
+revocation chain.
+
+## Endorsement of an endorsement
+
+Endorsement documents are themselves content. An endorser MAY in
+turn endorse another endorser's document by computing the content
+hash of the endorsement (as canonicalized in Section 11.2) and
+issuing a new endorsement against that hash. This provides a
+mechanism for chained reputation without protocol-level signer
+endorsements.
+
+# Verification Procedure
+
+A conforming verifier MUST perform the following steps in order for
+each signed section it intends to verify. Steps 11.1 through 11.6
+are the cryptographic verification ("layer 1" in [HTMLTRUST-W3C]).
+Step 11.7 is the trust decision and is out of scope for this
+document; the verifier returns the cryptographic result to the
+trust-decision layer for further evaluation.
+
+## Step 1: Extract attributes and content
+
+Obtain an accepted source representation under Section 4.1 and validate the
+portable parser profile before extracting the section. If source cannot be
+obtained, return "source-refetch-failed". If the source or parser diagnostics
+cannot establish the portable profile, return "parser-profile-unsupported".
+If a Section 12.10 resource ceiling is reached, return
+"resource-limit-exceeded". Stop after any of these failures.
+
+Obtain the four required attributes `keyid`, `signature`,
+`content-hash`, and `algorithm` and the inner content of the signed
+section. If any required attribute is missing, the verifier MUST
+return an "incomplete" outcome and stop.
+
+Validate the `content-hash` and `signature` encodings against Section 6.
+A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
+the wrong natural output length produces "invalid-encoding". If the
+signature or hash algorithm is not registered or is outside the verifier's
+accepted set, return "algorithm-not-supported". For Ed25519 and ECDSA, a
+decoded signature whose length or representation does not match Section 6.3
+produces "malformed-signature". RSA signature length is checked after key
+resolution in Step 6.
+
+## Step 2: Canonicalize content; compute and compare content hash
+
+Apply the canonicalization algorithm of Section 4 to the inner
+content. Compute the hash using the algorithm given by the prefix of
+the `content-hash` attribute. Compare the computed hash to the
+attribute value (excluding the prefix and separator, after Base64
+decoding).
+
+If URL resolution or another signed-attribute operation cannot produce the
+canonical value required by Section 4.3.2, the verifier MUST return
+"attribute-canonicalization-failed" and stop.
+
+If the hashes do not match, the verifier MUST return a
+"content-hash-mismatch" failure and stop.
+
+## Step 3: Canonicalize claims; compute claims hash
+
+Apply Section 4.6 to the claim `<meta>` element children of the
+signed section. Compute the hash using the same algorithm as Step 2.
+Form the claims-hash string per Section 6.2.
+
+A missing `name` or `content`, or an empty normalized name, produces
+"claim-malformed". Duplicate normalized names produce "claim-duplicate".
+
+## Step 4: Construct signing payload
+
+Construct the byte string defined in Section 5 from `content-hash`
+(verbatim from the attribute), the claims hash from Step 3, the
+serialized origin of the current document (the legacy-named `domain`
+field in Section 5), and the value
+of the `signed-at` claim `<meta>` element after normalization
+(Section 4.4). If the `signed-at` claim is absent, the verifier MUST
+return a "claim-missing" failure and stop.
+
+If the normalized `signed-at` value is not an RFC 3339 date-time with the
+UTC `Z` offset required by Section 5, the verifier MUST return
+"claim-malformed" and stop.
+
+If the document URL does not produce an allowed tuple origin under Section 5,
+the verifier MUST return "origin-not-supported" and stop. A signature copied
+to another allowed origin fails cryptographic verification because the
+verifier constructs the payload from the current document origin.
+
+## Step 5: Resolve keyid
+
+Resolve the `keyid` attribute per Section 8 to obtain a public key and the
+algorithm it is suitable for. A retrieval or DID-resolution failure produces
+"key-resolution-failed". A key response that violates the required document
+schema produces "malformed-key-document". A revoked key, or an expired key
+that Section 9 does not permit for this signature, produces "key-revoked".
+The verifier MUST stop after any of these results.
+
+If the algorithm associated with the resolved key is incompatible
+with the `algorithm` attribute of the signed section, the verifier
+MUST return an "algorithm-mismatch" failure and stop.
+
+## Step 6: Verify signature
+
+Verify the Base64-decoded `signature` against the signing payload
+from Step 4 using the public key from Step 5 and the algorithm given
+by the `algorithm` attribute. Before RSA verification, require the decoded
+signature to be exactly the resolved modulus width; otherwise return
+"malformed-signature". If the cryptographic operation completes and the
+signature does not verify, return "signature-invalid". The verifier MUST stop
+after either failure.
+
+If the verification succeeds, the verifier MUST return a "valid"
+cryptographic outcome.
+
+## Step 7: Trust decision (out of scope)
+
+The verifier returns the cryptographic outcome to the trust-decision
+layer (in browsers, the user agent's trust policy; see
+[HTMLTRUST-W3C]). The trust layer composes endorsement,
+reputation, and personal-trust-list inputs and MUST NOT alter the
+cryptographic outcome.
+
+## Failure outcomes
+
+The following identifiers are the closed failure vocabulary for this
+revision. A verifier MAY attach private diagnostic detail, but the
+cryptographic result MUST use one of these identifiers and MUST never
+map a listed failure to `valid`:
+
+`incomplete`, `content-hash-mismatch`,
+`claim-missing`, `claim-malformed`, `claim-duplicate`,
+`attribute-canonicalization-failed`, `parser-profile-unsupported`,
+`invalid-encoding`, `malformed-signature`, `signature-invalid`,
+`key-resolution-failed`, `malformed-key-document`, `key-revoked`,
+`algorithm-not-supported`, `algorithm-mismatch`, `origin-not-supported`,
+`resource-limit-exceeded`, `network-policy-blocked`,
+`source-refetch-failed`, and `directory-unavailable`.
+
+Failures that occur before a key is resolved MUST NOT trigger signature
+verification. Network and resource failures MUST NOT be retried without
+the same finite limits. User-agent integrations MUST expose at most the
+identifier and a privacy-safe explanation to page scripts.
+
+`directory-unavailable` is reserved for an optional trust-directory
+consultation in the layer-2 processing model. A layer-1 cryptographic result
+MUST NOT use that identifier, and directory failure MUST NOT change a valid
+cryptographic result into an invalid one.
+
+## Verifier network fetch policy
+
+This section defines a provisional network model for verifier-initiated
+fetches. It is expected to be refined as browser, extension, and native
+verifier implementations mature.
+
+Remote key documents and trust-directory endpoints MUST be fetched over
+HTTPS URLs. Verifiers MUST NOT send cookies, HTTP authentication state,
+client certificates, or other ambient credentials on key or directory
+fetches by default. A browser verifier MAY send credentials only for a
+same-origin source refetch of the document being verified, and only when
+that refetch is needed to obtain the original server HTML for the
+[HTMLTRUST-W3C] processing model.
+
+Verifier fetches SHOULD send no `Referer` header. If a platform cannot
+omit the header, it MUST trim it no less strictly than
+`strict-origin-when-cross-origin`.
+
+Web-page JavaScript verifiers are subject to the Fetch CORS model and
+therefore require key and directory servers to opt in with appropriate
+CORS response headers. Browser extensions, native user agents, crawlers,
+and command-line verifiers MAY have broader network authority, but they
+SHOULD apply the same credential, referrer, redirect, timeout, and cache
+constraints for privacy and interoperability.
+
+Verifiers MAY follow HTTPS-to-HTTPS redirects for key and directory
+fetches subject to a small implementation-defined limit. They MUST NOT
+follow redirects to non-HTTPS URLs. They SHOULD impose finite timeouts,
+SHOULD honor HTTP cache semantics [RFC9111], and SHOULD cap cached key
+freshness when no explicit freshness information is present.
+
+Browser verifiers that fetch through the page's fetch context MUST account
+for service-worker interception. A service worker on the publisher origin
+MAY intercept a same-origin source refetch; service workers on unrelated
+origins MUST NOT be allowed to intercept key or directory fetches outside
+their normal scope. User agents that provide a privileged verification
+path SHOULD bypass page script and extension mutation when preserving the
+original response snapshot.
+
+Trust-directory consultation MUST be user opt-in. If a directory fetch,
+key fetch, source refetch, CORS check, redirect policy, timeout, cache
+validation, or user-permission check fails, the verifier MUST surface a
+specific failure outcome such as "key-resolution-failed",
+"directory-unavailable", "source-refetch-failed", or
+"network-policy-blocked" rather than treating the content as valid.
+
+## Resource limits
+
+Verifiers MUST apply finite resource limits before parsing or fetching
+untrusted input. The following limits are the interoperable baseline for
+this revision; an implementation MAY choose lower values, but MUST NOT
+silently continue beyond them:
+
+| Resource | Maximum |
+|---|---:|
+| Source response or signed-section input | 1 MiB |
+| Canonical content output for one section | 1 MiB |
+| Direct-child claims in one section | 64 |
+| Normalized claim name or value | 4 KiB each |
+| Remote key document, including headers | 64 KiB |
+| Endorsement response body | 256 KiB |
+| Endorsements processed for one content hash | 100 |
+| HTTPS redirects for one verifier fetch | 3 |
+| Wall-clock time for one verifier fetch | 5 seconds |
+| Concurrent verifier fetches per document | 4 |
+
+The limits apply independently to source verification, key resolution,
+and optional directory consultation. A verifier that reaches a limit MUST
+stop the affected operation, MUST NOT return a valid cryptographic result,
+and MUST report the machine-readable failure `resource-limit-exceeded`.
+It MUST NOT expose the rejected input or canonical bytes to page scripts.
+An implementation MAY expose the precise limit to privileged diagnostics.
+
+# Security Considerations
+
+## Threat model
+
+This document considers the following adversaries.
+
+Passive eavesdropper:
+: An adversary observing traffic on the network. Out of scope; this
+  threat is addressed by TLS [RFC8446], on which HTMLTrust
+  cryptographic verification does not directly depend.
+
+Active rewriter:
+: An adversary capable of modifying HTML in transit or at a non-
+  origin endpoint. HTMLTrust detects any modification of canonical
+  text or signed semantic attributes inside a signed section. It does
+  not detect modifications to surrounding markup or to non-signed
+  regions; verifiers and trust policies MUST present cryptographic
+  outcomes per signed section, not per document.
+
+Origin compromise:
+: An adversary in control of the publisher origin. Such an adversary
+  can serve content under an origin that the signer's binding
+  permits. Detection requires the signer to publish content hashes
+  to a trust directory or other independent index; the protocol does
+  not prevent the attack in isolation.
+
+Key compromise:
+: An adversary in possession of a signer's private key. HTMLTrust
+  cannot prevent forgery in this case. Mitigations are revocation
+  (Section 8.2, `revoked` field) and short-lived keys with
+  `expires`.
+
+Replay across origins:
+: An adversary copying a signed section from one site to another.
+  Prevented by origin binding (Section 5); verification on the new
+  origin will fail.
+
+Replay within origin (long-tail):
+: An adversary re-publishing old signed content on the same origin
+  out of context. Not prevented by the protocol; mitigated by
+  external research and by the inclusion of `signed-at` in the
+  signing payload, which dates the attestation.
+
+Downgrade:
+: An adversary inducing a verifier to use a weak algorithm. Mitigated
+  by the verifier's right to refuse algorithms (Section 7.3) and by
+  the requirement that `algorithm` mismatch produce a distinct
+  failure outcome.
+
+## Deliberate semantic-subset signing trade-off
+
+This revision signs canonical text plus a small list of semantic
+attributes (`href`, `src`, `alt`, and `aria-label`). An adversary in
+possession of signed material MAY still rewrap it in misleading
+block-level markup, alter non-covered attributes, or surround it with
+hostile media without invalidating the cryptographic signature. The
+HTMLTrust system addresses these residual risks through layered means:
+
+- Origin binding (Section 5) ensures that the signed material appears
+  only on the publication origin under the original signature.
+- Trust-directory indexing and external research (out of band, but
+  enabled by the content hash being globally addressable) catches
+  altered surrounding context on mirror sites.
+- Future revisions MAY extend hash coverage to more semantic
+  attributes, addressing a larger subset of context-swapping attacks.
+
+The deliberate trade-off is implementational simplicity and
+cross-implementation stability versus full structural integrity. XML
+Digital Signatures [XMLDSIG] is the canonical cautionary tale for
+the latter end of that spectrum.
+
+## Claim metadata normalization and duplicate binding
+
+All direct child claim `<meta>` elements participate in the claims hash.
+This prevents a metadata sanitizer from silently dropping, reordering, or
+renaming visible author claims without invalidating the signature, but it
+also means that sanitizers which remove unknown `<meta>` elements inside a
+signed section will break verification. Authoring tools SHOULD place only
+claims that they intend to sign as direct child `<meta>` elements and
+SHOULD keep unrelated machine metadata outside the signed section.
+
+The `signed-at` value is intentionally included twice: once as a normal
+claim inside the claims hash and once as an explicit signing-payload
+field. The duplicate binding is not ambiguous because both uses consume
+the same normalized direct child claim. If the claim is missing,
+malformed, or duplicated after name normalization, verification fails
+before signature verification. This keeps timestamp extraction simple for
+directories and user interfaces while preserving the integrity of the
+complete claim set.
+
+### Injective record encoding
+
+Claim names and values use the escaping rule in Section 4.6, and signed
+attribute values use the U+0040 escaping rule in Section 4.3.2. These
+rules make the record encodings injective: a literal text sequence cannot
+be mistaken for an attribute record, and a colon or reverse solidus in a
+claim cannot move the name/value boundary. The cases in
+`vectors/claims-escaping.json` are normative examples.
+
+Implementations MUST apply the escaping before hashing; accepting the
+historical unescaped form is a legacy mode and MUST be clearly
+distinguished from this revision.
+
+## Revocation latency
+
+Revocation under Section 8.2 depends on the verifier re-fetching the
+key document. Verifiers cache key documents subject to HTTP cache
+semantics [RFC9111]; an aggressive cache may serve stale key data
+after a `revoked: true` update. Verifiers SHOULD set a relatively
+short maximum cache age for HTMLTrust key documents (recommended:
+one hour) and SHOULD honor `Cache-Control: no-cache` directives from
+the key-document server.
+
+## Algorithm agility risks
+
+The registry in Section 7 is designed to permit new algorithms
+without breaking deployed verifiers. However, a verifier that
+accepts the union of all registered algorithms inherits the security
+of the weakest. Verifiers SHOULD limit their accepted-algorithm set
+to those required by their threat model and SHOULD log or surface
+verifications performed under deprecated algorithms.
+
+## Side channels
+
+A verifier MUST NOT distinguish verification failure from
+verification success via observable side channels (timing,
+network-request differences, console output visible to page
+scripts). The user-agent processing model in [HTMLTRUST-W3C]
+specifies the channel through which verification outcomes are
+exposed; verifiers in non-browser contexts SHOULD follow analogous
+discipline.
+
+# Privacy Considerations
+
+## Directory query exposure
+
+Trust-directory queries during endorsement retrieval or reputation
+lookup reveal the requesting verifier's IP address, request headers,
+and the content hashes it is interested in. A directory operator
+that logs queries can derive a fingerprint of the verifier's
+reading patterns.
+
+Mitigations:
+
+- Verifiers SHOULD cache directory responses (subject to [RFC9111])
+  to reduce repeated identical queries.
+- Verifiers MAY batch endorsement requests for multiple content
+  hashes encountered in the same document.
+- Verifiers SHOULD support a "no directory" mode that limits the
+  verifier to local cryptographic verification only.
+- Verifiers MAY use HTTP via Tor or another anonymizing transport
+  for directory queries; directories SHOULD accept anonymized
+  traffic.
+
+## Key resolution exposure
+
+Resolving a `keyid` via the methods of Section 8 reveals the
+verifier's interest to the key-hosting server. For directory-hosted
+keys, this collapses into Section 14.1. For DID and direct-URL
+methods, the exposure is to the signer's chosen identity host.
+
+Signers SHOULD NOT publish key documents from origins that would
+draw inferences from key-fetch traffic that would otherwise be
+unavailable.
+
+## Endorsement disclosure
+
+An endorsement is intentionally public. Endorsers who do not wish
+their endorsement to be public-facing MUST NOT submit it to a
+public directory; the protocol does not provide a private-
+endorsement mechanism.
+
+# IANA Considerations
+
+This document requests the following IANA actions.
+
+## Media types
+
+The following media types are to be registered in the "Media Types"
+registry.
+
+### application/htmltrust-key+json
+
+- Type name: application
+- Subtype name: htmltrust-key+json
+- Required parameters: none
+- Optional parameters: charset (must be `utf-8` if present)
+- Encoding considerations: binary
+- Security considerations: see Section 13 of this document
+- Interoperability considerations: see Section 8.2
+- Published specification: this document (Section 8.2)
+- Applications that use this media type: HTMLTrust verifiers,
+  publishers, and trust directories
+- Fragment identifier considerations: none
+- Author / change controller: IETF / IESG
+
+### application/htmltrust-endorsement+json
+
+Identical fields as Section 15.1.1, with subtype name
+`htmltrust-endorsement+json` and a reference to Section 11.
+
+### application/htmltrust-directory+json
+
+Identical fields as Section 15.1.1, with subtype name
+`htmltrust-directory+json` and a reference to Section 10.2.
+
+### application/htmltrust-content+json
+
+Identical fields as Section 15.1.1, with subtype name
+`htmltrust-content+json` and a reference to Section 10.3 (the
+`/content/{hash}` response format).
+
+## Well-known URI
+
+The suffix `htmltrust` is to be registered in the "Well-Known URIs"
+registry per [RFC8615].
+
+- URI suffix: htmltrust
+- Change controller: IETF
+- Specification document: this document, Section 10.2
+- Related information: identifies trust directory discovery
+  metadata
+
+## Signature algorithm registry
+
+IANA is requested to establish a new registry titled "HTMLTrust
+Signature Algorithms" under a new "HTMLTrust Parameters" group. The
+registry is policy "Specification Required" per [RFC8126]; the
+initial contents are those of Section 7.1.
+
+Each registration MUST include:
+
+- Identifier (the string used in the `algorithm` attribute)
+- Algorithm description
+- Reference
+- Status: "current" or "deprecated"
+
+## Hash algorithm registry
+
+IANA is requested to establish a new registry titled "HTMLTrust Hash
+Algorithms" under the "HTMLTrust Parameters" group. The registry is
+policy "Specification Required". The initial contents are those of
+Section 7.2.
+
+Each registration MUST include:
+
+- Identifier (the string used as the hash prefix in `content-hash`
+  values)
+- Algorithm description
+- Output length in bytes
+- Reference
+- Status: "current" or "deprecated"
+
+## HTMLTrust error type prefix
+
+This document does not request an IANA registry for the
+`https://htmltrust.org/errors/...` URIs used in problem-details
+responses (Section 10.9); those URIs are stewarded by the document
+author and the Community Group.
+
+--- back
+
+# Acknowledgements
+
+The author thanks early reviewers of the HTMLTrust whitepaper for
+feedback that shaped this draft, and acknowledges the conceptual
+debt to DKIM [RFC6376], JSON Web Signature [RFC7515], JSON
+Canonicalization Scheme [RFC8785], HTTP Message Signatures
+[RFC9421], and Signed HTTP Exchanges [SXG]. The two-layer split of
+cryptographic verification from trust evaluation is influenced by
+the operational experience of DKIM deployment.
+
+# Test Vectors
+
+This appendix gives a complete, reproducible end-to-end vector. The same
+vector is maintained machine-readable in the conformance suite at
+`conformance/vectors/vector-01.json` in the canonicalization repository at
+commit `a756dbaf27fd32799da7f2a1276cc16964e8d41f`
+(https://github.com/HTMLTrust/htmltrust-canonicalization), where every
+signer and verifier binding reproduces it in CI. All hashes are SHA-256
+encoded as unpadded standard Base64 with the `sha256:` prefix
+(Section 6); the signature is Ed25519 over the Section 5 payload, also
+unpadded standard Base64.
+
+## Test key (Ed25519)
+
+The 32-byte private seed is the ASCII string
+`htmltrust-test-vector-ed25519-01`:
+
+~~~
+seed (hex):       68746d6c74727573742d746573742d766563746f722d656432353531392d3031
+public key (hex): ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c19
+~~~
+
+Public key (SubjectPublicKeyInfo, PEM):
+
+~~~
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAro5HTnkh3VG+ZQ3PaEerRS3uY0ITOe/D1rBBsuhfTBk=
+-----END PUBLIC KEY-----
+~~~
+
+## Inputs
+
+Signed document base URL (for resolving relative signed URL attributes):
+`https://example.com/essays/engines`. Serialized publisher origin
+(`domain` field): `https://example.com`. `signed-at`:
+`2026-01-15T12:00:00Z`.
+
+Signed section (source HTML):
+
+~~~ html
+<signed-section>
+<meta name="author" content="Ada Lovelace">
+<meta name="signed-at" content="2026-01-15T12:00:00Z">
+<meta name="license" content="CC-BY-4.0">
+<h1>On Analytical Engines</h1>
+<p>The engine weaves algebraic patterns &mdash; just as the loom weaves flowers.</p>
+<p>See <a href="/notes/engine">the notes</a> and <img src="/img/ada.png" alt="Portrait of Ada">.</p>
+</signed-section>
+~~~
+
+## Canonical content
+
+The three claim `<meta>` elements are excluded from content (they
+contribute to the claims). `&mdash;` decodes and normalizes to `-`; the
+relative `href`/`src` values resolve against the base URL and serialize
+with the Web URL serializer. Canonical content (UTF-8, U+000A shown as
+literal line breaks):
+
+~~~
+On Analytical Engines
+The engine weaves algebraic patterns - just as the loom weaves flowers.
+See @attr:a:href:https://example.com/notes/engine
+the notes and @attr:img:src:https://example.com/img/ada.png
+@attr:img:alt:Portrait of Ada
+.
+~~~
+
+Content hash:
+
+~~~
+sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
+~~~
+
+## Canonical claims
+
+Sorted lexically by the UTF-8 bytes of the normalized name:
+
+~~~
+author:Ada Lovelace
+license:CC-BY-4.0
+signed-at:2026-01-15T12:00:00Z
+~~~
+
+(The serialized string ends with a trailing U+000A after the last
+record.) Claims hash:
+
+~~~
+sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs
+~~~
+
+## Signing payload and signature
+
+Signing payload (Section 5, four colon-joined fields):
+
+~~~
+sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8:sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs:https://example.com:2026-01-15T12:00:00Z
+~~~
+
+Ed25519 signature over that payload, unpadded standard Base64:
+
+~~~
+kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg
+~~~
+
+# Example Directory Exchange
+
+## Submitting a content record
+
+Request:
+
+~~~
+POST /content HTTP/1.1
+Host: directory.example
+Date: Thu, 15 Jan 2026 12:00:00 GMT
+Content-Type: application/json
+Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="did:web:author.example";alg="ed25519"
+Signature: sig1=:gdWl4N5vUFjVBFg8HDJu49u03bCfSvu/m0A5Ql8omqsoBIbiMXiyyaRQmgBQ7pS7ze7dA0VSx1rD+VbBi2qADg:
+Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
+
+{
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "keyid": "did:web:author.example",
+  "signedAt": "2026-01-15T12:00:00Z",
+  "domain": "https://example.com",
+  "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg",
+  "sourceURL": "https://example.com/essays/engines",
+  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"license","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
+}
+~~~
+
+Response:
+
+~~~
+HTTP/1.1 201 Created
+Location: https://directory.example/content/sha256%3AIVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
+Content-Type: application/htmltrust-content+json
+
+{
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "firstSeen": "2026-05-15T12:34:56Z",
+  "signers": [
+    {
+      "keyid": "did:web:author.example",
+      "signedAt": "2026-01-15T12:00:00Z",
+      "domain": "https://example.com",
+      "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg"
+    }
+  ],
+  "endorsementCount": 0
+}
+~~~
+
+## Submitting an endorsement
+
+Request body (after canonicalization per Section 11.2 and signing):
+
+~~~
+{
+  "endorser": "did:web:reviewer.example",
+  "endorsement": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "algorithm": "ed25519",
+  "timestamp": "2026-05-10T09:00:00Z",
+  "claim": "Verified original publication.",
+  "expires": "2026-12-31T00:00:00Z",
+  "signature": "wRGf14sbPTYebexyPALRMCo122Gaei+wQaQIh/taes/LQWKTQTSW2yBDIOUkBkG/uDGMMU7D1W6AveDClZNPCg"
+}
+~~~
+
+For the endorsement example, the JCS input (the document above with the
+`signature` member removed) is:
+
+~~~ json
+{"algorithm":"ed25519","claim":"Verified original publication.","endorsement":"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8","endorser":"did:web:reviewer.example","expires":"2026-12-31T00:00:00Z","timestamp":"2026-05-10T09:00:00Z"}
+~~~
+
+The Ed25519 signature above is reproducible with the test seed in this
+appendix. Its canonical payload hash is
+`sha256:sPBnoFyxiTmeBOQHaTyhdJy6prv3jmTdoTZpDXP5xrg`.
+
+# Open Issues
+
+The following issues are open in this revision and are expected to
+be addressed in subsequent revisions or in the companion W3C
+Community Group Report.
+
+1. Semantic attribute coverage. This revision signs canonicalized text
+   plus the provisional semantic attribute list `href`, `src`, `alt`,
+   and `aria-label`. The exact expansion list remains open for
+   community feedback. See Section 4.3.2 and the security
+   considerations.
+2. Runtime DOM mutation. A `data-htmltrust-ignore` opt-out marker
+   is reserved but not yet normative. See Section 4.7.
+3. Mandatory-to-implement key resolution methods. This revision
+   requires verifiers to implement at least one of three methods.
+   A future revision may strengthen the requirement, particularly
+   around DID methods.
+4. Reputation-score interoperability. The `/signers/{id}/reputation`
+   endpoint is intentionally directory-specific. A future revision
+   may define a small interoperable subset.

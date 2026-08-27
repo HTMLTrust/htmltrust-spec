@@ -1,0 +1,41 @@
+{
+  "description": "Portable parser profile acceptance and rejection cases",
+  "profile": "portable-1",
+  "cases": [
+    {
+      "name": "well-formed-utf8",
+      "html": "<signed-section><p>Simple text</p></signed-section>",
+      "result": "accept"
+    },
+    {
+      "name": "duplicate-attribute",
+      "html": "<signed-section><p title=one title=two>Text</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "misnested-formatting",
+      "html": "<signed-section><p><b>Text</p></b></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "table-foster-parenting",
+      "html": "<signed-section><table>Text<tr><td>Cell</td></tr></table></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "foreign-content",
+      "html": "<signed-section><svg><foreignObject><p>Text</p></foreignObject></svg></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "ambiguous-character-reference",
+      "html": "<signed-section><p>&notit;</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    }
+  ]
+}

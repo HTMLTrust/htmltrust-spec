@@ -1,0 +1,6 @@
+{
+  "description": "A nested signed section contributes its content and emits a block boundary for the outer section.",
+  "outerHtml": "<signed-section>Before<signed-section>Inner</signed-section>After</signed-section>",
+  "outerCanonicalContent": "BeforeInner\nAfter",
+  "innerCanonicalContent": "Inner"
+}
