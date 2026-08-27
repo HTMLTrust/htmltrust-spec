@@ -41,3 +41,4 @@ under `paper/reviews/` with their submission date.
 - [Repository guide](../README.md)
 - [IETF protocol draft](../ietf-draft/README.md)
 - [W3C browser-integration draft](../w3c-cg/README.md)
+- [PaperReview.ai round-one review](reviews/paperreview-round1.md)
