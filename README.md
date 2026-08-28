@@ -55,7 +55,9 @@ versions:
 
 ```sh
 gem install kramdown-rfc --version 1.7.43
-python3 -m pip install xml2rfc==3.34.0
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install xml2rfc==3.34.0
 ```
 
 The target regenerates all three committed outputs.
@@ -102,11 +104,11 @@ current coordinated implementation baseline pins these tested revisions:
 
 | Component | Revision | Validation |
 |---|---|---|
-| Canonicalization | [`5e51040d`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/5e51040dcaaf50935e245702bdefbc18a1d542ce) | 128 shared fixtures across five language ports |
-| Browser verification library | [`f21504e1`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/f21504e170c6b29e91eda3bb491bf4580e5f5a86) | 51 tests, typecheck, and build |
-| Reference extension | [`407bace3`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/407bace3ad792384ba623b5db795f3f32acd16ca) | 63 production content-script tests, typecheck, and browser builds |
-| Directory server | [`56ab5c06`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/56ab5c06e901f8f48753e3a511dd9dda755b9bac) | 90 tests, OpenAPI lint, and live v1 conformance |
-| End-to-end harness | [`192e804b`](https://github.com/HTMLTrust/htmltrust-e2e/commit/192e804bf50835da9e6de66cefc6fb7ce0e4246e) | 33 tests, Chromium lifecycle checks, and the HTTPS simulation |
+| Canonicalization | [`760593d4`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/760593d4a02e9fffa56dc4d002eb52ab2ade1b49) | 128 shared fixtures across five language ports and portable-authoring preflight |
+| Browser verification library | [`70c5ddb6`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/70c5ddb6ed23c06c0b1c46d5284618fb99a28aac) | 57 tests, typecheck, and build |
+| Reference extension | [`a048b192`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/a048b192f022b19d8d868b521aaf7091a550c217) | 92 tests, zero-warning lint, and size-gated Chromium, Firefox, and Safari builds |
+| Directory server | [`07a286df`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/07a286dfd0a219e75286e983315d5a886e9e1a2d) | 103 tests, OpenAPI lint, 12 compatibility fixtures, and the seven-operation v1 smoke check |
+| End-to-end harness | [`fb75bc44`](https://github.com/HTMLTrust/htmltrust-e2e/commit/fb75bc44c801bc286706cf3a7ebb79f112564e47) | 43 tests, three-engine lifecycle checks, a live Chromium extension check, and 5,804 successful full-run verifications |
 
 The paper's Common Crawl and adversarial results use the earlier evaluated
 canonicalization snapshot `b0c8f305425de190a7f209ac117d34f88c2b1946`

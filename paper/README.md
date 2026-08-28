@@ -69,6 +69,11 @@ Before submitting, use `pdfinfo paper/htmltrust.pdf` to confirm the page count
 and `wc -c paper/htmltrust.pdf` to confirm the size. Save the private review
 token returned by the service because review email delivery can fail.
 
+PaperReview.ai accepted the current 11-page, 304,502-byte PDF on 2026-08-28 at
+21:36 UTC. Its round-two review is still processing. Add the structured result
+and a readable Markdown copy to `paper/reviews/` when the service returns it;
+keep the private lookup token outside this repository.
+
 ## Related documents
 
 - [Repository guide](../README.md)
