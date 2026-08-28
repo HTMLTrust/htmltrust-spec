@@ -103,10 +103,10 @@ current coordinated implementation baseline pins these tested revisions:
 | Component | Revision | Validation |
 |---|---|---|
 | Canonicalization | [`5e51040d`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/5e51040dcaaf50935e245702bdefbc18a1d542ce) | 128 shared fixtures across five language ports |
-| Browser verification library | [`39dc873c`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/39dc873c368ff53b5d0295fbe4d8f493dea52f90) | 51 tests, typecheck, and build |
+| Browser verification library | [`f21504e1`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/f21504e170c6b29e91eda3bb491bf4580e5f5a86) | 51 tests, typecheck, and build |
 | Reference extension | [`407bace3`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/407bace3ad792384ba623b5db795f3f32acd16ca) | 63 production content-script tests, typecheck, and browser builds |
 | Directory server | [`56ab5c06`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/56ab5c06e901f8f48753e3a511dd9dda755b9bac) | 90 tests, OpenAPI lint, and live v1 conformance |
-| End-to-end harness | [`6354706d`](https://github.com/HTMLTrust/htmltrust-e2e/commit/6354706df0a90cad3a9d2a7e7c6751bcd268dbe9) | 33 tests, Chromium lifecycle checks, and the HTTPS simulation |
+| End-to-end harness | [`192e804b`](https://github.com/HTMLTrust/htmltrust-e2e/commit/192e804bf50835da9e6de66cefc6fb7ce0e4246e) | 33 tests, Chromium lifecycle checks, and the HTTPS simulation |
 
 The paper's Common Crawl and adversarial results use the earlier evaluated
 canonicalization snapshot `b0c8f305425de190a7f209ac117d34f88c2b1946`
