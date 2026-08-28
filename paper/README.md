@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Working paper |
-| Updated | 2026-08-27 |
+| Updated | 2026-08-28 |
 | Author | Jason Grey |
 | Primary readers | Researchers, reviewers, and paper contributors |
 | Reading time | 2 minutes |
@@ -16,6 +16,30 @@ make paper
 
 The build runs `pdflatex`, `biber`, and two final `pdflatex` passes. It writes
 `paper/htmltrust.pdf`, which Git ignores.
+
+If TeX Live is unavailable on the host, use Docker:
+
+```sh
+make paper-docker
+```
+
+The first Docker build downloads Debian Bookworm package indexes and installs
+the TeX packages listed in `.docker/paper/Dockerfile` into a local image. A
+later build reuses that image layer while Docker's cache is valid. Changing
+the Dockerfile or building with `docker build --no-cache` downloads the
+packages again. The container mounts the checkout and writes the PDF as your
+host user.
+
+Build the PDF and create an arXiv source archive with the host toolchain:
+
+```sh
+make paper-arxiv
+```
+
+Use `make paper-arxiv-docker` when TeX Live is unavailable locally. Both
+commands write `paper/dist/htmltrust-arxiv.tar.gz`. The archive includes the
+generated `htmltrust.bbl`, paper source, bibliography, and architecture image.
+Its contents are printed after packaging.
 
 ## Install the required tools
 
@@ -32,8 +56,8 @@ After `make paper` succeeds:
    figures.
 3. Keep citations in `references.bib`; do not edit generated `.bbl` files.
 
-The current paper is 9 pages. PaperReview.ai receives the full PDF because it
-is below the service's 15-page review window. Completed external reviews live
+Check the page limit of any external review service before submitting. The
+paper length can change as the source changes. Completed external reviews live
 under `paper/reviews/` with their submission date.
 
 ## Related documents
@@ -41,4 +65,5 @@ under `paper/reviews/` with their submission date.
 - [Repository guide](../README.md)
 - [IETF protocol draft](../ietf-draft/README.md)
 - [W3C browser-integration draft](../w3c-cg/README.md)
+- [Study 1 v0.3 supplementary artifact](artifacts/study1-v03/README.md)
 - [PaperReview.ai round-one review](reviews/paperreview-round1.md)

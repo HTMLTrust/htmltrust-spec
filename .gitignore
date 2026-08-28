@@ -21,6 +21,8 @@
 
 # Compiled output (build from source)
 *.pdf
+paper/dist/
+paper/tmp/
 
 # OS files
 .DS_Store

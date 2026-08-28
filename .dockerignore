@@ -1,0 +1,6 @@
+# The image only installs the TeX toolchain. The checkout is mounted when the
+# container runs, so source files do not belong in the image build context.
+**
+!.docker/
+!.docker/paper/
+!.docker/paper/Dockerfile

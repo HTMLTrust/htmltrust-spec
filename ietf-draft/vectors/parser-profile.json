@@ -36,6 +36,24 @@
       "html": "<signed-section><p>&notit;</p></signed-section>",
       "result": "reject",
       "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "unclosed-comment",
+      "html": "<signed-section><p>Before</p><!-- unclosed",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "comment-double-hyphen",
+      "html": "<signed-section><p>Before</p><!-- a -- b --><p>After</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "comment-trailing-hyphen",
+      "html": "<signed-section><p>Before</p><!-- trailing ---><p>After</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
     }
   ]
 }
