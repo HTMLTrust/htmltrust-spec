@@ -23,6 +23,8 @@
 *.pdf
 paper/dist/
 paper/tmp/
+/tmp/
+/output/
 
 # OS files
 .DS_Store

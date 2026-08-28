@@ -1,4 +1,4 @@
-.PHONY: all check ietf paper paper-docker paper-arxiv paper-arxiv-docker w3c w3c-check
+.PHONY: all check ietf paper paper-diagram paper-docker paper-arxiv paper-arxiv-docker w3c w3c-check
 
 all: check ietf w3c-check paper
 
@@ -10,6 +10,10 @@ ietf:
 
 paper:
 	./scripts/build-paper.sh
+
+paper-diagram:
+	mmdc $(MERMAID_ARGS) -i diagrams/architecture1.mmd \
+		-o paper/images/architecture1.png -b white -w 1200 -s 2
 
 paper-docker:
 	./scripts/build-paper-in-docker.sh

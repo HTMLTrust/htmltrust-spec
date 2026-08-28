@@ -17,6 +17,10 @@ make paper
 The build runs `pdflatex`, `biber`, and two final `pdflatex` passes. It writes
 `paper/htmltrust.pdf`, which Git ignores.
 
+The architecture image is committed. Edit `diagrams/architecture1.mmd` and
+run `make paper-diagram` from the repository root to regenerate it. The root
+README lists the Mermaid CLI install command.
+
 If TeX Live is unavailable on the host, use Docker:
 
 ```sh
@@ -60,10 +64,16 @@ Check the page limit of any external review service before submitting. The
 paper length can change as the source changes. Completed external reviews live
 under `paper/reviews/` with their submission date.
 
+PaperReview.ai accepts PDF files up to 10 MiB and analyzes the first 15 pages.
+Before submitting, use `pdfinfo paper/htmltrust.pdf` to confirm the page count
+and `wc -c paper/htmltrust.pdf` to confirm the size. Save the private review
+token returned by the service because review email delivery can fail.
+
 ## Related documents
 
 - [Repository guide](../README.md)
 - [IETF protocol draft](../ietf-draft/README.md)
 - [W3C browser-integration draft](../w3c-cg/README.md)
-- [Study 1 v0.3 supplementary artifact](artifacts/study1-v03/README.md)
+- [Study 1 v0.4 supplementary artifact](artifacts/study1-v04/README.md)
+- [Historical Study 1 v0.3 artifact](artifacts/study1-v03/README.md)
 - [PaperReview.ai round-one review](reviews/paperreview-round1.md)

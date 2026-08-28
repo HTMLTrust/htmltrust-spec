@@ -21,6 +21,7 @@ From the repository root:
 make check       # validate vectors and repository invariants
 make ietf        # regenerate the IETF XML, HTML, and text artifacts
 make paper       # build paper/htmltrust.pdf
+make paper-diagram # regenerate the paper architecture diagram
 make w3c         # serve the W3C draft at http://localhost:8000
 make w3c-check   # render the W3C draft and fail on ReSpec diagnostics
 ```
@@ -79,6 +80,12 @@ from `.docker/paper/Dockerfile`, then mounts the checkout into a short-lived
 container. Docker caches the package-install layer; source files and the PDF
 remain on the host. Set `HTMLTRUST_PAPER_IMAGE` to use another local tag.
 
+The generated paper diagram is committed. To change it, edit
+`diagrams/architecture1.mmd`, install Mermaid CLI with
+`npm install --global @mermaid-js/mermaid-cli`, and run
+`make paper-diagram`. Pass extra Mermaid CLI options through `MERMAID_ARGS`
+when Chromium needs a Puppeteer configuration file.
+
 ### W3C draft
 
 The W3C draft uses ReSpec. Run `make w3c`, open <http://localhost:8000>, and
@@ -88,13 +95,21 @@ writes its temporary snapshot under `$TMPDIR` when set, then `RUNNER_TEMP` or
 
 ## Understand implementation status
 
-The drafts define the target protocol. The reference repositories implement
-the stable `v0.2.2` canonicalization profile and the current end-to-end flow.
-The newest draft rules still require downstream implementation work. These
-include the v1 JCS signing object and location scope, safe signed URLs,
-parser-profile rejection, U+0040 escaping, complete RFC 8785 processing,
-resource ceilings, and the native browser lifecycle. The review documents
-identify each remaining gap.
+The reference repositories implement the v1 signing profile, including the
+JCS signing object, URL and origin scopes, HTTPS-only signed URLs, parser
+preflight, resource ceilings, and source-to-rendered browser lifecycle. The
+2026-08-28 evidence snapshot pins these tested revisions:
+
+| Component | Revision | Validation |
+|---|---|---|
+| Canonicalization | [`b0c8f305`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/b0c8f305425de190a7f209ac117d34f88c2b1946) | 123 shared fixtures across five language ports |
+| Browser verification library | [`d25c6d3c`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/d25c6d3c2d0f4d67483da20853f22e94a11b89cc) | 51 tests |
+| Reference extension | [`5237f070`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/5237f07098da8b6542f0fd8f1c613ae8dbf4e6dd) | 64 tests plus a Chromium lifecycle check |
+| Directory server | [`f84f5148`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/f84f51482ba2a925d9b5ff148185adf6dedef566) | 85 tests plus OpenAPI conformance |
+| End-to-end harness | [`034af226`](https://github.com/HTMLTrust/htmltrust-e2e/commit/034af22697f8b2a1c08b0c01200ca019995ca817) | Clean HTTPS simulation and CI |
+
+Native browser support remains a standards proposal. The current browser
+implementation is a Chromium extension.
 
 Current prototype repositories:
 
@@ -109,8 +124,10 @@ Current prototype repositories:
 | [htmltrust-e2e](https://github.com/HTMLTrust/htmltrust-e2e) | Combined system tests |
 | [htmltrust-website](https://github.com/HTMLTrust/htmltrust-website) | Project website and published draft copies |
 
-For a workspace-wide checkout and the combined run order, use the umbrella
-[developer guide](../README.md).
+To run the coordinated system, clone these repositories as siblings and start
+with the
+[end-to-end harness](https://github.com/HTMLTrust/htmltrust-e2e#readme). Its
+one-command workflow validates sibling paths and builds the required services.
 
 ## Contribute or report a problem
 
