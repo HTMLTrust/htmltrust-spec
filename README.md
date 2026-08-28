@@ -70,7 +70,14 @@ sudo apt-get install texlive-latex-recommended texlive-latex-extra \
   biber cm-super
 ```
 
-Then run `make paper`. The PDF is ignored by Git.
+Then run `make paper`. The PDF is ignored by Git. The Docker image uses the
+same package set as CI, so `make paper-docker` is available when TeX Live is
+not installed on the host.
+
+`make paper-docker` builds a local `htmltrust-paper-builder:bookworm` image
+from `.docker/paper/Dockerfile`, then mounts the checkout into a short-lived
+container. Docker caches the package-install layer; source files and the PDF
+remain on the host. Set `HTMLTRUST_PAPER_IMAGE` to use another local tag.
 
 ### W3C draft
 

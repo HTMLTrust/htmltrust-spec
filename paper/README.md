@@ -17,6 +17,19 @@ make paper
 The build runs `pdflatex`, `biber`, and two final `pdflatex` passes. It writes
 `paper/htmltrust.pdf`, which Git ignores.
 
+If TeX Live is unavailable on the host, use Docker:
+
+```sh
+make paper-docker
+```
+
+The first Docker build downloads Debian Bookworm package indexes and installs
+the TeX packages listed in `.docker/paper/Dockerfile` into a local image. A
+later build reuses that image layer while Docker's cache is valid. Changing
+the Dockerfile or building with `docker build --no-cache` downloads the
+packages again. The container mounts the checkout and writes the PDF as your
+host user.
+
 ## Install the required tools
 
 Install a TeX Live distribution that provides `pdflatex`, `biblatex`, and
@@ -32,8 +45,8 @@ After `make paper` succeeds:
    figures.
 3. Keep citations in `references.bib`; do not edit generated `.bbl` files.
 
-The current paper is 9 pages. PaperReview.ai receives the full PDF because it
-is below the service's 15-page review window. Completed external reviews live
+Check the page limit of any external review service before submitting. The
+paper length can change as the source changes. Completed external reviews live
 under `paper/reviews/` with their submission date.
 
 ## Related documents
