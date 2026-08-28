@@ -1,0 +1,9 @@
+flowchart TB
+    A[Author] -->|writes content| C[CMS signing integration]
+    K[Author private key] -->|signs region| C
+    C -->|publishes| P[Page with signed section]
+    C -->|publishes public key| D[HTTPS key endpoint or optional directory]
+    P -->|source snapshot| V[HTMLTrust verifier]
+    D -->|key and optional endorsements| V
+    V -->|interactive use| U[Browser indicator]
+    V -->|crawl-time use| I[Verified content record]
