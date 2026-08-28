@@ -4,7 +4,7 @@
 |---|---|
 | Status | Working drafts |
 | Version | Internet-Draft `-00` |
-| Updated | 2026-08-27 |
+| Updated | 2026-08-28 |
 | Author | Jason Grey |
 | Primary readers | Protocol implementers, standards reviewers, and researchers |
 | Reading time | 5 minutes |
@@ -98,15 +98,21 @@ writes its temporary snapshot under `$TMPDIR` when set, then `RUNNER_TEMP` or
 The reference repositories implement the v1 signing profile, including the
 JCS signing object, URL and origin scopes, HTTPS-only signed URLs, parser
 preflight, resource ceilings, and source-to-rendered browser lifecycle. The
-2026-08-28 evidence snapshot pins these tested revisions:
+current coordinated implementation baseline pins these tested revisions:
 
 | Component | Revision | Validation |
 |---|---|---|
-| Canonicalization | [`b0c8f305`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/b0c8f305425de190a7f209ac117d34f88c2b1946) | 123 shared fixtures across five language ports |
-| Browser verification library | [`d25c6d3c`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/d25c6d3c2d0f4d67483da20853f22e94a11b89cc) | 51 tests |
-| Reference extension | [`5237f070`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/5237f07098da8b6542f0fd8f1c613ae8dbf4e6dd) | 64 tests plus a Chromium lifecycle check |
-| Directory server | [`f84f5148`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/f84f51482ba2a925d9b5ff148185adf6dedef566) | 85 tests plus OpenAPI conformance |
-| End-to-end harness | [`034af226`](https://github.com/HTMLTrust/htmltrust-e2e/commit/034af22697f8b2a1c08b0c01200ca019995ca817) | Clean HTTPS simulation and CI |
+| Canonicalization | [`5e51040d`](https://github.com/HTMLTrust/htmltrust-canonicalization/commit/5e51040dcaaf50935e245702bdefbc18a1d542ce) | 128 shared fixtures across five language ports |
+| Browser verification library | [`39dc873c`](https://github.com/HTMLTrust/htmltrust-browser-client/commit/39dc873c368ff53b5d0295fbe4d8f493dea52f90) | 51 tests, typecheck, and build |
+| Reference extension | [`407bace3`](https://github.com/HTMLTrust/htmltrust-browser-reference/commit/407bace3ad792384ba623b5db795f3f32acd16ca) | 63 production content-script tests, typecheck, and browser builds |
+| Directory server | [`56ab5c06`](https://github.com/HTMLTrust/htmltrust-server-reference/commit/56ab5c06e901f8f48753e3a511dd9dda755b9bac) | 90 tests, OpenAPI lint, and live v1 conformance |
+| End-to-end harness | [`6354706d`](https://github.com/HTMLTrust/htmltrust-e2e/commit/6354706df0a90cad3a9d2a7e7c6751bcd268dbe9) | 33 tests, Chromium lifecycle checks, and the HTTPS simulation |
+
+The paper's Common Crawl and adversarial results use the earlier evaluated
+canonicalization snapshot `b0c8f305425de190a7f209ac117d34f88c2b1946`
+and its 123-fixture suite. Study 1 v0.4 archives that source and evidence. The
+five fixtures added in `5e51040d` test parser-preflight cases and have not been
+used to rerun the paper's 4,846-region corpus.
 
 Native browser support remains a standards proposal. The current browser
 implementation is a Chromium extension.
