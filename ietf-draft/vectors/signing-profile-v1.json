@@ -1,0 +1,232 @@
+{
+  "description": "HTMLTrust signing profile v1 vector from canonical content and normalized claim records",
+  "profile": {
+    "signature": "htmltrust-signature-v1",
+    "canonicalization": "htmltrust-c14n-v1",
+    "attributes": "htmltrust-attrs-v1",
+    "url": "htmltrust-safe-url-v1",
+    "context": "https://htmltrust.org/protocol/signed-section"
+  },
+  "key": {
+    "seedHex": "68746d6c74727573742d746573742d766563746f722d656432353531392d3031",
+    "publicKeyRawHex": "ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c19"
+  },
+  "input": {
+    "documentURL": "HTTPS://EXAMPLE.COM:443/essays/engines#analysis",
+    "attributes": {
+      "profile": "htmltrust-signature-v1",
+      "signature-scope": "url",
+      "keyid": "https://keys.example/alice-2026.json",
+      "algorithm": "ed25519",
+      "content-hash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8"
+    },
+    "canonicalContent": "On Analytical Engines\nThe engine weaves algebraic patterns - just as the loom weaves flowers.\nSee @attr:a:href:https://example.com/notes/engine\nthe notes and @attr:img:src:https://example.com/img/ada.png\n@attr:img:alt:Portrait of Ada\n.",
+    "normalizedClaims": [
+      {
+        "name": "author",
+        "content": "Ada Lovelace"
+      },
+      {
+        "name": "claim:License",
+        "content": "CC-BY-4.0"
+      },
+      {
+        "name": "signed-at",
+        "content": "2026-01-15T12:00:00Z"
+      }
+    ],
+    "canonicalClaims": "author:Ada Lovelace\nclaim\\:License:CC-BY-4.0\nsigned-at:2026-01-15T12\\:00\\:00Z\n",
+    "signedAt": "2026-01-15T12:00:00Z"
+  },
+  "claimsHash": "sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4",
+  "signingObject": {
+    "algorithm": "ed25519",
+    "attributeProfile": "htmltrust-attrs-v1",
+    "canonicalizationProfile": "htmltrust-c14n-v1",
+    "claimsHash": "sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4",
+    "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+    "context": "https://htmltrust.org/protocol/signed-section",
+    "keyid": "https://keys.example/alice-2026.json",
+    "location": "https://example.com/essays/engines",
+    "profile": "htmltrust-signature-v1",
+    "scope": "url",
+    "signedAt": "2026-01-15T12:00:00Z",
+    "urlProfile": "htmltrust-safe-url-v1"
+  },
+  "jcs": "{\"algorithm\":\"ed25519\",\"attributeProfile\":\"htmltrust-attrs-v1\",\"canonicalizationProfile\":\"htmltrust-c14n-v1\",\"claimsHash\":\"sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4\",\"contentHash\":\"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8\",\"context\":\"https://htmltrust.org/protocol/signed-section\",\"keyid\":\"https://keys.example/alice-2026.json\",\"location\":\"https://example.com/essays/engines\",\"profile\":\"htmltrust-signature-v1\",\"scope\":\"url\",\"signedAt\":\"2026-01-15T12:00:00Z\",\"urlProfile\":\"htmltrust-safe-url-v1\"}",
+  "signature": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA",
+  "tamperFields": [
+    "algorithm",
+    "attributeProfile",
+    "canonicalizationProfile",
+    "claimsHash",
+    "contentHash",
+    "context",
+    "keyid",
+    "location",
+    "profile",
+    "scope",
+    "signedAt",
+    "urlProfile"
+  ],
+  "signatureCases": [
+    {
+      "value": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA",
+      "valid": true
+    },
+    {
+      "value": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA=",
+      "failure": "invalid-encoding"
+    },
+    {
+      "value": "***",
+      "failure": "invalid-encoding"
+    },
+    {
+      "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "failure": "malformed-signature"
+    },
+    {
+      "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "failure": "signature-invalid"
+    }
+  ],
+  "locationCases": [
+    {
+      "documentURL": "HTTPS://BÜCHER.EXAMPLE:443/a/../article?q=1#part",
+      "scope": "url",
+      "location": "https://xn--bcher-kva.example/article?q=1"
+    },
+    {
+      "documentURL": "https://example.org:8443/a?q=1#part",
+      "scope": "origin",
+      "location": "https://example.org:8443"
+    },
+    {
+      "documentURL": "https://example.org:8443/completely/different?query=2",
+      "scope": "origin",
+      "location": "https://example.org:8443"
+    },
+    {
+      "documentURL": "https://user@example.org/article",
+      "scope": "url",
+      "failure": "origin-not-supported"
+    },
+    {
+      "documentURL": "http://example.org/article",
+      "scope": "url",
+      "failure": "origin-not-supported"
+    },
+    {
+      "documentURL": "file:///home/example/article.html",
+      "scope": "origin",
+      "failure": "origin-not-supported"
+    },
+    {
+      "documentURL": "not a URL",
+      "scope": "url",
+      "failure": "origin-not-supported"
+    },
+    {
+      "documentURL": "https://example.org/article",
+      "scope": "path",
+      "failure": "scope-unsupported"
+    }
+  ],
+  "timestampCases": [
+    {
+      "value": "2024-02-29T23:59:59Z",
+      "valid": true
+    },
+    {
+      "value": "2023-02-29T23:59:59Z",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "2026-01-15T12:00:60Z",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "2026-01-15T12:00:00.000Z",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "2026-01-15t12:00:00z",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "2026-01-15T07:00:00-05:00",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "0000-01-15T12:00:00Z",
+      "failure": "timestamp-invalid"
+    },
+    {
+      "value": "2026-13-15T12:00:00Z",
+      "failure": "timestamp-invalid"
+    }
+  ],
+  "urlPolicyCases": [
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "../notes?q=1#proof",
+      "url": "https://example.org/notes?q=1#proof"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "javascript:alert(1)",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "data:text/plain,hello",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "blob:https://example.org/1234",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "file:///home/example/report.pdf",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "mailto:alice@example.org",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "tel:+15551234567",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "web+example:opaque",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "http://example.org/plaintext",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "https://user:secret@example.org/private",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "https://example.org/articles/one",
+      "value": "https://example.org/line\nbreak",
+      "failure": "url-policy-violation"
+    },
+    {
+      "baseURL": "not a URL",
+      "value": "relative",
+      "failure": "attribute-canonicalization-failed"
+    }
+  ]
+}

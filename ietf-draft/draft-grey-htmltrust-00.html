@@ -1400,10 +1400,25 @@ referenced here as <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W
             <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-signing-payload-binding" class="internal xref">Signing Payload Binding</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
-                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-identity-not-bound-directly" class="internal xref">Identity not bound directly</a></p>
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-profile-identifiers-and-wir" class="internal xref">Profile identifiers and wire attributes</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
-                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-why-the-publisher-origin" class="internal xref">Why the publisher origin</a></p>
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-signed-attribute-and-safe-u" class="internal xref">Signed-attribute and safe-URL profiles</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-location-scope-and-same-ori" class="internal xref">Location scope and same-origin replay</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.4">
+                <p id="section-toc.1-1.5.2.4.1"><a href="#section-5.4" class="auto internal xref">5.4</a>.  <a href="#name-timestamp-profile" class="internal xref">Timestamp profile</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.5">
+                <p id="section-toc.1-1.5.2.5.1"><a href="#section-5.5" class="auto internal xref">5.5</a>.  <a href="#name-canonical-signing-object" class="internal xref">Canonical signing object</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.6">
+                <p id="section-toc.1-1.5.2.6.1"><a href="#section-5.6" class="auto internal xref">5.6</a>.  <a href="#name-algorithm-and-signer-bindin" class="internal xref">Algorithm and signer binding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.7">
+                <p id="section-toc.1-1.5.2.7.1"><a href="#section-5.7" class="auto internal xref">5.7</a>.  <a href="#name-legacy-payloads" class="internal xref">Legacy payloads</a></p>
 </li>
             </ul>
 </li>
@@ -1701,8 +1716,9 @@ particular passage of text on a page, or whether that text has been altered
 since publication.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">HTMLTrust addresses this gap with a single, narrowly-scoped mechanism: a
 cryptographic signature, carried in band, over the canonicalized text of a
-region of an HTML document, bound to the publication origin and to a
-resolvable signer identifier. Verifiers re-derive the canonical text,
+region of an HTML document, bound to its signed publication location and to
+a resolvable signer identifier. The location is either one exact URL or one
+HTTPS origin under an explicit signer-selected scope. Verifiers re-derive the canonical text,
 recompute the hash, resolve the signer's public key, and verify the
 signature, all without any required network call to a trusted third party.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">A companion Community Group Report <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W3C</a>]</span> defines the HTML element
@@ -1893,9 +1909,27 @@ defined in Section 11.<a href="#section-2-2.22.1" class="pilcrow">¶</a></p>
         <dd class="break"></dd>
 <dt id="section-2-2.23">Origin:</dt>
         <dd style="margin-left: 1.5em" id="section-2-2.24">
-          <p id="section-2-2.24.1">The Web origin at which signed content is canonically published, as
-defined by <span>[<a href="#RFC6454" class="cite xref">RFC6454</a>]</span>: the tuple of scheme, host, and port. HTMLTrust
-serializes origins as described in Section 5.<a href="#section-2-2.24.1" class="pilcrow">¶</a></p>
+          <p id="section-2-2.24.1">A Web tuple of scheme, host, and port as defined by <span>[<a href="#RFC6454" class="cite xref">RFC6454</a>]</span>. Origin scope
+uses the URL Standard serialization of this tuple.<a href="#section-2-2.24.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-2.25">Location:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-2.26">
+          <p id="section-2-2.26.1">The URL or origin string derived from the final response URL under the
+signed scope. The location is a member of the v1 signing object.<a href="#section-2-2.26.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-2.27">Signing profile:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-2.28">
+          <p id="section-2-2.28.1">A closed, versioned suite that selects the signing object,
+canonicalization rules, signed attributes, URL policy, scope semantics,
+and timestamp syntax. This document defines <code>htmltrust-signature-v1</code>.<a href="#section-2-2.28.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-2.29">Signature scope:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-2.30">
+          <p id="section-2-2.30.1">The rule that derives the signed location from the final response URL.
+V1 defines exact URL scope and origin-wide scope.<a href="#section-2-2.30.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
@@ -1919,9 +1953,9 @@ authoring tool).<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
 <dt id="section-3-2.3">Publisher origin:</dt>
         <dd style="margin-left: 1.5em" id="section-3-2.4">
           <p id="section-3-2.4.1">Serves the resulting HTML to verifiers over the Web. The publisher
-origin is bound into the signing payload via the legacy-named <code>domain</code>
-field (Section 5). The publisher origin and the signer <span class="bcp14">MAY</span> be different
-entities; the origin attests transport, the signer attests authorship.<a href="#section-3-2.4.1" class="pilcrow">¶</a></p>
+location is bound into the signing object under the selected scope
+(Section 5). The publisher origin and the signer <span class="bcp14">MAY</span> be different
+entities; TLS authenticates transport while the signer attests authorship.<a href="#section-3-2.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-3-2.5">Verifier:</dt>
@@ -1957,8 +1991,8 @@ per Section 4.6, and computes the claims hash.<a href="#section-3-4.2.1" class="
 with the private key corresponding to the signer's key identifier.<a href="#section-3-4.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-3-4.4">
-          <p id="section-3-4.4.1">The signer emits the HTML region annotated with key identifier,
-signature, content hash, and algorithm attributes per <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W3C</a>]</span>.<a href="#section-3-4.4.1" class="pilcrow">¶</a></p>
+          <p id="section-3-4.4.1">The signer emits the HTML region annotated with the six required v1
+attributes defined in Section 5.1 and <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W3C</a>]</span>.<a href="#section-3-4.4.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-3-4.5">
           <p id="section-3-4.5.1">The publisher origin serves the resulting HTML.<a href="#section-3-4.5.1" class="pilcrow">¶</a></p>
@@ -2007,7 +2041,7 @@ the signed document URL as its fallback base URL. Runtime mutation of the
 document URL or a <code>base</code> element <span class="bcp14">MUST NOT</span> change the base URL of an existing
 source-snapshot result. A verifier operating outside a browser <span class="bcp14">MUST</span> receive
 the signed document URL and <span class="bcp14">MUST</span> apply the same HTML base-URL algorithm. The
-origin in the signing payload is derived from the signed document URL, not
+location in the signing object is derived from the signed document URL, not
 from the document base URL.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
 <p id="section-4.1-4">Portable-profile validation is performed on the source octets and parser
 diagnostics before the recovered DOM tree is accepted as verification input.
@@ -2161,8 +2195,9 @@ particular a <code>&lt;link&gt;</code>'s <code>href</code> is NOT a signed seman
 tags do not themselves contribute bytes, but they <span class="bcp14">MAY</span> contribute block
 boundaries per Section 4.5 and their descendant text nodes contribute
 to the canonical content.<a href="#section-4.3.2-1" class="pilcrow">¶</a></p>
-<p id="section-4.3.2-2">The following signed semantic attributes also contribute to the
-canonical content when present on an included element:<a href="#section-4.3.2-2" class="pilcrow">¶</a></p>
+<p id="section-4.3.2-2">Under the <code>htmltrust-attrs-v1</code> profile defined in Section 5, the following
+signed semantic attributes also contribute to the canonical content when
+present on an included element:<a href="#section-4.3.2-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-4.3.2-3.1">
               <p id="section-4.3.2-3.1.1"><code>href</code><a href="#section-4.3.2-3.1.1" class="pilcrow">¶</a></p>
@@ -2177,9 +2212,9 @@ canonical content when present on an included element:<a href="#section-4.3.2-2"
               <p id="section-4.3.2-3.4.1"><code>aria-label</code><a href="#section-4.3.2-3.4.1" class="pilcrow">¶</a></p>
 </li>
           </ul>
-<p id="section-4.3.2-4">This first signed-attribute list is intentionally small and is open
-for community feedback. Future revisions <span class="bcp14">MAY</span> add attributes to the
-list, but verifiers for this revision <span class="bcp14">MUST</span> use exactly the list above.<a href="#section-4.3.2-4" class="pilcrow">¶</a></p>
+<p id="section-4.3.2-4">This signed-attribute list is fixed for <code>htmltrust-attrs-v1</code>. A future
+revision <span class="bcp14">MAY</span> define another list under a new profile identifier, but a
+verifier <span class="bcp14">MUST NOT</span> add attributes to or remove attributes from this profile.<a href="#section-4.3.2-4" class="pilcrow">¶</a></p>
 <p id="section-4.3.2-5">For each included element, before visiting the element's children, the
 canonicalizer examines the signed semantic attributes in the order
 listed above. For each present attribute, it appends one attribute
@@ -2197,10 +2232,10 @@ U+000A, so consecutive attribute records need no additional separator.<a href="#
 exposed by the HTML parser. <code>normalized-value</code> for <code>alt</code> and <code>aria-label</code>
 is produced by applying the plain-text normalization in
 Section 4.4. <code>normalized-value</code> for <code>href</code> and <code>src</code> is produced by
-parsing the attribute value as a URL against the signed document's base
-URL and serializing the resulting URL using the Web URL serializer. If
-URL parsing fails, verification <span class="bcp14">MUST</span> fail with
-"attribute-canonicalization-failed". The normalized value <span class="bcp14">MUST NOT</span>
+applying <code>htmltrust-safe-url-v1</code> in Section 5.2, then serializing the
+resulting URL with the Web URL serializer. A URL parsing failure produces
+"attribute-canonicalization-failed"; a parsed URL outside the selected
+policy produces "url-policy-violation". The normalized value <span class="bcp14">MUST NOT</span>
 contain U+000A; if a canonicalizer cannot guarantee this, verification
 <span class="bcp14">MUST</span> fail with "attribute-canonicalization-failed". <code>escaped-value</code> is
 formed from <code>normalized-value</code> by replacing every U+0040 COMMERCIAL AT
@@ -2213,11 +2248,9 @@ escaping.<a href="#section-4.3.2-8" class="pilcrow">¶</a></p>
 <p id="section-4.3.2-9">For example, a text node containing the literal string <code>@attr:a:href:x</code>
 contributes <code>@@attr:a:href:x</code>, while a real <code>href</code> attribute contributes
 <code>@attr:a:href:x</code>. The two byte sequences therefore remain distinguishable.<a href="#section-4.3.2-9" class="pilcrow">¶</a></p>
-<p id="section-4.3.2-10">Editor's Note: The precise expansion list for signed semantic
-attributes is expected to evolve. Candidate additions include <code>title</code>,
-<code>cite</code>, image dimension attributes, and ARIA attributes used in name
-computation, but this revision deliberately avoids full structural HTML
-signing.<a href="#section-4.3.2-10" class="pilcrow">¶</a></p>
+<p id="section-4.3.2-10">Candidate future profiles may cover <code>title</code>, <code>cite</code>, image dimensions, or
+additional ARIA attributes. Those attributes are outside
+<code>htmltrust-attrs-v1</code> and do not contribute bytes under this revision.<a href="#section-4.3.2-10" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="boundary-producing-elements">
@@ -2453,12 +2486,16 @@ whose <code>name</code> attributes normalize to the same value within a single
 signed section, and verifiers <span class="bcp14">MUST</span> fail with "claim-duplicate" if they
 encounter such duplicates. The concatenation of the sorted lines is
 the canonical claims byte string.<a href="#section-4.6-5" class="pilcrow">¶</a></p>
-<p id="section-4.6-6">The <code>signed-at</code> claim is not special for purposes of the claims hash:
+<p id="section-4.6-6">Normalized claim names are case-sensitive. Only the exact ASCII name
+<code>signed-at</code> has protocol semantics in v1. Other names, including <code>author</code>
+and names in the <code>claim:</code> namespace, are signed metadata whose meaning is
+defined outside the cryptographic verification procedure.<a href="#section-4.6-6" class="pilcrow">¶</a></p>
+<p id="section-4.6-7">The <code>signed-at</code> claim is not special for purposes of the claims hash:
 it is included in canonical claims like every other direct child claim
 <code>&lt;meta&gt;</code>. Section 5 also includes the normalized <code>signed-at</code> value as
 a separate signing-payload field. This deliberate duplicate binding
 makes the timestamp easy for verifiers and directory indexes to extract
-without weakening claim integrity.<a href="#section-4.6-6" class="pilcrow">¶</a></p>
+without weakening claim integrity.<a href="#section-4.6-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="opt-out-marker-editors-note">
@@ -2485,91 +2522,271 @@ explicit experimental mode.<a href="#section-4.7-1" class="pilcrow">¶</a></p>
       <h2 id="name-signing-payload-binding">
 <a href="#section-5" class="section-number selfRef">5. </a><a href="#name-signing-payload-binding" class="section-name selfRef">Signing Payload Binding</a>
       </h2>
-<p id="section-5-1">The signature is computed over the deterministic UTF-8 byte string
-formed by joining four fields with a single ASCII colon (U+003A)
-between each:<a href="#section-5-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5-2">
-<pre>
-content-hash ":" claims-hash ":" domain ":" signed-at
-</pre><a href="#section-5-2" class="pilcrow">¶</a>
-</div>
-<p id="section-5-3">The fields are defined as follows.<a href="#section-5-3" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-5-4">
-        <dt id="section-5-4.1">content-hash:</dt>
-        <dd style="margin-left: 1.5em" id="section-5-4.2">
-          <p id="section-5-4.2.1">The content hash as defined in Section 6.2, including the
-algorithm prefix and separator (for example,
-<code>sha256:Zm9vYmFy...</code>). Verifiers <span class="bcp14">MUST</span> use the literal value
-serialized into the <code>content-hash</code> attribute of the signed section
-element.<a href="#section-5-4.2.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="section-5-4.3">claims-hash:</dt>
-        <dd style="margin-left: 1.5em" id="section-5-4.4">
-          <p id="section-5-4.4.1">The claims hash, formatted identically to <code>content-hash</code>. The
-claims hash is not carried in a separate attribute on the wire; it
-is recomputed by the verifier from the canonical claims byte
-string (Section 4.6) using the algorithm given by the prefix of
-the <code>content-hash</code> attribute. The hash algorithm for both
-<code>content-hash</code> and <code>claims-hash</code> <span class="bcp14">MUST</span> be the same.<a href="#section-5-4.4.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="section-5-4.5">domain:</dt>
-        <dd style="margin-left: 1.5em" id="section-5-4.6">
-          <p id="section-5-4.6.1">A legacy field name retained for wire compatibility. Its value is
-the serialized Web origin at which the content is canonically
-published. The value <span class="bcp14">MUST</span> be the result of the URL Standard's origin
-serialization algorithm for the document URL, with no path, query,
-fragment, or credentials. Conforming public signatures <span class="bcp14">MUST</span> use an
-HTTPS tuple origin. An HTTP tuple origin <span class="bcp14">MAY</span> be enabled by an explicitly
-configured local-development profile, but that profile <span class="bcp14">MUST</span> be
-distinguishable from normal verification and <span class="bcp14">MUST NOT</span> be accepted for
-public content by default. Opaque origins (<code>data:</code>, <code>file:</code>, and
-similar) are invalid. The URL Standard, rather than a host-language URL
-serializer, defines lowercasing, IDNA A-label conversion, IPv6 bracket
-syntax, and default port omission. For example, <code>https://example.org</code>
-and <code>https://example.org:8443</code> are distinct origins.<a href="#section-5-4.6.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="section-5-4.7">signed-at:</dt>
-        <dd style="margin-left: 1.5em" id="section-5-4.8">
-          <p id="section-5-4.8.1">The value of the <code>signed-at</code> claim <code>&lt;meta&gt;</code> element, after the
-normalization in Section 4.4 has been applied. The value <span class="bcp14">MUST</span>
-conform to the date-time production of <span>[<a href="#RFC3339" class="cite xref">RFC3339</a>]</span> with the time
-offset given in UTC ("Z").<a href="#section-5-4.8.1" class="pilcrow">¶</a></p>
-</dd>
-      <dd class="break"></dd>
-</dl>
-<p id="section-5-5">The fields <span class="bcp14">MUST</span> appear in the order shown. The separator <span class="bcp14">MUST</span> be a
-single U+003A COLON. No leading or trailing whitespace is permitted.<a href="#section-5-5" class="pilcrow">¶</a></p>
-<div id="identity-not-bound-directly">
+<p id="section-5-1">This section defines the <code>htmltrust-signature-v1</code> signing profile. The
+profile is a closed suite. It fixes the signing-payload representation,
+canonicalization profile, signed-attribute set, URL policy, location scope
+semantics, and timestamp syntax. A later revision that changes any of those
+rules <span class="bcp14">MUST</span> use a different signing-profile identifier.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<div id="profile-identifiers-and-wire-attributes">
 <section id="section-5.1">
-        <h3 id="name-identity-not-bound-directly">
-<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-identity-not-bound-directly" class="section-name selfRef">Identity not bound directly</a>
+        <h3 id="name-profile-identifiers-and-wir">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-profile-identifiers-and-wir" class="section-name selfRef">Profile identifiers and wire attributes</a>
         </h3>
-<p id="section-5.1-1">The signer's identifier (<code>keyid</code>) is intentionally not included in
-the signing payload. The identifier is implicit in key resolution
-(Section 8): any attempt to claim a different identifier would
-resolve to a different public key, and the signature would fail to
-verify. Including the identifier explicitly would add a fragile
-string-matching surface without strengthening the cryptographic
-binding.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-1">The identifiers fixed by this profile are:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Purpose</th>
+              <th class="text-left" rowspan="1" colspan="1">Identifier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">signing profile</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>htmltrust-signature-v1</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">canonicalization profile</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>htmltrust-c14n-v1</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">signed-attribute profile</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>htmltrust-attrs-v1</code>
+</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">URL policy profile</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>htmltrust-safe-url-v1</code>
+</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-5.1-3">The identifiers are case-sensitive ASCII strings. They are protocol
+identifiers, not implementation version numbers.<a href="#section-5.1-3" class="pilcrow">¶</a></p>
+<p id="section-5.1-4">A v1 signed section <span class="bcp14">MUST</span> carry the <code>profile</code> attribute with the exact value
+<code>htmltrust-signature-v1</code> and the <code>signature-scope</code> attribute with one of the
+exact values <code>url</code> or <code>origin</code>, in addition to <code>keyid</code>, <code>signature</code>,
+<code>content-hash</code>, and <code>algorithm</code>. Leading or trailing ASCII whitespace in any
+of these protocol attributes is invalid. There are no default values.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+<p id="section-5.1-5">A missing required attribute produces <code>incomplete</code>. An unknown <code>profile</code>
+produces <code>profile-unsupported</code>, and an unknown <code>signature-scope</code> produces
+<code>scope-unsupported</code>. A verifier <span class="bcp14">MUST</span> select the profile before
+canonicalization and <span class="bcp14">MUST NOT</span> retry a failed v1 verification with another
+profile.<a href="#section-5.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="why-the-publisher-origin">
+<div id="signed-attribute-and-safe-url-profiles">
 <section id="section-5.2">
-        <h3 id="name-why-the-publisher-origin">
-<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-why-the-publisher-origin" class="section-name selfRef">Why the publisher origin</a>
+        <h3 id="name-signed-attribute-and-safe-u">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-signed-attribute-and-safe-u" class="section-name selfRef">Signed-attribute and safe-URL profiles</a>
         </h3>
-<p id="section-5.2-1">Binding the signature to the publication origin prevents verbatim
-re-publication of signed content with the original signature
-preserved. A reader who encounters apparently signed content at a
-different origin will see a signature verification failure caused by
-the origin mismatch alone, regardless of any other property of the
-content. Legitimate re-publication is supported by a separate
-wrapper-signing mechanism using a <code>claim:CanonicalURL</code> field (see
-<span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W3C</a>]</span>); the wrapper signer attests to a republication, not
-to original authorship, and is responsible for the chain.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-1"><code>htmltrust-attrs-v1</code> contains exactly <code>href</code>, <code>src</code>, <code>alt</code>, and <code>aria-label</code>
+in the order specified in Section 4.3.2. Adding, removing, reordering, or
+changing the interpretation of a covered attribute requires a new
+signed-attribute profile identifier. Implementations <span class="bcp14">MUST NOT</span> extend this
+set while reporting <code>htmltrust-attrs-v1</code>.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2">For <code>href</code> and <code>src</code>, <code>htmltrust-safe-url-v1</code> applies before the serialized
+URL is emitted into canonical content. Its input is the attribute value
+produced by the accepted HTML parser after input-stream preprocessing and
+character-reference resolution. Before passing that value to the URL
+Standard parser, the verifier <span class="bcp14">MUST</span> inspect every code point and reject an
+ASCII C0 control or U+007F. This order prevents URL preprocessing from
+silently stripping a tab or line feed. The value is resolved against the
+source snapshot's document base URL. The result <span class="bcp14">MUST</span> use the <code>https</code> scheme
+and <span class="bcp14">MUST NOT</span> contain a username or password. Query and fragment components
+are preserved by URL serialization. Verification does not dereference the
+URL. A policy violation produces <code>url-policy-violation</code>; a URL parse failure
+produces <code>attribute-canonicalization-failed</code>.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2-3">This profile therefore rejects <code>javascript</code>, <code>data</code>, <code>blob</code>, <code>file</code>,
+<code>mailto</code>, <code>tel</code>, custom schemes, and cleartext <code>http</code> in signed <code>href</code> and
+<code>src</code> attributes. An implementation <span class="bcp14">MAY</span> define a local-development profile,
+but it <span class="bcp14">MUST</span> use a different URL-policy identifier and <span class="bcp14">MUST NOT</span> be accepted as
+<code>htmltrust-safe-url-v1</code>.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+<p id="section-5.2-4">The profile does not cover <code>srcset</code>, CSS URLs, event-handler attributes, or
+attributes outside <code>htmltrust-attrs-v1</code>. User interfaces <span class="bcp14">MUST</span> describe the
+result as verification of the covered content and attributes rather than as
+whole-document integrity.<a href="#section-5.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="location-scope-and-same-origin-replay">
+<section id="section-5.3">
+        <h3 id="name-location-scope-and-same-ori">
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-location-scope-and-same-ori" class="section-name selfRef">Location scope and same-origin replay</a>
+        </h3>
+<p id="section-5.3-1">The signed document URL is the final response URL after redirects. Public v1
+signatures require a URL with an HTTPS tuple origin and no username or
+password. Host case folding, IDNA A-label conversion, IPv6 syntax, and
+default-port omission follow the URL Standard.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<p id="section-5.3-2">For <code>signature-scope="url"</code>, the location is the URL Standard serialization
+of the signed document URL with its fragment excluded. The path and query are
+included. A fragment is excluded because it is not sent in an HTTP request.
+This scope prevents an unchanged section from verifying at a different path
+or query on the same origin. Authoring tools <span class="bcp14">SHOULD</span> emit <code>url</code> scope.<a href="#section-5.3-2" class="pilcrow">¶</a></p>
+<p id="section-5.3-3">For <code>signature-scope="origin"</code>, the location is the URL Standard origin
+serialization of the signed document URL. This value contains scheme, host,
+and non-default port, with no path, query, fragment, or credentials. Origin
+scope explicitly permits replay at another URL on the same origin. Verifiers
+<span class="bcp14">MUST</span> expose the accepted scope to trust policy and user-interface code so a
+caller can reject origin-wide signatures.<a href="#section-5.3-3" class="pilcrow">¶</a></p>
+<p id="section-5.3-4">The document's <code>&lt;link rel="canonical"&gt;</code>, Open Graph URL, document base URL,
+and surrounding markup do not select or alter the location. Copying a
+section to another origin always changes the location. <code>www</code> and apex hosts,
+CDN aliases, and distinct ports are distinct locations unless they serialize
+to the same origin under the URL Standard. A URL that cannot produce the
+required public location produces <code>origin-not-supported</code>.<a href="#section-5.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="timestamp-profile">
+<section id="section-5.4">
+        <h3 id="name-timestamp-profile">
+<a href="#section-5.4" class="section-number selfRef">5.4. </a><a href="#name-timestamp-profile" class="section-name selfRef">Timestamp profile</a>
+        </h3>
+<p id="section-5.4-1">Every v1 section <span class="bcp14">MUST</span> contain exactly one direct-child claim whose normalized
+name is the ASCII string <code>signed-at</code>. Its normalized content <span class="bcp14">MUST</span> be exactly
+20 ASCII characters in this form:<a href="#section-5.4-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.4-2">
+<pre>
+YYYY-MM-DDTHH:MM:SSZ
+</pre><a href="#section-5.4-2" class="pilcrow">¶</a>
+</div>
+<p id="section-5.4-3">The year is in the range 0001 through 9999. The month, day, hour, minute, and
+second <span class="bcp14">MUST</span> form a valid Gregorian UTC date and time. Seconds are limited to
+00 through 59. Lowercase <code>t</code> or <code>z</code>, UTC offsets, fractional seconds, leap
+seconds, and trailing whitespace are invalid. This is a deliberately narrow
+profile of <span>[<a href="#RFC3339" class="cite xref">RFC3339</a>]</span>. A violation produces <code>timestamp-invalid</code>.<a href="#section-5.4-3" class="pilcrow">¶</a></p>
+<p id="section-5.4-4"><code>signed-at</code> is an assertion made by the signer. It proves that the timestamp
+was covered by the signature, but it does not prove when the signature was
+created. Freshness limits and future-clock-skew rules are trust-policy
+decisions and <span class="bcp14">MUST NOT</span> be reported as <code>signature-invalid</code>. A verifier that
+accepts a signature from a revoked key based on time needs independent
+evidence, such as an <span>[<a href="#RFC3161" class="cite xref">RFC3161</a>]</span> time-stamp token, an append-only log entry, or
+a trusted directory first-seen record. Such evidence is evaluated outside
+the v1 signing payload.<a href="#section-5.4-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="canonical-signing-object">
+<section id="section-5.5">
+        <h3 id="name-canonical-signing-object">
+<a href="#section-5.5" class="section-number selfRef">5.5. </a><a href="#name-canonical-signing-object" class="section-name selfRef">Canonical signing object</a>
+        </h3>
+<p id="section-5.5-1">The signer constructs this JSON object, with every member present:<a href="#section-5.5-1" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="section-5.5-2">
+<pre>
+{
+  "algorithm": "ed25519",
+  "attributeProfile": "htmltrust-attrs-v1",
+  "canonicalizationProfile": "htmltrust-c14n-v1",
+  "claimsHash": "sha256:...",
+  "contentHash": "sha256:...",
+  "context": "https://htmltrust.org/protocol/signed-section",
+  "keyid": "https://keys.example/alice.json",
+  "location": "https://example.org/article",
+  "profile": "htmltrust-signature-v1",
+  "scope": "url",
+  "signedAt": "2026-08-27T18:00:00Z",
+  "urlProfile": "htmltrust-safe-url-v1"
+}
+</pre><a href="#section-5.5-2" class="pilcrow">¶</a>
+</div>
+<p id="section-5.5-3">The members are defined as follows:<a href="#section-5.5-3" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-5.5-4">
+          <dt id="section-5.5-4.1">algorithm:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.2">
+            <p id="section-5.5-4.2.1">The exact <code>algorithm</code> attribute value. The value <span class="bcp14">MUST</span> be a registered
+algorithm identifier accepted by the verifier.<a href="#section-5.5-4.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.3">attributeProfile, canonicalizationProfile, profile, urlProfile:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.4">
+            <p id="section-5.5-4.4.1">The exact identifiers in Section 5.1. These values are constants for v1
+and <span class="bcp14">MUST NOT</span> be copied from attacker-selected markup.<a href="#section-5.5-4.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.5">claimsHash:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.6">
+            <p id="section-5.5-4.6.1">The claims hash recomputed from Section 4.6 using the algorithm selected by
+<code>contentHash</code>. It is not carried as a separate HTML attribute. The content
+and claims hash algorithms <span class="bcp14">MUST</span> match.<a href="#section-5.5-4.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.7">contentHash:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.8">
+            <p id="section-5.5-4.8.1">The exact <code>content-hash</code> attribute value after its encoding has been
+validated as canonical under Section 6.<a href="#section-5.5-4.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.9">context:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.10">
+            <p id="section-5.5-4.10.1">The exact ASCII string <code>https://htmltrust.org/protocol/signed-section</code>.
+This member separates HTMLTrust signed-section signatures from signatures
+made for another protocol.<a href="#section-5.5-4.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.11">keyid:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.12">
+            <p id="section-5.5-4.12.1">The exact <code>keyid</code> attribute value after the protocol-attribute validation
+in Section 5.1. It selects one verification key under Section 8.<a href="#section-5.5-4.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.13">location:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.14">
+            <p id="section-5.5-4.14.1">The location derived by Section 5.3 from the accepted source snapshot's
+final response URL and the selected scope.<a href="#section-5.5-4.14.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.15">scope:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.16">
+            <p id="section-5.5-4.16.1">The exact <code>signature-scope</code> attribute value.<a href="#section-5.5-4.16.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.5-4.17">signedAt:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.5-4.18">
+            <p id="section-5.5-4.18.1">The normalized <code>signed-at</code> claim content after Section 5.4 validation.<a href="#section-5.5-4.18.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-5.5-5">The signing payload is the UTF-8 encoding of this object serialized with the
+JSON Canonicalization Scheme <span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span>. The serialized object contains no
+unknown or optional members in v1. The signature operation in Section 6.3 is
+applied directly to those bytes.<a href="#section-5.5-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="algorithm-and-signer-binding">
+<section id="section-5.6">
+        <h3 id="name-algorithm-and-signer-bindin">
+<a href="#section-5.6" class="section-number selfRef">5.6. </a><a href="#name-algorithm-and-signer-bindin" class="section-name selfRef">Algorithm and signer binding</a>
+        </h3>
+<p id="section-5.6-1">Both <code>algorithm</code> and <code>keyid</code> are inside the signed object. Changing either
+attribute changes the signing payload and causes signature verification to
+fail. The resolved key document <span class="bcp14">MUST</span> identify a key suitable for exactly the
+declared algorithm; a verifier <span class="bcp14">MUST NOT</span> try other algorithms or other keys
+after a mismatch.<a href="#section-5.6-1" class="pilcrow">¶</a></p>
+<p id="section-5.6-2">A public-key fingerprint is not a v1 payload member. <code>keyid</code> selects one
+verification method, and the signature already proves possession of the
+corresponding private key. Key rotation uses a fresh <code>keyid</code> under Section 9.
+Implementations <span class="bcp14">MAY</span> expose a derived key fingerprint for diagnostics or
+trust policy, but it does not replace signed <code>keyid</code> binding.<a href="#section-5.6-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="legacy-payloads">
+<section id="section-5.7">
+        <h3 id="name-legacy-payloads">
+<a href="#section-5.7" class="section-number selfRef">5.7. </a><a href="#name-legacy-payloads" class="section-name selfRef">Legacy payloads</a>
+        </h3>
+<p id="section-5.7-1">The four-field colon-joined payload used by pre-v1 prototypes is not part of
+<code>htmltrust-signature-v1</code>. An implementation <span class="bcp14">MAY</span> offer an explicitly enabled
+legacy verifier, but absence of <code>profile</code> <span class="bcp14">MUST NOT</span> trigger it automatically.
+A legacy success <span class="bcp14">MUST</span> be labeled separately and <span class="bcp14">MUST NOT</span> be reported as a v1
+valid result. Migration consists of verifying the legacy artifact under its
+original rules, canonicalizing the accepted source under v1, and producing a
+new v1 signature. Re-encoding a legacy signature does not migrate it.<a href="#section-5.7-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2706,8 +2923,8 @@ does not match the selected algorithm before attempting verification.<a href="#s
         </h3>
 <p id="section-7.1-1">The following identifiers are defined for use in the <code>algorithm</code>
 attribute of a signed section.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-1">
-          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<table class="center" id="table-2">
+          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Identifier</th>
@@ -2782,8 +2999,8 @@ multiple algorithms after a mismatch.<a href="#section-7.1-4" class="pilcrow">¶
         </h3>
 <p id="section-7.2-1">The following identifiers are defined for use in the algorithm prefix
 of <code>content-hash</code> and <code>claims-hash</code>.<a href="#section-7.2-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-2">
-          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<table class="center" id="table-3">
+          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Identifier</th>
@@ -3138,17 +3355,14 @@ capabilities. The response media type is
     "signature": ["ed25519", "ecdsa-p256"],
     "hash": ["sha256", "sha384"]
   },
+  "supportedProfiles": ["htmltrust-signature-v1"],
   "contact": "operator@directory.example",
   "termsOfService": "https://directory.example/tos"
 }
 </pre><a href="#section-10.2-2" class="pilcrow">¶</a>
 </div>
-<p id="section-10.2-3">The fields <code>directory</code>, <code>version</code>, <code>capabilities</code>, and
-<code>supportedAlgorithms</code> are <span class="bcp14">REQUIRED</span>. Other fields are <span class="bcp14">OPTIONAL</span>.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
-<p id="section-10.2-4">JSON members named <code>domain</code> in this API carry the serialized origin
-value defined for the signing payload in Section 5. The field name is
-retained for compatibility with early tooling and <span class="bcp14">MUST NOT</span> be
-interpreted as a host-only domain name.<a href="#section-10.2-4" class="pilcrow">¶</a></p>
+<p id="section-10.2-3">The fields <code>directory</code>, <code>version</code>, <code>capabilities</code>, <code>supportedAlgorithms</code>, and
+<code>supportedProfiles</code> are <span class="bcp14">REQUIRED</span>. Other fields are <span class="bcp14">OPTIONAL</span>.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="get-contenthash">
@@ -3168,9 +3382,12 @@ any <code>/</code> in the Base64 value becomes <code>%2F</code>).<a href="#secti
   "firstSeen": "2026-05-15T12:34:56Z",
   "signers": [
     {
-      "keyid": "did:web:author.example",
+      "profile": "htmltrust-signature-v1",
+      "keyid": "did:web:author.example#key-1",
+      "algorithm": "ed25519",
       "signedAt": "2026-05-01T10:30:00Z",
-      "domain": "https://author.example",
+      "scope": "url",
+      "location": "https://author.example/posts/123",
       "signature": "3q2+7w8NslfJ..."
     }
   ],
@@ -3192,10 +3409,13 @@ request body is JSON of the form:<a href="#section-10.4-1" class="pilcrow">¶</a
 <div class="alignLeft art-text artwork" id="section-10.4-2">
 <pre>
 {
+  "profile": "htmltrust-signature-v1",
   "contentHash": "sha256:Zm9vYmFy...",
-  "keyid": "did:web:author.example",
+  "keyid": "did:web:author.example#key-1",
+  "algorithm": "ed25519",
   "signedAt": "2026-05-01T10:30:00Z",
-  "domain": "https://author.example",
+  "scope": "url",
+  "location": "https://author.example/posts/123",
   "signature": "3q2+7w8NslfJ...",
   "sourceURL": "https://author.example/posts/123",
   "claims": [
@@ -3210,7 +3430,12 @@ request body is JSON of the form:<a href="#section-10.4-1" class="pilcrow">¶</a
 <span>[<a href="#RFC9421" class="cite xref">RFC9421</a>]</span> from a key the directory can resolve. The directory <span class="bcp14">MUST</span>
 re-verify the submitted signature against the canonical signing
 payload (Section 5) before indexing.<a href="#section-10.4-3" class="pilcrow">¶</a></p>
-<p id="section-10.4-4">The <code>claims</code> array <span class="bcp14">MUST</span> contain the complete set of direct-child claim
+<p id="section-10.4-4">The <code>profile</code>, <code>algorithm</code>, <code>keyid</code>, <code>scope</code>, <code>location</code>, <code>contentHash</code>,
+<code>signedAt</code>, and <code>signature</code> members are <span class="bcp14">REQUIRED</span>. <code>sourceURL</code> is the observed
+occurrence URL. The directory <span class="bcp14">MUST</span> derive a location from <code>sourceURL</code> under
+the submitted scope and require it to equal <code>location</code>. A directory <span class="bcp14">MUST NOT</span>
+derive the signed location from canonical-link metadata.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
+<p id="section-10.4-5">The <code>claims</code> array <span class="bcp14">MUST</span> contain the complete set of direct-child claim
 records used by the signer, including exactly one <code>signed-at</code> record. Each
 array member <span class="bcp14">MUST</span> contain exactly one string <code>name</code> and one string
 <code>content</code>. The directory <span class="bcp14">MUST</span> normalize, escape, detect duplicates, sort,
@@ -3220,10 +3445,10 @@ and it <span class="bcp14">MUST</span> require the normalized <code>signed-at</c
 <code>signedAt</code>. A missing, extra, malformed, or duplicate claim causes the
 submission to fail. The directory <span class="bcp14">MUST</span> use this recomputed claims hash when
 constructing the Section 5 signing payload; it <span class="bcp14">MUST NOT</span> insert a missing
-claim or accept a client-supplied claims hash in its place.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
-<p id="section-10.4-5">Successful submission returns <code>201 Created</code> with a <code>Location</code> header
+claim or accept a client-supplied claims hash in its place.<a href="#section-10.4-5" class="pilcrow">¶</a></p>
+<p id="section-10.4-6">Successful submission returns <code>201 Created</code> with a <code>Location</code> header
 pointing at the resulting <code>/content/{hash}</code> URL. Rejected submissions
-return <code>4xx</code> codes per Section 10.9.<a href="#section-10.4-5" class="pilcrow">¶</a></p>
+return <code>4xx</code> codes per Section 10.9.<a href="#section-10.4-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="get-contenthashendorsements">
@@ -3383,8 +3608,8 @@ specific flat signature record.<a href="#section-11-2" class="pilcrow">¶</a></p
 <a href="#section-11.1" class="section-number selfRef">11.1. </a><a href="#name-document-shape" class="section-name selfRef">Document shape</a>
         </h3>
 <p id="section-11.1-1">The endorsement document is a JSON object with the following fields.<a href="#section-11.1-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-3">
-          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
+<table class="center" id="table-4">
+          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Field</th>
@@ -3536,9 +3761,9 @@ endorsements.<a href="#section-11.4-1" class="pilcrow">¶</a></p>
 <a href="#section-12" class="section-number selfRef">12. </a><a href="#name-verification-procedure" class="section-name selfRef">Verification Procedure</a>
       </h2>
 <p id="section-12-1">A conforming verifier <span class="bcp14">MUST</span> perform the following steps in order for
-each signed section it intends to verify. Steps 11.1 through 11.6
+each signed section it intends to verify. Steps 12.1 through 12.6
 are the cryptographic verification ("layer 1" in <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W3C</a>]</span>).
-Step 11.7 is the trust decision and is out of scope for this
+Step 12.7 is the trust decision and is out of scope for this
 document; the verifier returns the cryptographic result to the
 trust-decision layer for further evaluation.<a href="#section-12-1" class="pilcrow">¶</a></p>
 <div id="step-1-extract-attributes-and-content">
@@ -3552,18 +3777,23 @@ obtained, return "source-refetch-failed". If the source or parser diagnostics
 cannot establish the portable profile, return "parser-profile-unsupported".
 If a Section 12.10 resource ceiling is reached, return
 "resource-limit-exceeded". Stop after any of these failures.<a href="#section-12.1-1" class="pilcrow">¶</a></p>
-<p id="section-12.1-2">Obtain the four required attributes <code>keyid</code>, <code>signature</code>,
-<code>content-hash</code>, and <code>algorithm</code> and the inner content of the signed
-section. If any required attribute is missing, the verifier <span class="bcp14">MUST</span>
-return an "incomplete" outcome and stop.<a href="#section-12.1-2" class="pilcrow">¶</a></p>
-<p id="section-12.1-3">Validate the <code>content-hash</code> and <code>signature</code> encodings against Section 6.
+<p id="section-12.1-2">Obtain the six required attributes <code>profile</code>, <code>signature-scope</code>, <code>keyid</code>,
+<code>signature</code>, <code>content-hash</code>, and <code>algorithm</code>, plus the inner content of the
+signed section. If any required attribute is missing or empty, or if a
+protocol attribute has leading or trailing ASCII whitespace, the verifier
+<span class="bcp14">MUST</span> return <code>incomplete</code> and stop.<a href="#section-12.1-2" class="pilcrow">¶</a></p>
+<p id="section-12.1-3">Require <code>profile</code> to equal <code>htmltrust-signature-v1</code>; otherwise return
+<code>profile-unsupported</code>. Require <code>signature-scope</code> to equal <code>url</code> or <code>origin</code>;
+otherwise return <code>scope-unsupported</code>. Select the profile before performing
+canonicalization and do not try a different profile after a later failure.<a href="#section-12.1-3" class="pilcrow">¶</a></p>
+<p id="section-12.1-4">Validate the <code>content-hash</code> and <code>signature</code> encodings against Section 6.
 A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
 the wrong natural output length produces "invalid-encoding". If the
 signature or hash algorithm is not registered or is outside the verifier's
 accepted set, return "algorithm-not-supported". For Ed25519 and ECDSA, a
 decoded signature whose length or representation does not match Section 6.3
 produces "malformed-signature". RSA signature length is checked after key
-resolution in Step 6.<a href="#section-12.1-3" class="pilcrow">¶</a></p>
+resolution in Step 6.<a href="#section-12.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="step-2-canonicalize-content-compute-and-compare-content-hash">
@@ -3578,7 +3808,8 @@ attribute value (excluding the prefix and separator, after Base64
 decoding).<a href="#section-12.2-1" class="pilcrow">¶</a></p>
 <p id="section-12.2-2">If URL resolution or another signed-attribute operation cannot produce the
 canonical value required by Section 4.3.2, the verifier <span class="bcp14">MUST</span> return
-"attribute-canonicalization-failed" and stop.<a href="#section-12.2-2" class="pilcrow">¶</a></p>
+<code>attribute-canonicalization-failed</code> and stop. If a resolved <code>href</code> or <code>src</code>
+violates <code>htmltrust-safe-url-v1</code>, return <code>url-policy-violation</code> and stop.<a href="#section-12.2-2" class="pilcrow">¶</a></p>
 <p id="section-12.2-3">If the hashes do not match, the verifier <span class="bcp14">MUST</span> return a
 "content-hash-mismatch" failure and stop.<a href="#section-12.2-3" class="pilcrow">¶</a></p>
 </section>
@@ -3593,6 +3824,9 @@ signed section. Compute the hash using the same algorithm as Step 2.
 Form the claims-hash string per Section 6.2.<a href="#section-12.3-1" class="pilcrow">¶</a></p>
 <p id="section-12.3-2">A missing <code>name</code> or <code>content</code>, or an empty normalized name, produces
 "claim-malformed". Duplicate normalized names produce "claim-duplicate".<a href="#section-12.3-2" class="pilcrow">¶</a></p>
+<p id="section-12.3-3">Require exactly one normalized claim name equal to <code>signed-at</code>. If it is
+absent, return <code>claim-missing</code>. Validate its normalized content against
+Section 5.4; a failure produces <code>timestamp-invalid</code>.<a href="#section-12.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="step-4-construct-signing-payload">
@@ -3600,20 +3834,18 @@ Form the claims-hash string per Section 6.2.<a href="#section-12.3-1" class="pil
         <h3 id="name-step-4-construct-signing-pa">
 <a href="#section-12.4" class="section-number selfRef">12.4. </a><a href="#name-step-4-construct-signing-pa" class="section-name selfRef">Step 4: Construct signing payload</a>
         </h3>
-<p id="section-12.4-1">Construct the byte string defined in Section 5 from <code>content-hash</code>
-(verbatim from the attribute), the claims hash from Step 3, the
-serialized origin of the current document (the legacy-named <code>domain</code>
-field in Section 5), and the value
-of the <code>signed-at</code> claim <code>&lt;meta&gt;</code> element after normalization
-(Section 4.4). If the <code>signed-at</code> claim is absent, the verifier <span class="bcp14">MUST</span>
-return a "claim-missing" failure and stop.<a href="#section-12.4-1" class="pilcrow">¶</a></p>
-<p id="section-12.4-2">If the normalized <code>signed-at</code> value is not an RFC 3339 date-time with the
-UTC <code>Z</code> offset required by Section 5, the verifier <span class="bcp14">MUST</span> return
-"claim-malformed" and stop.<a href="#section-12.4-2" class="pilcrow">¶</a></p>
-<p id="section-12.4-3">If the document URL does not produce an allowed tuple origin under Section 5,
-the verifier <span class="bcp14">MUST</span> return "origin-not-supported" and stop. A signature copied
-to another allowed origin fails cryptographic verification because the
-verifier constructs the payload from the current document origin.<a href="#section-12.4-3" class="pilcrow">¶</a></p>
+<p id="section-12.4-1">Derive <code>location</code> from the accepted source snapshot's final response URL and
+the <code>signature-scope</code> attribute under Section 5.3. If the document URL does
+not produce an allowed public v1 location, return <code>origin-not-supported</code>.<a href="#section-12.4-1" class="pilcrow">¶</a></p>
+<p id="section-12.4-2">Construct the complete object in Section 5.5 from the validated attributes,
+the claims hash from Step 3, the derived location, and the normalized
+<code>signed-at</code> value. Insert the four profile constants from Section 5.1 and the
+fixed context string. Serialize the object with <span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span>, then UTF-8 encode
+the result. Those bytes are the signing payload.<a href="#section-12.4-2" class="pilcrow">¶</a></p>
+<p id="section-12.4-3">A section copied to a location outside its signed scope produces
+<code>signature-invalid</code> because the verifier constructs a different signed
+object. The verifier <span class="bcp14">MUST NOT</span> use author-controlled canonical-link metadata
+as the location.<a href="#section-12.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="step-5-resolve-keyid">
@@ -3669,9 +3901,12 @@ cryptographic outcome.<a href="#section-12.7-1" class="pilcrow">¶</a></p>
 revision. A verifier <span class="bcp14">MAY</span> attach private diagnostic detail, but the
 cryptographic result <span class="bcp14">MUST</span> use one of these identifiers and <span class="bcp14">MUST</span> never
 map a listed failure to <code>valid</code>:<a href="#section-12.8-1" class="pilcrow">¶</a></p>
-<p id="section-12.8-2"><code>incomplete</code>, <code>content-hash-mismatch</code>,
+<p id="section-12.8-2"><code>incomplete</code>, <code>profile-unsupported</code>, <code>scope-unsupported</code>,
+<code>content-hash-mismatch</code>,
 <code>claim-missing</code>, <code>claim-malformed</code>, <code>claim-duplicate</code>,
+<code>timestamp-invalid</code>,
 <code>attribute-canonicalization-failed</code>, <code>parser-profile-unsupported</code>,
+<code>url-policy-violation</code>,
 <code>invalid-encoding</code>, <code>malformed-signature</code>, <code>signature-invalid</code>,
 <code>key-resolution-failed</code>, <code>malformed-key-document</code>, <code>key-revoked</code>,
 <code>algorithm-not-supported</code>, <code>algorithm-mismatch</code>, <code>origin-not-supported</code>,
@@ -3740,8 +3975,8 @@ specific failure outcome such as "key-resolution-failed",
 untrusted input. The following limits are the interoperable baseline for
 this revision; an implementation <span class="bcp14">MAY</span> choose lower values, but <span class="bcp14">MUST NOT</span>
 silently continue beyond them:<a href="#section-12.10-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-4">
-          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
+<table class="center" id="table-5">
+          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Resource</th>
@@ -3849,25 +4084,26 @@ cannot prevent forgery in this case. Mitigations are revocation
           <dd class="break"></dd>
 <dt id="section-13.1-2.9">Replay across origins:</dt>
           <dd style="margin-left: 1.5em" id="section-13.1-2.10">
-            <p id="section-13.1-2.10.1">An adversary copying a signed section from one site to another.
-Prevented by origin binding (Section 5); verification on the new
-origin will fail.<a href="#section-13.1-2.10.1" class="pilcrow">¶</a></p>
+            <p id="section-13.1-2.10.1">An adversary copying a signed section from one site to another. Both v1
+scopes bind an HTTPS tuple origin, so verification on another origin fails.<a href="#section-13.1-2.10.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-13.1-2.11">Replay within origin (long-tail):</dt>
+<dt id="section-13.1-2.11">Replay within origin:</dt>
           <dd style="margin-left: 1.5em" id="section-13.1-2.12">
-            <p id="section-13.1-2.12.1">An adversary re-publishing old signed content on the same origin
-out of context. Not prevented by the protocol; mitigated by
-external research and by the inclusion of <code>signed-at</code> in the
-signing payload, which dates the attestation.<a href="#section-13.1-2.12.1" class="pilcrow">¶</a></p>
+            <p id="section-13.1-2.12.1">An adversary re-publishing signed content at another URL on the same
+origin. The recommended <code>url</code> scope prevents this by binding the serialized
+path and query. <code>origin</code> scope permits it as an explicit portability choice;
+verifiers surface that scope to trust and user-interface policy. A copied
+section can still be surrounded by hostile unsigned context at its original
+URL, so scope binding does not establish whole-page integrity.<a href="#section-13.1-2.12.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-13.1-2.13">Downgrade:</dt>
           <dd style="margin-left: 1.5em" id="section-13.1-2.14">
             <p id="section-13.1-2.14.1">An adversary inducing a verifier to use a weak algorithm. Mitigated
-by the verifier's right to refuse algorithms (Section 7.3) and by
-the requirement that <code>algorithm</code> mismatch produce a distinct
-failure outcome.<a href="#section-13.1-2.14.1" class="pilcrow">¶</a></p>
+by signing the exact algorithm, key identifier, and profile identifiers,
+and by the verifier's right to refuse algorithms (Section 7.3). A verifier
+never retries under a legacy profile after a v1 failure.<a href="#section-13.1-2.14.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3886,8 +4122,8 @@ hostile media without invalidating the cryptographic signature. The
 HTMLTrust system addresses these residual risks through layered means:<a href="#section-13.2-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-13.2-2.1">
-            <p id="section-13.2-2.1.1">Origin binding (Section 5) ensures that the signed material appears
-only on the publication origin under the original signature.<a href="#section-13.2-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-13.2-2.1.1">Location binding (Section 5) restricts the signed material to one URL by
+default, or to one origin after an explicit signer choice.<a href="#section-13.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-13.2-2.2">
             <p id="section-13.2-2.2.1">Trust-directory indexing and external research (out of band, but
@@ -3895,8 +4131,8 @@ enabled by the content hash being globally addressable) catches
 altered surrounding context on mirror sites.<a href="#section-13.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-13.2-2.3">
-            <p id="section-13.2-2.3.1">Future revisions <span class="bcp14">MAY</span> extend hash coverage to more semantic
-attributes, addressing a larger subset of context-swapping attacks.<a href="#section-13.2-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-13.2-2.3.1">Future revisions <span class="bcp14">MAY</span> define a new signed-attribute profile with broader
+coverage, addressing a larger subset of context-swapping attacks.<a href="#section-13.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-13.2-3">The deliberate trade-off is implementational simplicity and
@@ -4417,14 +4653,16 @@ the operational experience of DKIM deployment.<a href="#appendix-A-1" class="pil
       <h2 id="name-test-vectors">
 <a href="#appendix-B" class="section-number selfRef">Appendix B. </a><a href="#name-test-vectors" class="section-name selfRef">Test Vectors</a>
       </h2>
-<p id="appendix-B-1">This appendix gives a complete, reproducible end-to-end vector. The same
-vector is maintained machine-readable in the conformance suite at
-<code>conformance/vectors/vector-01.json</code> in the canonicalization repository at
-commit <code>a756dbaf27fd32799da7f2a1276cc16964e8d41f</code>
-(https://github.com/HTMLTrust/htmltrust-canonicalization), where every
-signer and verifier binding reproduces it in CI. All hashes are SHA-256
-encoded as unpadded standard Base64 with the <code>sha256:</code> prefix
-(Section 6); the signature is Ed25519 over the Section 5 payload, also
+<p id="appendix-B-1">This appendix gives a complete, reproducible signing-profile vector. Its
+cryptographic input starts with the canonical content and canonical claims
+byte strings shown below; parser and canonicalization behavior is covered by
+the separate Section 4 vectors. The same vector is maintained
+machine-readable as <code>ietf-draft/vectors/signing-profile-v1.json</code> in this
+repository. The vector checker hashes both canonical byte strings,
+reconstructs the signing object from fixed v1 constants, serializes it with
+<span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span>, derives the fixed test key, and verifies the signature. All hashes are
+SHA-256 encoded as unpadded standard Base64 with the <code>sha256:</code> prefix
+(Section 6); the signature is Ed25519 over the Section 5 JCS payload, also
 unpadded standard Base64.<a href="#appendix-B-1" class="pilcrow">¶</a></p>
 <div id="test-key-ed25519">
 <section id="appendix-B.1">
@@ -4454,17 +4692,24 @@ MCowBQYDK2VwAyEAro5HTnkh3VG+ZQ3PaEerRS3uY0ITOe/D1rBBsuhfTBk=
         <h3 id="name-inputs-2">
 <a href="#appendix-B.2" class="section-number selfRef">B.2. </a><a href="#name-inputs-2" class="section-name selfRef">Inputs</a>
         </h3>
-<p id="appendix-B.2-1">Signed document base URL (for resolving relative signed URL attributes):
-<code>https://example.com/essays/engines</code>. Serialized publisher origin
-(<code>domain</code> field): <code>https://example.com</code>. <code>signed-at</code>:
-<code>2026-01-15T12:00:00Z</code>.<a href="#appendix-B.2-1" class="pilcrow">¶</a></p>
+<p id="appendix-B.2-1">Final signed document URL:
+<code>HTTPS://EXAMPLE.COM:443/essays/engines#analysis</code>. The <code>url</code> scope excludes
+the fragment and produces the signed location
+<code>https://example.com/essays/engines</code>. The source snapshot's document base URL
+for resolving relative signed URL attributes is the same URL without the
+fragment. <code>signed-at</code> is <code>2026-01-15T12:00:00Z</code>.<a href="#appendix-B.2-1" class="pilcrow">¶</a></p>
 <p id="appendix-B.2-2">Signed section (source HTML):<a href="#appendix-B.2-2" class="pilcrow">¶</a></p>
 <div class="lang-html sourcecode" id="appendix-B.2-3">
 <pre>
-&lt;signed-section&gt;
+&lt;signed-section profile="htmltrust-signature-v1"
+                signature-scope="url"
+                keyid="https://keys.example/alice-2026.json"
+                algorithm="ed25519"
+                content-hash="sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8"
+                signature="m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA"&gt;
 &lt;meta name="author" content="Ada Lovelace"&gt;
 &lt;meta name="signed-at" content="2026-01-15T12:00:00Z"&gt;
-&lt;meta name="license" content="CC-BY-4.0"&gt;
+&lt;meta name="claim:License" content="CC-BY-4.0"&gt;
 &lt;h1&gt;On Analytical Engines&lt;/h1&gt;
 &lt;p&gt;The engine weaves algebraic patterns &amp;mdash; just as the loom weaves flowers.&lt;/p&gt;
 &lt;p&gt;See &lt;a href="/notes/engine"&gt;the notes&lt;/a&gt; and &lt;img src="/img/ada.png" alt="Portrait of Ada"&gt;.&lt;/p&gt;
@@ -4510,15 +4755,15 @@ sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
 <div class="alignLeft art-text artwork" id="appendix-B.4-2">
 <pre>
 author:Ada Lovelace
-license:CC-BY-4.0
-signed-at:2026-01-15T12:00:00Z
+claim\:License:CC-BY-4.0
+signed-at:2026-01-15T12\:00\:00Z
 </pre><a href="#appendix-B.4-2" class="pilcrow">¶</a>
 </div>
 <p id="appendix-B.4-3">(The serialized string ends with a trailing U+000A after the last
 record.) Claims hash:<a href="#appendix-B.4-3" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="appendix-B.4-4">
 <pre>
-sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs
+sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4
 </pre><a href="#appendix-B.4-4" class="pilcrow">¶</a>
 </div>
 </section>
@@ -4528,17 +4773,36 @@ sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs
         <h3 id="name-signing-payload-and-signatu">
 <a href="#appendix-B.5" class="section-number selfRef">B.5. </a><a href="#name-signing-payload-and-signatu" class="section-name selfRef">Signing payload and signature</a>
         </h3>
-<p id="appendix-B.5-1">Signing payload (Section 5, four colon-joined fields):<a href="#appendix-B.5-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="appendix-B.5-2">
+<p id="appendix-B.5-1">Signing object before JCS serialization:<a href="#appendix-B.5-1" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="appendix-B.5-2">
 <pre>
-sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8:sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs:https://example.com:2026-01-15T12:00:00Z
+{
+  "algorithm": "ed25519",
+  "attributeProfile": "htmltrust-attrs-v1",
+  "canonicalizationProfile": "htmltrust-c14n-v1",
+  "claimsHash": "sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4",
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "context": "https://htmltrust.org/protocol/signed-section",
+  "keyid": "https://keys.example/alice-2026.json",
+  "location": "https://example.com/essays/engines",
+  "profile": "htmltrust-signature-v1",
+  "scope": "url",
+  "signedAt": "2026-01-15T12:00:00Z",
+  "urlProfile": "htmltrust-safe-url-v1"
+}
 </pre><a href="#appendix-B.5-2" class="pilcrow">¶</a>
 </div>
-<p id="appendix-B.5-3">Ed25519 signature over that payload, unpadded standard Base64:<a href="#appendix-B.5-3" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="appendix-B.5-4">
+<p id="appendix-B.5-3">JCS signing payload, shown on one line:<a href="#appendix-B.5-3" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="appendix-B.5-4">
 <pre>
-kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg
+{"algorithm":"ed25519","attributeProfile":"htmltrust-attrs-v1","canonicalizationProfile":"htmltrust-c14n-v1","claimsHash":"sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4","contentHash":"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8","context":"https://htmltrust.org/protocol/signed-section","keyid":"https://keys.example/alice-2026.json","location":"https://example.com/essays/engines","profile":"htmltrust-signature-v1","scope":"url","signedAt":"2026-01-15T12:00:00Z","urlProfile":"htmltrust-safe-url-v1"}
 </pre><a href="#appendix-B.5-4" class="pilcrow">¶</a>
+</div>
+<p id="appendix-B.5-5">Ed25519 signature over that payload, unpadded standard Base64:<a href="#appendix-B.5-5" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="appendix-B.5-6">
+<pre>
+m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA
+</pre><a href="#appendix-B.5-6" class="pilcrow">¶</a>
 </div>
 </section>
 </div>
@@ -4561,18 +4825,21 @@ POST /content HTTP/1.1
 Host: directory.example
 Date: Thu, 15 Jan 2026 12:00:00 GMT
 Content-Type: application/json
-Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="did:web:author.example";alg="ed25519"
+Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="https://keys.example/alice-2026.json";alg="ed25519"
 Signature: sig1=:gdWl4N5vUFjVBFg8HDJu49u03bCfSvu/m0A5Ql8omqsoBIbiMXiyyaRQmgBQ7pS7ze7dA0VSx1rD+VbBi2qADg:
 Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
 
 {
+  "profile": "htmltrust-signature-v1",
   "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
-  "keyid": "did:web:author.example",
+  "keyid": "https://keys.example/alice-2026.json",
+  "algorithm": "ed25519",
   "signedAt": "2026-01-15T12:00:00Z",
-  "domain": "https://example.com",
-  "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg",
+  "scope": "url",
+  "location": "https://example.com/essays/engines",
+  "signature": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA",
   "sourceURL": "https://example.com/essays/engines",
-  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"license","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
+  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"claim:License","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
 }
 </pre><a href="#appendix-C.1-2" class="pilcrow">¶</a>
 </div>
@@ -4588,10 +4855,13 @@ Content-Type: application/htmltrust-content+json
   "firstSeen": "2026-05-15T12:34:56Z",
   "signers": [
     {
-      "keyid": "did:web:author.example",
+      "profile": "htmltrust-signature-v1",
+      "keyid": "https://keys.example/alice-2026.json",
+      "algorithm": "ed25519",
       "signedAt": "2026-01-15T12:00:00Z",
-      "domain": "https://example.com",
-      "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg"
+      "scope": "url",
+      "location": "https://example.com/essays/engines",
+      "signature": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA"
     }
   ],
   "endorsementCount": 0
@@ -4643,26 +4913,19 @@ be addressed in subsequent revisions or in the companion W3C
 Community Group Report.<a href="#appendix-D-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="appendix-D-2">
 <li id="appendix-D-2.1">
-          <p id="appendix-D-2.1.1">Semantic attribute coverage. This revision signs canonicalized text
-plus the provisional semantic attribute list <code>href</code>, <code>src</code>, <code>alt</code>,
-and <code>aria-label</code>. The exact expansion list remains open for
-community feedback. See Section 4.3.2 and the security
-considerations.<a href="#appendix-D-2.1.1" class="pilcrow">¶</a></p>
+          <p id="appendix-D-2.1.1">Runtime DOM mutation. A <code>data-htmltrust-ignore</code> opt-out marker
+is reserved but not yet normative. See Section 4.7.<a href="#appendix-D-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.2">
-          <p id="appendix-D-2.2.1">Runtime DOM mutation. A <code>data-htmltrust-ignore</code> opt-out marker
-is reserved but not yet normative. See Section 4.7.<a href="#appendix-D-2.2.1" class="pilcrow">¶</a></p>
-</li>
-        <li id="appendix-D-2.3">
-          <p id="appendix-D-2.3.1">Mandatory-to-implement key resolution methods. This revision
+          <p id="appendix-D-2.2.1">Mandatory-to-implement key resolution methods. This revision
 requires verifiers to implement at least one of three methods.
 A future revision may strengthen the requirement, particularly
-around DID methods.<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
+around DID methods.<a href="#appendix-D-2.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="appendix-D-2.4">
-          <p id="appendix-D-2.4.1">Reputation-score interoperability. The <code>/signers/{id}/reputation</code>
+        <li id="appendix-D-2.3">
+          <p id="appendix-D-2.3.1">Reputation-score interoperability. The <code>/signers/{id}/reputation</code>
 endpoint is intentionally directory-specific. A future revision
-may define a small interoperable subset.<a href="#appendix-D-2.4.1" class="pilcrow">¶</a></p>
+may define a small interoperable subset.<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>

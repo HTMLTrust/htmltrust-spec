@@ -5,7 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 for vector in ietf-draft/vectors/*.json; do
-  jq empty "$vector"
+  node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$vector"
 done
 
 node scripts/check-vectors.mjs

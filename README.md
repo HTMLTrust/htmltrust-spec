@@ -25,7 +25,7 @@ make w3c         # serve the W3C draft at http://localhost:8000
 make w3c-check   # render the W3C draft and fail on ReSpec diagnostics
 ```
 
-`make check` needs Bash, Git, grep, jq, and Node.js 22 or newer. The other
+`make check` needs Bash, Git, grep, and Node.js 22 or newer. The other
 targets list their tool requirements below.
 
 ## Choose the document you need
@@ -77,16 +77,17 @@ Then run `make paper`. The PDF is ignored by Git.
 The W3C draft uses ReSpec. Run `make w3c`, open <http://localhost:8000>, and
 inspect the rendered draft. `make w3c-check` uses pinned ReSpec 37.3.5 and
 writes its temporary snapshot under `$TMPDIR` when set, then `RUNNER_TEMP` or
-`/var/tmp`. It needs Node.js 24 or newer and Chrome or Chromium.
+`/var/tmp`. It needs Node.js 22 or newer and Chrome or Chromium.
 
 ## Understand implementation status
 
 The drafts define the target protocol. The reference repositories implement
 the stable `v0.2.2` canonicalization profile and the current end-to-end flow.
-The newest draft rules for parser-profile rejection, U+0040 attribute-record
-escaping, complete RFC 8785 processing, resource ceilings, and native browser
-DOM integration still require downstream implementation work. The review
-documents identify each remaining gap.
+The newest draft rules still require downstream implementation work. These
+include the v1 JCS signing object and location scope, safe signed URLs,
+parser-profile rejection, U+0040 escaping, complete RFC 8785 processing,
+resource ceilings, and the native browser lifecycle. The review documents
+identify each remaining gap.
 
 Current prototype repositories:
 
