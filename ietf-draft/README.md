@@ -24,6 +24,8 @@ processing model lives in `../w3c-cg/`.
 - `vectors/attribute-records.json` — signed-attribute framing and escaping cases.
 - `vectors/nested-section.json` — nested signed-section boundary behavior.
 - `vectors/origin-serialization.json` — tuple-origin serialization and rejection cases.
+- `vectors/signing-profile-v1.json`: the versioned signing object, URL scope,
+  timestamp, safe-URL, key, and Ed25519 signature vector.
 - `README.md` — this file.
 
 ## Before submitting

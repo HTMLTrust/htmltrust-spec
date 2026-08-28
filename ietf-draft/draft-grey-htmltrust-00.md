@@ -160,8 +160,9 @@ since publication.
 
 HTMLTrust addresses this gap with a single, narrowly-scoped mechanism: a
 cryptographic signature, carried in band, over the canonicalized text of a
-region of an HTML document, bound to the publication origin and to a
-resolvable signer identifier. Verifiers re-derive the canonical text,
+region of an HTML document, bound to its signed publication location and to
+a resolvable signer identifier. The location is either one exact URL or one
+HTTPS origin under an explicit signer-selected scope. Verifiers re-derive the canonical text,
 recompute the hash, resolve the signer's public key, and verify the
 signature, all without any required network call to a trusted third party.
 
@@ -297,9 +298,21 @@ Endorsement:
   defined in Section 11.
 
 Origin:
-: The Web origin at which signed content is canonically published, as
-  defined by [RFC6454]: the tuple of scheme, host, and port. HTMLTrust
-  serializes origins as described in Section 5.
+: A Web tuple of scheme, host, and port as defined by [RFC6454]. Origin scope
+  uses the URL Standard serialization of this tuple.
+
+Location:
+: The URL or origin string derived from the final response URL under the
+  signed scope. The location is a member of the v1 signing object.
+
+Signing profile:
+: A closed, versioned suite that selects the signing object,
+  canonicalization rules, signed attributes, URL policy, scope semantics,
+  and timestamp syntax. This document defines `htmltrust-signature-v1`.
+
+Signature scope:
+: The rule that derives the signed location from the final response URL.
+  V1 defines exact URL scope and origin-wide scope.
 
 # Architecture Overview
 
@@ -313,9 +326,9 @@ Signer:
 
 Publisher origin:
 : Serves the resulting HTML to verifiers over the Web. The publisher
-  origin is bound into the signing payload via the legacy-named `domain`
-  field (Section 5). The publisher origin and the signer MAY be different
-  entities; the origin attests transport, the signer attests authorship.
+  location is bound into the signing object under the selected scope
+  (Section 5). The publisher origin and the signer MAY be different
+  entities; TLS authenticates transport while the signer attests authorship.
 
 Verifier:
 : Performs the procedure in Section 12. The verifier re-derives canonical
@@ -338,8 +351,8 @@ The basic data flow is:
    per Section 4.6, and computes the claims hash.
 3. The signer constructs the signing payload per Section 5 and signs it
    with the private key corresponding to the signer's key identifier.
-4. The signer emits the HTML region annotated with key identifier,
-   signature, content hash, and algorithm attributes per [HTMLTRUST-W3C].
+4. The signer emits the HTML region annotated with the six required v1
+   attributes defined in Section 5.1 and [HTMLTRUST-W3C].
 5. The publisher origin serves the resulting HTML.
 6. A verifier obtains the HTML, extracts the signed section's attributes
    and content, and performs the procedure in Section 12.
@@ -376,7 +389,7 @@ the signed document URL as its fallback base URL. Runtime mutation of the
 document URL or a `base` element MUST NOT change the base URL of an existing
 source-snapshot result. A verifier operating outside a browser MUST receive
 the signed document URL and MUST apply the same HTML base-URL algorithm. The
-origin in the signing payload is derived from the signed document URL, not
+location in the signing object is derived from the signed document URL, not
 from the document base URL.
 
 Portable-profile validation is performed on the source octets and parser
@@ -482,17 +495,18 @@ tags do not themselves contribute bytes, but they MAY contribute block
 boundaries per Section 4.5 and their descendant text nodes contribute
 to the canonical content.
 
-The following signed semantic attributes also contribute to the
-canonical content when present on an included element:
+Under the `htmltrust-attrs-v1` profile defined in Section 5, the following
+signed semantic attributes also contribute to the canonical content when
+present on an included element:
 
 - `href`
 - `src`
 - `alt`
 - `aria-label`
 
-This first signed-attribute list is intentionally small and is open
-for community feedback. Future revisions MAY add attributes to the
-list, but verifiers for this revision MUST use exactly the list above.
+This signed-attribute list is fixed for `htmltrust-attrs-v1`. A future
+revision MAY define another list under a new profile identifier, but a
+verifier MUST NOT add attributes to or remove attributes from this profile.
 
 For each included element, before visiting the element's children, the
 canonicalizer examines the signed semantic attributes in the order
@@ -512,10 +526,10 @@ U+000A, so consecutive attribute records need no additional separator.
 exposed by the HTML parser. `normalized-value` for `alt` and `aria-label`
 is produced by applying the plain-text normalization in
 Section 4.4. `normalized-value` for `href` and `src` is produced by
-parsing the attribute value as a URL against the signed document's base
-URL and serializing the resulting URL using the Web URL serializer. If
-URL parsing fails, verification MUST fail with
-"attribute-canonicalization-failed". The normalized value MUST NOT
+applying `htmltrust-safe-url-v1` in Section 5.2, then serializing the
+resulting URL with the Web URL serializer. A URL parsing failure produces
+"attribute-canonicalization-failed"; a parsed URL outside the selected
+policy produces "url-policy-violation". The normalized value MUST NOT
 contain U+000A; if a canonicalizer cannot guarantee this, verification
 MUST fail with "attribute-canonicalization-failed". `escaped-value` is
 formed from `normalized-value` by replacing every U+0040 COMMERCIAL AT
@@ -530,11 +544,9 @@ For example, a text node containing the literal string `@attr:a:href:x`
 contributes `@@attr:a:href:x`, while a real `href` attribute contributes
 `@attr:a:href:x`. The two byte sequences therefore remain distinguishable.
 
-Editor's Note: The precise expansion list for signed semantic
-attributes is expected to evolve. Candidate additions include `title`,
-`cite`, image dimension attributes, and ARIA attributes used in name
-computation, but this revision deliberately avoids full structural HTML
-signing.
+Candidate future profiles may cover `title`, `cite`, image dimensions, or
+additional ARIA attributes. Those attributes are outside
+`htmltrust-attrs-v1` and do not contribute bytes under this revision.
 
 ### Boundary-producing elements
 
@@ -697,6 +709,11 @@ signed section, and verifiers MUST fail with "claim-duplicate" if they
 encounter such duplicates. The concatenation of the sorted lines is
 the canonical claims byte string.
 
+Normalized claim names are case-sensitive. Only the exact ASCII name
+`signed-at` has protocol semantics in v1. Other names, including `author`
+and names in the `claim:` namespace, are signed metadata whose meaning is
+defined outside the cryptographic verification procedure.
+
 The `signed-at` claim is not special for purposes of the claims hash:
 it is included in canonical claims like every other direct child claim
 `<meta>`. Section 5 also includes the normalized `signed-at` value as
@@ -719,76 +736,209 @@ explicit experimental mode.
 
 # Signing Payload Binding
 
-The signature is computed over the deterministic UTF-8 byte string
-formed by joining four fields with a single ASCII colon (U+003A)
-between each:
+This section defines the `htmltrust-signature-v1` signing profile. The
+profile is a closed suite. It fixes the signing-payload representation,
+canonicalization profile, signed-attribute set, URL policy, location scope
+semantics, and timestamp syntax. A later revision that changes any of those
+rules MUST use a different signing-profile identifier.
+
+## Profile identifiers and wire attributes
+
+The identifiers fixed by this profile are:
+
+| Purpose | Identifier |
+| --- | --- |
+| signing profile | `htmltrust-signature-v1` |
+| canonicalization profile | `htmltrust-c14n-v1` |
+| signed-attribute profile | `htmltrust-attrs-v1` |
+| URL policy profile | `htmltrust-safe-url-v1` |
+
+The identifiers are case-sensitive ASCII strings. They are protocol
+identifiers, not implementation version numbers.
+
+A v1 signed section MUST carry the `profile` attribute with the exact value
+`htmltrust-signature-v1` and the `signature-scope` attribute with one of the
+exact values `url` or `origin`, in addition to `keyid`, `signature`,
+`content-hash`, and `algorithm`. Leading or trailing ASCII whitespace in any
+of these protocol attributes is invalid. There are no default values.
+
+A missing required attribute produces `incomplete`. An unknown `profile`
+produces `profile-unsupported`, and an unknown `signature-scope` produces
+`scope-unsupported`. A verifier MUST select the profile before
+canonicalization and MUST NOT retry a failed v1 verification with another
+profile.
+
+## Signed-attribute and safe-URL profiles
+
+`htmltrust-attrs-v1` contains exactly `href`, `src`, `alt`, and `aria-label`
+in the order specified in Section 4.3.2. Adding, removing, reordering, or
+changing the interpretation of a covered attribute requires a new
+signed-attribute profile identifier. Implementations MUST NOT extend this
+set while reporting `htmltrust-attrs-v1`.
+
+For `href` and `src`, `htmltrust-safe-url-v1` applies before the serialized
+URL is emitted into canonical content. Its input is the attribute value
+produced by the accepted HTML parser after input-stream preprocessing and
+character-reference resolution. Before passing that value to the URL
+Standard parser, the verifier MUST inspect every code point and reject an
+ASCII C0 control or U+007F. This order prevents URL preprocessing from
+silently stripping a tab or line feed. The value is resolved against the
+source snapshot's document base URL. The result MUST use the `https` scheme
+and MUST NOT contain a username or password. Query and fragment components
+are preserved by URL serialization. Verification does not dereference the
+URL. A policy violation produces `url-policy-violation`; a URL parse failure
+produces `attribute-canonicalization-failed`.
+
+This profile therefore rejects `javascript`, `data`, `blob`, `file`,
+`mailto`, `tel`, custom schemes, and cleartext `http` in signed `href` and
+`src` attributes. An implementation MAY define a local-development profile,
+but it MUST use a different URL-policy identifier and MUST NOT be accepted as
+`htmltrust-safe-url-v1`.
+
+The profile does not cover `srcset`, CSS URLs, event-handler attributes, or
+attributes outside `htmltrust-attrs-v1`. User interfaces MUST describe the
+result as verification of the covered content and attributes rather than as
+whole-document integrity.
+
+## Location scope and same-origin replay
+
+The signed document URL is the final response URL after redirects. Public v1
+signatures require a URL with an HTTPS tuple origin and no username or
+password. Host case folding, IDNA A-label conversion, IPv6 syntax, and
+default-port omission follow the URL Standard.
+
+For `signature-scope="url"`, the location is the URL Standard serialization
+of the signed document URL with its fragment excluded. The path and query are
+included. A fragment is excluded because it is not sent in an HTTP request.
+This scope prevents an unchanged section from verifying at a different path
+or query on the same origin. Authoring tools SHOULD emit `url` scope.
+
+For `signature-scope="origin"`, the location is the URL Standard origin
+serialization of the signed document URL. This value contains scheme, host,
+and non-default port, with no path, query, fragment, or credentials. Origin
+scope explicitly permits replay at another URL on the same origin. Verifiers
+MUST expose the accepted scope to trust policy and user-interface code so a
+caller can reject origin-wide signatures.
+
+The document's `<link rel="canonical">`, Open Graph URL, document base URL,
+and surrounding markup do not select or alter the location. Copying a
+section to another origin always changes the location. `www` and apex hosts,
+CDN aliases, and distinct ports are distinct locations unless they serialize
+to the same origin under the URL Standard. A URL that cannot produce the
+required public location produces `origin-not-supported`.
+
+## Timestamp profile
+
+Every v1 section MUST contain exactly one direct-child claim whose normalized
+name is the ASCII string `signed-at`. Its normalized content MUST be exactly
+20 ASCII characters in this form:
 
 ~~~
-content-hash ":" claims-hash ":" domain ":" signed-at
+YYYY-MM-DDTHH:MM:SSZ
 ~~~
 
-The fields are defined as follows.
+The year is in the range 0001 through 9999. The month, day, hour, minute, and
+second MUST form a valid Gregorian UTC date and time. Seconds are limited to
+00 through 59. Lowercase `t` or `z`, UTC offsets, fractional seconds, leap
+seconds, and trailing whitespace are invalid. This is a deliberately narrow
+profile of [RFC3339]. A violation produces `timestamp-invalid`.
 
-content-hash:
-: The content hash as defined in Section 6.2, including the
-  algorithm prefix and separator (for example,
-  `sha256:Zm9vYmFy...`). Verifiers MUST use the literal value
-  serialized into the `content-hash` attribute of the signed section
-  element.
+`signed-at` is an assertion made by the signer. It proves that the timestamp
+was covered by the signature, but it does not prove when the signature was
+created. Freshness limits and future-clock-skew rules are trust-policy
+decisions and MUST NOT be reported as `signature-invalid`. A verifier that
+accepts a signature from a revoked key based on time needs independent
+evidence, such as an [RFC3161] time-stamp token, an append-only log entry, or
+a trusted directory first-seen record. Such evidence is evaluated outside
+the v1 signing payload.
 
-claims-hash:
-: The claims hash, formatted identically to `content-hash`. The
-  claims hash is not carried in a separate attribute on the wire; it
-  is recomputed by the verifier from the canonical claims byte
-  string (Section 4.6) using the algorithm given by the prefix of
-  the `content-hash` attribute. The hash algorithm for both
-  `content-hash` and `claims-hash` MUST be the same.
+## Canonical signing object
 
-domain:
-: A legacy field name retained for wire compatibility. Its value is
-  the serialized Web origin at which the content is canonically
-  published. The value MUST be the result of the URL Standard's origin
-  serialization algorithm for the document URL, with no path, query,
-  fragment, or credentials. Conforming public signatures MUST use an
-  HTTPS tuple origin. An HTTP tuple origin MAY be enabled by an explicitly
-  configured local-development profile, but that profile MUST be
-  distinguishable from normal verification and MUST NOT be accepted for
-  public content by default. Opaque origins (`data:`, `file:`, and
-  similar) are invalid. The URL Standard, rather than a host-language URL
-  serializer, defines lowercasing, IDNA A-label conversion, IPv6 bracket
-  syntax, and default port omission. For example, `https://example.org`
-  and `https://example.org:8443` are distinct origins.
+The signer constructs this JSON object, with every member present:
 
-signed-at:
-: The value of the `signed-at` claim `<meta>` element, after the
-  normalization in Section 4.4 has been applied. The value MUST
-  conform to the date-time production of [RFC3339] with the time
-  offset given in UTC ("Z").
+~~~ json
+{
+  "algorithm": "ed25519",
+  "attributeProfile": "htmltrust-attrs-v1",
+  "canonicalizationProfile": "htmltrust-c14n-v1",
+  "claimsHash": "sha256:...",
+  "contentHash": "sha256:...",
+  "context": "https://htmltrust.org/protocol/signed-section",
+  "keyid": "https://keys.example/alice.json",
+  "location": "https://example.org/article",
+  "profile": "htmltrust-signature-v1",
+  "scope": "url",
+  "signedAt": "2026-08-27T18:00:00Z",
+  "urlProfile": "htmltrust-safe-url-v1"
+}
+~~~
 
-The fields MUST appear in the order shown. The separator MUST be a
-single U+003A COLON. No leading or trailing whitespace is permitted.
+The members are defined as follows:
 
-## Identity not bound directly
+algorithm:
+: The exact `algorithm` attribute value. The value MUST be a registered
+  algorithm identifier accepted by the verifier.
 
-The signer's identifier (`keyid`) is intentionally not included in
-the signing payload. The identifier is implicit in key resolution
-(Section 8): any attempt to claim a different identifier would
-resolve to a different public key, and the signature would fail to
-verify. Including the identifier explicitly would add a fragile
-string-matching surface without strengthening the cryptographic
-binding.
+attributeProfile, canonicalizationProfile, profile, urlProfile:
+: The exact identifiers in Section 5.1. These values are constants for v1
+  and MUST NOT be copied from attacker-selected markup.
 
-## Why the publisher origin
+claimsHash:
+: The claims hash recomputed from Section 4.6 using the algorithm selected by
+  `contentHash`. It is not carried as a separate HTML attribute. The content
+  and claims hash algorithms MUST match.
 
-Binding the signature to the publication origin prevents verbatim
-re-publication of signed content with the original signature
-preserved. A reader who encounters apparently signed content at a
-different origin will see a signature verification failure caused by
-the origin mismatch alone, regardless of any other property of the
-content. Legitimate re-publication is supported by a separate
-wrapper-signing mechanism using a `claim:CanonicalURL` field (see
-[HTMLTRUST-W3C]); the wrapper signer attests to a republication, not
-to original authorship, and is responsible for the chain.
+contentHash:
+: The exact `content-hash` attribute value after its encoding has been
+  validated as canonical under Section 6.
+
+context:
+: The exact ASCII string `https://htmltrust.org/protocol/signed-section`.
+  This member separates HTMLTrust signed-section signatures from signatures
+  made for another protocol.
+
+keyid:
+: The exact `keyid` attribute value after the protocol-attribute validation
+  in Section 5.1. It selects one verification key under Section 8.
+
+location:
+: The location derived by Section 5.3 from the accepted source snapshot's
+  final response URL and the selected scope.
+
+scope:
+: The exact `signature-scope` attribute value.
+
+signedAt:
+: The normalized `signed-at` claim content after Section 5.4 validation.
+
+The signing payload is the UTF-8 encoding of this object serialized with the
+JSON Canonicalization Scheme [RFC8785]. The serialized object contains no
+unknown or optional members in v1. The signature operation in Section 6.3 is
+applied directly to those bytes.
+
+## Algorithm and signer binding
+
+Both `algorithm` and `keyid` are inside the signed object. Changing either
+attribute changes the signing payload and causes signature verification to
+fail. The resolved key document MUST identify a key suitable for exactly the
+declared algorithm; a verifier MUST NOT try other algorithms or other keys
+after a mismatch.
+
+A public-key fingerprint is not a v1 payload member. `keyid` selects one
+verification method, and the signature already proves possession of the
+corresponding private key. Key rotation uses a fresh `keyid` under Section 9.
+Implementations MAY expose a derived key fingerprint for diagnostics or
+trust policy, but it does not replace signed `keyid` binding.
+
+## Legacy payloads
+
+The four-field colon-joined payload used by pre-v1 prototypes is not part of
+`htmltrust-signature-v1`. An implementation MAY offer an explicitly enabled
+legacy verifier, but absence of `profile` MUST NOT trigger it automatically.
+A legacy success MUST be labeled separately and MUST NOT be reported as a v1
+valid result. Migration consists of verifying the legacy artifact under its
+original rules, canonicalizing the accepted source under v1, and producing a
+new v1 signature. Re-encoding a legacy signature does not migrate it.
 
 # Hash and Signature Encoding
 
@@ -1164,18 +1314,14 @@ capabilities. The response media type is
     "signature": ["ed25519", "ecdsa-p256"],
     "hash": ["sha256", "sha384"]
   },
+  "supportedProfiles": ["htmltrust-signature-v1"],
   "contact": "operator@directory.example",
   "termsOfService": "https://directory.example/tos"
 }
 ~~~
 
-The fields `directory`, `version`, `capabilities`, and
-`supportedAlgorithms` are REQUIRED. Other fields are OPTIONAL.
-
-JSON members named `domain` in this API carry the serialized origin
-value defined for the signing payload in Section 5. The field name is
-retained for compatibility with early tooling and MUST NOT be
-interpreted as a host-only domain name.
+The fields `directory`, `version`, `capabilities`, `supportedAlgorithms`, and
+`supportedProfiles` are REQUIRED. Other fields are OPTIONAL.
 
 ## GET /content/{hash}
 
@@ -1192,9 +1338,12 @@ A successful response is JSON of the form:
   "firstSeen": "2026-05-15T12:34:56Z",
   "signers": [
     {
-      "keyid": "did:web:author.example",
+      "profile": "htmltrust-signature-v1",
+      "keyid": "did:web:author.example#key-1",
+      "algorithm": "ed25519",
       "signedAt": "2026-05-01T10:30:00Z",
-      "domain": "https://author.example",
+      "scope": "url",
+      "location": "https://author.example/posts/123",
       "signature": "3q2+7w8NslfJ..."
     }
   ],
@@ -1212,10 +1361,13 @@ request body is JSON of the form:
 
 ~~~
 {
+  "profile": "htmltrust-signature-v1",
   "contentHash": "sha256:Zm9vYmFy...",
-  "keyid": "did:web:author.example",
+  "keyid": "did:web:author.example#key-1",
+  "algorithm": "ed25519",
   "signedAt": "2026-05-01T10:30:00Z",
-  "domain": "https://author.example",
+  "scope": "url",
+  "location": "https://author.example/posts/123",
   "signature": "3q2+7w8NslfJ...",
   "sourceURL": "https://author.example/posts/123",
   "claims": [
@@ -1230,6 +1382,12 @@ The submission MUST be authenticated by an HTTP Message Signature
 [RFC9421] from a key the directory can resolve. The directory MUST
 re-verify the submitted signature against the canonical signing
 payload (Section 5) before indexing.
+
+The `profile`, `algorithm`, `keyid`, `scope`, `location`, `contentHash`,
+`signedAt`, and `signature` members are REQUIRED. `sourceURL` is the observed
+occurrence URL. The directory MUST derive a location from `sourceURL` under
+the submitted scope and require it to equal `location`. A directory MUST NOT
+derive the signed location from canonical-link metadata.
 
 The `claims` array MUST contain the complete set of direct-child claim
 records used by the signer, including exactly one `signed-at` record. Each
@@ -1444,9 +1602,9 @@ endorsements.
 # Verification Procedure
 
 A conforming verifier MUST perform the following steps in order for
-each signed section it intends to verify. Steps 11.1 through 11.6
+each signed section it intends to verify. Steps 12.1 through 12.6
 are the cryptographic verification ("layer 1" in [HTMLTRUST-W3C]).
-Step 11.7 is the trust decision and is out of scope for this
+Step 12.7 is the trust decision and is out of scope for this
 document; the verifier returns the cryptographic result to the
 trust-decision layer for further evaluation.
 
@@ -1459,10 +1617,16 @@ cannot establish the portable profile, return "parser-profile-unsupported".
 If a Section 12.10 resource ceiling is reached, return
 "resource-limit-exceeded". Stop after any of these failures.
 
-Obtain the four required attributes `keyid`, `signature`,
-`content-hash`, and `algorithm` and the inner content of the signed
-section. If any required attribute is missing, the verifier MUST
-return an "incomplete" outcome and stop.
+Obtain the six required attributes `profile`, `signature-scope`, `keyid`,
+`signature`, `content-hash`, and `algorithm`, plus the inner content of the
+signed section. If any required attribute is missing or empty, or if a
+protocol attribute has leading or trailing ASCII whitespace, the verifier
+MUST return `incomplete` and stop.
+
+Require `profile` to equal `htmltrust-signature-v1`; otherwise return
+`profile-unsupported`. Require `signature-scope` to equal `url` or `origin`;
+otherwise return `scope-unsupported`. Select the profile before performing
+canonicalization and do not try a different profile after a later failure.
 
 Validate the `content-hash` and `signature` encodings against Section 6.
 A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
@@ -1483,7 +1647,8 @@ decoding).
 
 If URL resolution or another signed-attribute operation cannot produce the
 canonical value required by Section 4.3.2, the verifier MUST return
-"attribute-canonicalization-failed" and stop.
+`attribute-canonicalization-failed` and stop. If a resolved `href` or `src`
+violates `htmltrust-safe-url-v1`, return `url-policy-violation` and stop.
 
 If the hashes do not match, the verifier MUST return a
 "content-hash-mismatch" failure and stop.
@@ -1497,24 +1662,26 @@ Form the claims-hash string per Section 6.2.
 A missing `name` or `content`, or an empty normalized name, produces
 "claim-malformed". Duplicate normalized names produce "claim-duplicate".
 
+Require exactly one normalized claim name equal to `signed-at`. If it is
+absent, return `claim-missing`. Validate its normalized content against
+Section 5.4; a failure produces `timestamp-invalid`.
+
 ## Step 4: Construct signing payload
 
-Construct the byte string defined in Section 5 from `content-hash`
-(verbatim from the attribute), the claims hash from Step 3, the
-serialized origin of the current document (the legacy-named `domain`
-field in Section 5), and the value
-of the `signed-at` claim `<meta>` element after normalization
-(Section 4.4). If the `signed-at` claim is absent, the verifier MUST
-return a "claim-missing" failure and stop.
+Derive `location` from the accepted source snapshot's final response URL and
+the `signature-scope` attribute under Section 5.3. If the document URL does
+not produce an allowed public v1 location, return `origin-not-supported`.
 
-If the normalized `signed-at` value is not an RFC 3339 date-time with the
-UTC `Z` offset required by Section 5, the verifier MUST return
-"claim-malformed" and stop.
+Construct the complete object in Section 5.5 from the validated attributes,
+the claims hash from Step 3, the derived location, and the normalized
+`signed-at` value. Insert the four profile constants from Section 5.1 and the
+fixed context string. Serialize the object with [RFC8785], then UTF-8 encode
+the result. Those bytes are the signing payload.
 
-If the document URL does not produce an allowed tuple origin under Section 5,
-the verifier MUST return "origin-not-supported" and stop. A signature copied
-to another allowed origin fails cryptographic verification because the
-verifier constructs the payload from the current document origin.
+A section copied to a location outside its signed scope produces
+`signature-invalid` because the verifier constructs a different signed
+object. The verifier MUST NOT use author-controlled canonical-link metadata
+as the location.
 
 ## Step 5: Resolve keyid
 
@@ -1557,9 +1724,12 @@ revision. A verifier MAY attach private diagnostic detail, but the
 cryptographic result MUST use one of these identifiers and MUST never
 map a listed failure to `valid`:
 
-`incomplete`, `content-hash-mismatch`,
+`incomplete`, `profile-unsupported`, `scope-unsupported`,
+`content-hash-mismatch`,
 `claim-missing`, `claim-malformed`, `claim-duplicate`,
+`timestamp-invalid`,
 `attribute-canonicalization-failed`, `parser-profile-unsupported`,
+`url-policy-violation`,
 `invalid-encoding`, `malformed-signature`, `signature-invalid`,
 `key-resolution-failed`, `malformed-key-document`, `key-revoked`,
 `algorithm-not-supported`, `algorithm-mismatch`, `origin-not-supported`,
@@ -1682,21 +1852,22 @@ Key compromise:
   `expires`.
 
 Replay across origins:
-: An adversary copying a signed section from one site to another.
-  Prevented by origin binding (Section 5); verification on the new
-  origin will fail.
+: An adversary copying a signed section from one site to another. Both v1
+  scopes bind an HTTPS tuple origin, so verification on another origin fails.
 
-Replay within origin (long-tail):
-: An adversary re-publishing old signed content on the same origin
-  out of context. Not prevented by the protocol; mitigated by
-  external research and by the inclusion of `signed-at` in the
-  signing payload, which dates the attestation.
+Replay within origin:
+: An adversary re-publishing signed content at another URL on the same
+  origin. The recommended `url` scope prevents this by binding the serialized
+  path and query. `origin` scope permits it as an explicit portability choice;
+  verifiers surface that scope to trust and user-interface policy. A copied
+  section can still be surrounded by hostile unsigned context at its original
+  URL, so scope binding does not establish whole-page integrity.
 
 Downgrade:
 : An adversary inducing a verifier to use a weak algorithm. Mitigated
-  by the verifier's right to refuse algorithms (Section 7.3) and by
-  the requirement that `algorithm` mismatch produce a distinct
-  failure outcome.
+  by signing the exact algorithm, key identifier, and profile identifiers,
+  and by the verifier's right to refuse algorithms (Section 7.3). A verifier
+  never retries under a legacy profile after a v1 failure.
 
 ## Deliberate semantic-subset signing trade-off
 
@@ -1707,13 +1878,13 @@ block-level markup, alter non-covered attributes, or surround it with
 hostile media without invalidating the cryptographic signature. The
 HTMLTrust system addresses these residual risks through layered means:
 
-- Origin binding (Section 5) ensures that the signed material appears
-  only on the publication origin under the original signature.
+- Location binding (Section 5) restricts the signed material to one URL by
+  default, or to one origin after an explicit signer choice.
 - Trust-directory indexing and external research (out of band, but
   enabled by the content hash being globally addressable) catches
   altered surrounding context on mirror sites.
-- Future revisions MAY extend hash coverage to more semantic
-  attributes, addressing a larger subset of context-swapping attacks.
+- Future revisions MAY define a new signed-attribute profile with broader
+  coverage, addressing a larger subset of context-swapping attacks.
 
 The deliberate trade-off is implementational simplicity and
 cross-implementation stability versus full structural integrity. XML
@@ -1923,14 +2094,16 @@ the operational experience of DKIM deployment.
 
 # Test Vectors
 
-This appendix gives a complete, reproducible end-to-end vector. The same
-vector is maintained machine-readable in the conformance suite at
-`conformance/vectors/vector-01.json` in the canonicalization repository at
-commit `a756dbaf27fd32799da7f2a1276cc16964e8d41f`
-(https://github.com/HTMLTrust/htmltrust-canonicalization), where every
-signer and verifier binding reproduces it in CI. All hashes are SHA-256
-encoded as unpadded standard Base64 with the `sha256:` prefix
-(Section 6); the signature is Ed25519 over the Section 5 payload, also
+This appendix gives a complete, reproducible signing-profile vector. Its
+cryptographic input starts with the canonical content and canonical claims
+byte strings shown below; parser and canonicalization behavior is covered by
+the separate Section 4 vectors. The same vector is maintained
+machine-readable as `ietf-draft/vectors/signing-profile-v1.json` in this
+repository. The vector checker hashes both canonical byte strings,
+reconstructs the signing object from fixed v1 constants, serializes it with
+[RFC8785], derives the fixed test key, and verifies the signature. All hashes are
+SHA-256 encoded as unpadded standard Base64 with the `sha256:` prefix
+(Section 6); the signature is Ed25519 over the Section 5 JCS payload, also
 unpadded standard Base64.
 
 ## Test key (Ed25519)
@@ -1953,18 +2126,25 @@ MCowBQYDK2VwAyEAro5HTnkh3VG+ZQ3PaEerRS3uY0ITOe/D1rBBsuhfTBk=
 
 ## Inputs
 
-Signed document base URL (for resolving relative signed URL attributes):
-`https://example.com/essays/engines`. Serialized publisher origin
-(`domain` field): `https://example.com`. `signed-at`:
-`2026-01-15T12:00:00Z`.
+Final signed document URL:
+`HTTPS://EXAMPLE.COM:443/essays/engines#analysis`. The `url` scope excludes
+the fragment and produces the signed location
+`https://example.com/essays/engines`. The source snapshot's document base URL
+for resolving relative signed URL attributes is the same URL without the
+fragment. `signed-at` is `2026-01-15T12:00:00Z`.
 
 Signed section (source HTML):
 
 ~~~ html
-<signed-section>
+<signed-section profile="htmltrust-signature-v1"
+                signature-scope="url"
+                keyid="https://keys.example/alice-2026.json"
+                algorithm="ed25519"
+                content-hash="sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8"
+                signature="m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA">
 <meta name="author" content="Ada Lovelace">
 <meta name="signed-at" content="2026-01-15T12:00:00Z">
-<meta name="license" content="CC-BY-4.0">
+<meta name="claim:License" content="CC-BY-4.0">
 <h1>On Analytical Engines</h1>
 <p>The engine weaves algebraic patterns &mdash; just as the loom weaves flowers.</p>
 <p>See <a href="/notes/engine">the notes</a> and <img src="/img/ada.png" alt="Portrait of Ada">.</p>
@@ -2000,29 +2180,48 @@ Sorted lexically by the UTF-8 bytes of the normalized name:
 
 ~~~
 author:Ada Lovelace
-license:CC-BY-4.0
-signed-at:2026-01-15T12:00:00Z
+claim\:License:CC-BY-4.0
+signed-at:2026-01-15T12\:00\:00Z
 ~~~
 
 (The serialized string ends with a trailing U+000A after the last
 record.) Claims hash:
 
 ~~~
-sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs
+sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4
 ~~~
 
 ## Signing payload and signature
 
-Signing payload (Section 5, four colon-joined fields):
+Signing object before JCS serialization:
 
+~~~ json
+{
+  "algorithm": "ed25519",
+  "attributeProfile": "htmltrust-attrs-v1",
+  "canonicalizationProfile": "htmltrust-c14n-v1",
+  "claimsHash": "sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4",
+  "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
+  "context": "https://htmltrust.org/protocol/signed-section",
+  "keyid": "https://keys.example/alice-2026.json",
+  "location": "https://example.com/essays/engines",
+  "profile": "htmltrust-signature-v1",
+  "scope": "url",
+  "signedAt": "2026-01-15T12:00:00Z",
+  "urlProfile": "htmltrust-safe-url-v1"
+}
 ~~~
-sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8:sha256:LRDw8hP30g9AxXzw8wteFOZpDyD/hWUyP25Be8C0hBs:https://example.com:2026-01-15T12:00:00Z
+
+JCS signing payload, shown on one line:
+
+~~~ json
+{"algorithm":"ed25519","attributeProfile":"htmltrust-attrs-v1","canonicalizationProfile":"htmltrust-c14n-v1","claimsHash":"sha256:Fk5udwCnu1au8v5oaBsU+aSB5S2zSLqoF0xXO6HrIn4","contentHash":"sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8","context":"https://htmltrust.org/protocol/signed-section","keyid":"https://keys.example/alice-2026.json","location":"https://example.com/essays/engines","profile":"htmltrust-signature-v1","scope":"url","signedAt":"2026-01-15T12:00:00Z","urlProfile":"htmltrust-safe-url-v1"}
 ~~~
 
 Ed25519 signature over that payload, unpadded standard Base64:
 
 ~~~
-kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg
+m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA
 ~~~
 
 # Example Directory Exchange
@@ -2036,18 +2235,21 @@ POST /content HTTP/1.1
 Host: directory.example
 Date: Thu, 15 Jan 2026 12:00:00 GMT
 Content-Type: application/json
-Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="did:web:author.example";alg="ed25519"
+Signature-Input: sig1=("@method" "@target-uri" "host" "date" "content-digest");created=1768478400;keyid="https://keys.example/alice-2026.json";alg="ed25519"
 Signature: sig1=:gdWl4N5vUFjVBFg8HDJu49u03bCfSvu/m0A5Ql8omqsoBIbiMXiyyaRQmgBQ7pS7ze7dA0VSx1rD+VbBi2qADg:
 Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
 
 {
+  "profile": "htmltrust-signature-v1",
   "contentHash": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
-  "keyid": "did:web:author.example",
+  "keyid": "https://keys.example/alice-2026.json",
+  "algorithm": "ed25519",
   "signedAt": "2026-01-15T12:00:00Z",
-  "domain": "https://example.com",
-  "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg",
+  "scope": "url",
+  "location": "https://example.com/essays/engines",
+  "signature": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA",
   "sourceURL": "https://example.com/essays/engines",
-  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"license","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
+  "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"claim:License","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
 }
 ~~~
 
@@ -2063,10 +2265,13 @@ Content-Type: application/htmltrust-content+json
   "firstSeen": "2026-05-15T12:34:56Z",
   "signers": [
     {
-      "keyid": "did:web:author.example",
+      "profile": "htmltrust-signature-v1",
+      "keyid": "https://keys.example/alice-2026.json",
+      "algorithm": "ed25519",
       "signedAt": "2026-01-15T12:00:00Z",
-      "domain": "https://example.com",
-      "signature": "kivLG5v5apFvXL4R7glxzg6zqpAt9r7gbiKRK3EA0W3wLePdn/Jde2lIdD1a78TdsaxZyRgDF/6u/goO6NcKDg"
+      "scope": "url",
+      "location": "https://example.com/essays/engines",
+      "signature": "m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA"
     }
   ],
   "endorsementCount": 0
@@ -2106,17 +2311,12 @@ The following issues are open in this revision and are expected to
 be addressed in subsequent revisions or in the companion W3C
 Community Group Report.
 
-1. Semantic attribute coverage. This revision signs canonicalized text
-   plus the provisional semantic attribute list `href`, `src`, `alt`,
-   and `aria-label`. The exact expansion list remains open for
-   community feedback. See Section 4.3.2 and the security
-   considerations.
-2. Runtime DOM mutation. A `data-htmltrust-ignore` opt-out marker
+1. Runtime DOM mutation. A `data-htmltrust-ignore` opt-out marker
    is reserved but not yet normative. See Section 4.7.
-3. Mandatory-to-implement key resolution methods. This revision
+2. Mandatory-to-implement key resolution methods. This revision
    requires verifiers to implement at least one of three methods.
    A future revision may strengthen the requirement, particularly
    around DID methods.
-4. Reputation-score interoperability. The `/signers/{id}/reputation`
+3. Reputation-score interoperability. The `/signers/{id}/reputation`
    endpoint is intentionally directory-specific. A future revision
    may define a small interoperable subset.
