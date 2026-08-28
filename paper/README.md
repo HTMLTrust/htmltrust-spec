@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | Working paper |
-| Updated | 2026-08-27 |
+| Updated | 2026-08-28 |
 | Author | Jason Grey |
 | Primary readers | Researchers, reviewers, and paper contributors |
 | Reading time | 2 minutes |
@@ -30,6 +30,17 @@ the Dockerfile or building with `docker build --no-cache` downloads the
 packages again. The container mounts the checkout and writes the PDF as your
 host user.
 
+Build the PDF and create an arXiv source archive with the host toolchain:
+
+```sh
+make paper-arxiv
+```
+
+Use `make paper-arxiv-docker` when TeX Live is unavailable locally. Both
+commands write `paper/dist/htmltrust-arxiv.tar.gz`. The archive includes the
+generated `htmltrust.bbl`, paper source, bibliography, and architecture image.
+Its contents are printed after packaging.
+
 ## Install the required tools
 
 Install a TeX Live distribution that provides `pdflatex`, `biblatex`, and
@@ -54,4 +65,5 @@ under `paper/reviews/` with their submission date.
 - [Repository guide](../README.md)
 - [IETF protocol draft](../ietf-draft/README.md)
 - [W3C browser-integration draft](../w3c-cg/README.md)
+- [Study 1 v0.3 supplementary artifact](artifacts/study1-v03/README.md)
 - [PaperReview.ai round-one review](reviews/paperreview-round1.md)

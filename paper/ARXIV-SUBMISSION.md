@@ -1,52 +1,52 @@
-# arXiv submission kit — HTMLTrust paper
+# Submit the HTMLTrust paper to arXiv
 
-Everything needed to submit `htmltrust.tex` to arXiv. **I have not uploaded anything** — the upload is yours to make from your account. This kit is ready to execute once you've made the two framing choices below.
+This checklist packages the current paper source and records the text needed
+for an arXiv submission. The current title is:
 
-## Two decisions for you
+> Toward Decentralized Trust and Verifiable Content on the Web
 
-1. **Title.** The `.tex` currently keeps the original framing:
-   > *Toward Decentralized Trust and Verifiable Content on the Web*
+Use a replacement submission when an earlier version already has an arXiv
+identifier. Use a new submission when no arXiv record exists. The suggested
+primary category is `cs.CR`.
 
-   Now that the paper reports a working, cross-implementation system with a measured interoperability result, consider leading with that:
-   > *Byte-Identical Canonicalization for Browser-Verifiable HTML Authorship*
-   > (subtitle/or: *…and the Text-Normalization Hazards It Surfaces*)
+## Build and package
 
-   The abstract already reflects the implemented-and-measured framing either way. Change `\title{...}` if you want the stronger version.
+From the repository root, run:
 
-2. **New submission or v2 replacement.** If a prior version is already on arXiv, submit this as a **replace (v2)** under the same identifier (recommended — preserves citations); otherwise a fresh submission. Category: **`cs.CR`** (Cryptography and Security), cross-list **`cs.NI`** and/or **`cs.DL`**.
-
-## Plain-text abstract (arXiv abstract field — no LaTeX)
-
-> We present a decentralized, standards-aligned framework for embedding cryptographic trust directly into HTML content. Using a new <signed-section> element, publishers can sign semantically meaningful regions of web pages and carry identity-linked metadata in band. Signatures are validated against public-key infrastructure such as DIDs and can be enhanced with third-party endorsements submitted to optional, federated trust directories. We define a canonicalization method for content normalization and show how browsers and content-management systems can apply user-configured web-of-trust policies to live content. The scheme is fully implemented: five independent language libraries, a reference trust directory, a browser verifier, and static-site and CMS signers reproduce a shared conformance suite and a complete end-to-end test vector byte-for-byte. We report the specific text-normalization hazards this cross-implementation discipline surfaced and resolved -- URL serialization, HTML character references, quotation-mark classing, claim ordering, and excluded subtrees -- each of which silently produced divergent hashes across independent implementations before being pinned. Unlike blockchain-based or DRM-centric systems, the approach is lightweight, browser-compatible, and web-native.
-
-## Pre-submission checklist
-
-- [ ] **Compile it.** No LaTeX toolchain was available where the edits were made, so the source has been statically validated (all citations/labels/environments/braces balance) but **not typeset**. Build and read the PDF:
-  ```sh
-  cd htmltrust-spec/paper
-  latexmk -pdf htmltrust.tex        # or: tectonic htmltrust.tex
-  ```
-- [ ] **Generate the `.bbl`.** The paper uses `biblatex`+`biber`. **arXiv does not run biber**, so you must include the generated `htmltrust.bbl` in the upload (a normal `latexmk -pdf` run produces it). Without it, references will not resolve on arXiv. (Alternative: convert to `\usepackage[numbers]{natbib}` + `bibtex` if you prefer arXiv's default path — but including the `.bbl` is simpler.)
-- [ ] Confirm `images/architecture1.*` is present and referenced correctly (it is the only figure).
-- [ ] Decide the title (above) and set `\title{}`.
-
-## Packaging (once compiled and `.bbl` exists)
-
-arXiv wants the source, not the PDF. From `htmltrust-spec/paper/`:
 ```sh
-tar czf htmltrust-arxiv.tar.gz htmltrust.tex references.bib htmltrust.bbl images/
+make paper-arxiv-docker
 ```
-Upload `htmltrust-arxiv.tar.gz`. (Include `htmltrust.bbl`; you may omit `references.bib` if the `.bbl` is present, but including both is harmless.)
 
-## Revision comment (if submitting as v2)
+This command builds the PDF and writes
+`paper/dist/htmltrust-arxiv.tar.gz`. The archive contains:
 
-> v2: Corrected the canonicalization description to the algorithm as actually specified and implemented (removed the SimHash / attribute-sorting description that never existed); updated the endorsement format, algorithm identifiers, and timestamp format to match the normative draft; added an Implementation and Results section reporting byte-identical cross-language interoperability (five implementations reproducing a shared conformance suite and end-to-end test vectors) and a catalog of the text-normalization hazards this surfaced; added an honest limitations discussion.
+- `htmltrust.tex`
+- `references.bib`
+- the generated `htmltrust.bbl`
+- `images/architecture1.png`
 
-## Not blocking arXiv, but do before you cite the repos as artifacts
+Inspect the printed archive listing and the final PDF before upload. The
+supplementary Study 1 source and evidence remain in
+`paper/artifacts/study1-v03/`; the paper cites that stable repository snapshot.
 
-- Drop the `LOCAL DEV ONLY` `replace` line in `htmltrust-hugo/go.mod` and pin the published canonicalization lib (a committed filesystem `replace` breaks the production signing job).
-- Re-pin the website `ci.yml` signer commit after the hugo x/net bump lands.
-- Land the reconciled website copy (the factual fixes are in place; the rest is your in-progress edit).
+## Plain-text abstract
 
----
-**When you've picked a title and fresh-vs-v2, say so and I'll set `\title{}`, produce the exact tar command output list, and finalize the abstract/comment. The upload stays with you.**
+> We specify HTMLTrust, an in-band signature protocol for semantic regions of HTML. A signed section binds normalized text and four reader-relevant attributes through a content hash. An RFC 8785 canonical JSON signing object binds that hash with the claims hash, signer key identifier, signature algorithm, publication location, signed time, and profile identifiers. Verification is deterministic after the verifier obtains the source snapshot and resolves the key; optional federated directories distribute key records and signed endorsements. The version 0.3 prototype includes five parser-backed language bindings, a reference directory, a browser verifier, and publishing integrations. All five bindings pass 118 shared canonicalization fixtures, including expected rejections. A separate Ed25519 vector fixes the signing input and signature; JavaScript and Go recompute and verify the full vector, while the remaining bindings exercise its canonicalization or payload stages. On 4,846 Common Crawl News body regions, the five independent ports produce matching digests for 119 of the 121 jointly canonicalizable inputs. Shared-core adapters agree on all 174 inputs they jointly canonicalize. The protocol separates cryptographic integrity from user-selected trust policy and defines explicit limits for replay, parser ambiguity, URL handling, and resource use.
+
+## Replacement comment
+
+Use this comment for a replacement submission and adjust the version number if
+needed:
+
+> Updated the protocol description to match signing profile v1 and canonicalization revision 12bc7e839d5e2a858c29bba651e704e8ed036d95. Added the final 4,846-region Common Crawl operational study, including separate independent-port and shared-core results, source-transformation probes, sampling limits, and a supplementary reproducibility archive. Narrowed claims about end-to-end vector coverage, replay scope, deployment evidence, and generalizability.
+
+## Final checks
+
+- Confirm the title, author name, email address, and category in the submission
+  form.
+- Open `paper/htmltrust.pdf` and inspect every page.
+- Confirm every citation is resolved and the bibliography is present.
+- Verify the page and file-size limits shown by the submission service.
+- Upload `paper/dist/htmltrust-arxiv.tar.gz` as source.
+- Download arXiv's compiled preview and compare it with the local PDF before
+  submitting.

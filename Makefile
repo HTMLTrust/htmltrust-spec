@@ -1,4 +1,4 @@
-.PHONY: all check ietf paper paper-docker w3c w3c-check
+.PHONY: all check ietf paper paper-docker paper-arxiv paper-arxiv-docker w3c w3c-check
 
 all: check ietf w3c-check paper
 
@@ -13,6 +13,12 @@ paper:
 
 paper-docker:
 	./scripts/build-paper-in-docker.sh
+
+paper-arxiv: paper
+	./scripts/package-arxiv.sh
+
+paper-arxiv-docker: paper-docker
+	./scripts/package-arxiv.sh
 
 w3c:
 	python3 -m http.server 8000 --directory w3c-cg
