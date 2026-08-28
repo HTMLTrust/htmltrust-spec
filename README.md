@@ -38,6 +38,7 @@ targets list their tool requirements below.
 | [Research paper](paper/README.md) | Architecture, motivation, prototype results, and related work | `paper/htmltrust.tex` |
 | [IETF review](IETF_SPEC_REVIEW.md) | Security and interoperability findings, including the current disposition | Markdown review |
 | [W3C review](W3C_SPEC_REVIEW.md) | Browser and Web-platform findings, including the current disposition | Markdown review |
+| [Language API boundary](LANGUAGE_API_BOUNDARY.md) | Decision options for the Python and Rust protocol surface | Draft decision record |
 
 The generated IETF `.xml`, `.html`, and `.txt` files are committed so
 reviewers can read the draft without installing the build tools.
