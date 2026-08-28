@@ -425,7 +425,11 @@ MUST satisfy this profile. This revision defines no in-band profile
 negotiation. A signed section MUST be encoded as UTF-8, contain no duplicate
 attributes, and contain no parse
 errors involving unclosed or misnested elements, table foster parenting,
-foreign-content integration points, or ambiguous character references.
+foreign-content integration points, ambiguous character references, or
+malformed HTML comments. Outside raw-text elements, an HTML comment in the
+signed input MUST have a closing `-->`; its body MUST NOT contain `--` and
+MUST NOT end in `-`. An unclosed comment, a comment body containing `--`, or
+a comment body ending in `-` is a parse error for this profile.
 The profile excludes `template` and nested browsing contexts from the
 signed subtree as specified in Section 4.3.1. A parser-backed verifier
 MUST reject an input outside this profile with
@@ -434,9 +438,9 @@ emit other HTML under an experimental protocol version outside this
 revision, but MUST NOT identify that output as conforming to this revision.
 
 The profile cases in `vectors/parser-profile.json` cover duplicate
-attributes, malformed nesting, table insertion, foreign content, and
-ambiguous character references. A conforming verifier MUST produce the
-specified accept/reject result before accepting a signed section.
+attributes, malformed nesting, table insertion, foreign content, ambiguous
+character references, and malformed comments. A conforming verifier MUST
+produce the specified accept/reject result before accepting a signed section.
 
 ## Walk and text extraction
 

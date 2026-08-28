@@ -570,8 +570,12 @@ Internet-Draft                  HTMLTrust                    August 2026
    in-band profile negotiation.  A signed section MUST be encoded as
    UTF-8, contain no duplicate attributes, and contain no parse errors
    involving unclosed or misnested elements, table foster parenting,
-   foreign-content integration points, or ambiguous character
-   references.  The profile excludes template and nested browsing
+   foreign-content integration points, ambiguous character references,
+   or malformed HTML comments.  Outside raw-text elements, an HTML
+   comment in the signed input MUST have a closing -->; its body MUST
+   NOT contain -- and MUST NOT end in -. An unclosed comment, a comment
+   body containing --, or a comment body ending in - is a parse error
+   for this profile.  The profile excludes template and nested browsing
    contexts from the signed subtree as specified in Section 4.3.1.  A
    parser-backed verifier MUST reject an input outside this profile with
    "parser-profile-unsupported" rather than guessing at a tree.  A
@@ -580,9 +584,10 @@ Internet-Draft                  HTMLTrust                    August 2026
    conforming to this revision.
 
    The profile cases in vectors/parser-profile.json cover duplicate
-   attributes, malformed nesting, table insertion, foreign content, and
-   ambiguous character references.  A conforming verifier MUST produce
-   the specified accept/reject result before accepting a signed section.
+   attributes, malformed nesting, table insertion, foreign content,
+   ambiguous character references, and malformed comments.  A conforming
+   verifier MUST produce the specified accept/reject result before
+   accepting a signed section.
 
 4.2.  Walk and text extraction
 
@@ -605,11 +610,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       4.  If the element produces a block boundary (Section 4.5), emits
           the boundary marker after the recursion result.
 
-   *  If the node is a Comment, ProcessingInstruction, or DocumentType,
-      it is ignored and contributes nothing.
-
-
-
 
 
 
@@ -617,6 +617,9 @@ Grey                    Expires 28 February 2027               [Page 11]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   *  If the node is a Comment, ProcessingInstruction, or DocumentType,
+      it is ignored and contributes nothing.
 
    A signed section element MAY itself be a descendant of another signed
    section element.  The inner element and its subtree are canonicalized
@@ -660,9 +663,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    that do not carry signed body content and likewise contribute no
    bytes; in particular a <link>'s href is NOT a signed semantic
    attribute.
-
-
-
 
 
 

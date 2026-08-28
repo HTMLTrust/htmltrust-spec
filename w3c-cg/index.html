@@ -282,9 +282,13 @@
       accepted. User agents <em class="rfc2119">MUST</em> return
       <code>parser-profile-unsupported</code> for duplicate attributes,
       malformed nesting, table foster-parenting cases, foreign-content
-      integration, or ambiguous character references identified by the
-      profile. A live DOM alone cannot establish conformance because normal
-      HTML parsing has already discarded or repaired those source conditions.
+      integration, ambiguous character references, or malformed HTML comments
+      identified by the profile. Outside raw-text elements, comments in the
+      signed input <em class="rfc2119">MUST</em> have a closing
+      <code>--&gt;</code>; their bodies <em class="rfc2119">MUST NOT</em>
+      contain <code>--</code> or end with <code>-</code>. A live DOM alone
+      cannot establish conformance because normal HTML parsing has already
+      discarded or repaired those source conditions.
     </p>
   </section>
 
