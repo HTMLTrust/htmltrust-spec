@@ -8,6 +8,13 @@
   <script class="remove">
     var respecConfig = {
       specStatus: "unofficial",
+      // xref must stay on. Disabling it removes the definitions the WebIDL
+      // block links against (DOMString, HTMLElement, DOMException and the
+      // rest), which ReSpec reports as linkless-anchor warnings, and this
+      // build treats warnings as fatal. So the render still needs the W3C
+      // xref service reachable, even though every bibliography reference is
+      // now defined locally below. Making this fully offline would mean
+      // vendoring the xref data, not a config change.
       xref: { profile: "web-platform", specs: ["hr-time"] },
       additionalCopyrightHolders: "Jason Grey. Licensed under CC BY-NC-ND 4.0.",
       editors: [{
@@ -21,6 +28,104 @@
       latestVersion: null,
       lint: { "no-http-props": false, "no-unused-dfns": false },
       localBiblio: {
+        "html": {
+          title: "HTML Standard",
+          href: "https://html.spec.whatwg.org/multipage/",
+          publisher: "WHATWG"
+        },
+        "webidl": {
+          title: "Web IDL Standard",
+          href: "https://webidl.spec.whatwg.org/",
+          publisher: "WHATWG"
+        },
+        "HTML": {
+          title: "HTML Standard",
+          href: "https://html.spec.whatwg.org/multipage/",
+          publisher: "WHATWG"
+        },
+        "dom": {
+          title: "DOM Standard",
+          href: "https://dom.spec.whatwg.org/",
+          publisher: "WHATWG"
+        },
+        "DOM": {
+          title: "DOM Standard",
+          href: "https://dom.spec.whatwg.org/",
+          publisher: "WHATWG"
+        },
+        "FETCH": {
+          title: "Fetch Standard",
+          href: "https://fetch.spec.whatwg.org/",
+          publisher: "WHATWG"
+        },
+        "WEBIDL": {
+          title: "Web IDL Standard",
+          href: "https://webidl.spec.whatwg.org/",
+          publisher: "WHATWG"
+        },
+        "CSP3": {
+          title: "Content Security Policy Level 3",
+          href: "https://www.w3.org/TR/CSP3/",
+          publisher: "W3C"
+        },
+        "DID-CORE": {
+          title: "Decentralized Identifiers (DIDs) v1.0",
+          href: "https://www.w3.org/TR/did-core/",
+          publisher: "W3C"
+        },
+        "WCAG22": {
+          title: "Web Content Accessibility Guidelines (WCAG) 2.2",
+          href: "https://www.w3.org/TR/WCAG22/",
+          publisher: "W3C"
+        },
+        "hr-time": {
+          title: "High Resolution Time",
+          href: "https://www.w3.org/TR/hr-time-3/",
+          publisher: "W3C"
+        },
+        "RFC2119": {
+          title: "Key words for use in RFCs to Indicate Requirement Levels",
+          href: "https://www.rfc-editor.org/rfc/rfc2119",
+          authors: ["S. Bradner"],
+          publisher: "IETF",
+          rawDate: "1997"
+        },
+        "RFC8174": {
+          title: "Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words",
+          href: "https://www.rfc-editor.org/rfc/rfc8174",
+          authors: ["B. Leiba"],
+          publisher: "IETF",
+          rawDate: "2017"
+        },
+        "SRI": {
+          title: "Subresource Integrity",
+          href: "https://www.w3.org/TR/SRI/",
+          publisher: "W3C"
+        },
+        "WebAuthn-3": {
+          title: "Web Authentication: An API for accessing Public Key Credentials, Level 3",
+          href: "https://www.w3.org/TR/webauthn-3/",
+          publisher: "W3C"
+        },
+        "VC-DATA-MODEL-2.0": {
+          title: "Verifiable Credentials Data Model v2.0",
+          href: "https://www.w3.org/TR/vc-data-model-2.0/",
+          publisher: "W3C"
+        },
+        "RFC6376": {
+          title: "DomainKeys Identified Mail (DKIM) Signatures",
+          href: "https://www.rfc-editor.org/rfc/rfc6376",
+          authors: ["D. Crocker", "T. Hansen", "M. Kucherawy"],
+          publisher: "IETF",
+          rawDate: "2011"
+        },
+        "RFC7515": {
+          title: "JSON Web Signature (JWS)",
+          href: "https://www.rfc-editor.org/rfc/rfc7515",
+          authors: ["M. Jones", "J. Bradley", "N. Sakimura"],
+          publisher: "IETF",
+          rawDate: "2015"
+        },
         "I-D.grey-htmltrust": {
           title: "HTMLTrust Protocol: Canonicalization, Signing Payload, and Trust Directory API",
           authors: ["Jason Grey"],
