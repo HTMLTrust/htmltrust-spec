@@ -269,6 +269,36 @@ const revocationCrossOrigin = load("revocation-03.json");
   }
 }
 
+// revocation-04.json: cross-host identifier binding (kid/id equality).
+const revocationHostAlias = load("revocation-04.json");
+{
+  if (revocationHostAlias.keyDocument.kid !== revocationHostAlias.canonicalKeyid) {
+    throw new Error("revocation-04 keyDocument.kid must equal canonicalKeyid");
+  }
+  const canonicalOrigin = new URL(revocationHostAlias.canonicalKeyid).origin;
+  for (const alias of revocationHostAlias.crossHostAliasKeyids) {
+    if (alias === revocationHostAlias.canonicalKeyid) {
+      throw new Error(`revocation-04 alias ${alias} must differ textually from canonicalKeyid`);
+    }
+    const aliasOrigin = new URL(alias).origin;
+    if (aliasOrigin === canonicalOrigin) {
+      throw new Error(`revocation-04 alias ${alias} must be a genuinely different origin, not a within-origin alias (that case is revocation-02)`);
+    }
+    // The alias keyid must not equal the key document's own kid: this is
+    // exactly the mismatch that makes resolution fail.
+    if (alias === revocationHostAlias.keyDocument.kid) {
+      throw new Error(`revocation-04 alias ${alias} must not equal the key document's kid`);
+    }
+  }
+  const { canonical: didCanonical, alias: didAlias } = revocationHostAlias.didWebHostVariant;
+  if (didCanonical === didAlias) {
+    throw new Error("revocation-04 did:web host variant must differ textually from the canonical form");
+  }
+  if (didCanonical.toLowerCase() !== didAlias.toLowerCase()) {
+    throw new Error("revocation-04 did:web host variant does not collapse under lowercasing (so would not even share a DID document)");
+  }
+}
+
 // Malformed-entry and extensibility synthetic checks (§9.6): a document
 // containing one malformed entry alongside otherwise well-formed ones must
 // be rejected as a whole, while an entry carrying only an unrecognized

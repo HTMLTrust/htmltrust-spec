@@ -1718,6 +1718,9 @@ referenced here as <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.8">
                 <p id="section-toc.1-1.18.2.8.1"><a href="#appendix-B.8" class="auto internal xref">B.8</a>.  <a href="#name-revocation-list-cross-origi" class="internal xref">Revocation list cross-origin signer rejection</a></p>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.9">
+                <p id="section-toc.1-1.18.2.9.1"><a href="#appendix-B.9" class="auto internal xref">B.9</a>.  <a href="#name-revocation-list-host-alias-" class="internal xref">Revocation list host-alias identifier binding</a></p>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.19">
@@ -3137,6 +3140,14 @@ any verification method of compatible type.<a href="#section-8.1-2" class="pilcr
 document invalid where the method demands one, expired or revoked
 verification method) <span class="bcp14">MUST</span> be reported as "key-resolution-failed"
 verification failures.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+<p id="section-8.1-4">The DID document's top-level <code>id</code> member <span class="bcp14">MUST</span> equal the DID portion of
+<code>keyid</code> -- the <code>did:web:...</code> identifier itself, with any DID URL path,
+query, or fragment suffix removed -- byte for byte. A verifier <span class="bcp14">MUST</span>
+report "key-resolution-failed" on any other value, including a missing
+<code>id</code>. Section 9.5 explains why this equality check is required rather
+than optional: it is what prevents a <code>did:web</code> identity from being
+addressed under a host alias that was never told to be the same
+identity.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="direct-https-url">
@@ -3159,7 +3170,7 @@ or <code>application/jwk+json</code> per <span>[<a href="#RFC7517" class="cite x
 <div class="alignLeft art-text artwork" id="section-8.2-3.2.2">
 <pre>
 {
-  "kid": "&lt;string, optional&gt;",
+  "kid": "&lt;string&gt;",
   "algorithm": "&lt;algorithm identifier&gt;",
   "publicKeyEncoding": "spki-der",
   "publicKey": "&lt;unpadded standard Base64 SPKI DER&gt;",
@@ -3173,17 +3184,20 @@ or <code>application/jwk+json</code> per <span>[<a href="#RFC7517" class="cite x
 </div>
 </li>
         </ul>
-<p id="section-8.2-4"><code>algorithm</code>, <code>publicKeyEncoding</code>, and <code>publicKey</code> are <span class="bcp14">REQUIRED</span>. The other
-members shown above are <span class="bcp14">OPTIONAL</span>. Unknown members <span class="bcp14">MUST</span> be ignored for key
-resolution and <span class="bcp14">MAY</span> be retained by caches or directories.<a href="#section-8.2-4" class="pilcrow">¶</a></p>
+<p id="section-8.2-4"><code>kid</code>, <code>algorithm</code>, <code>publicKeyEncoding</code>, and <code>publicKey</code> are <span class="bcp14">REQUIRED</span>. The
+other members shown above are <span class="bcp14">OPTIONAL</span>. Unknown members <span class="bcp14">MUST</span> be ignored
+for key resolution and <span class="bcp14">MAY</span> be retained by caches or directories.<a href="#section-8.2-4" class="pilcrow">¶</a></p>
 <p id="section-8.2-5"><code>publicKey</code> is the canonical unpadded standard Base64 encoding from
 Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
 <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>. <code>publicKeyEncoding</code> <span class="bcp14">MUST</span> be exactly <code>spki-der</code>. A verifier <span class="bcp14">MUST</span>
 reject any other encoding in a conforming HTMLTrust key document with a
-"malformed-key-document" result. If <code>kid</code> is present, it <span class="bcp14">MUST</span> equal the
-serialized URL used as <code>keyid</code>; a mismatch is a "key-resolution-failed" result.
-The <code>algorithm</code> value and the decoded key type and parameters <span class="bcp14">MUST</span> match
-Section 7.1.<a href="#section-8.2-5" class="pilcrow">¶</a></p>
+"malformed-key-document" result. <code>kid</code> <span class="bcp14">MUST</span> equal the serialized URL used
+as <code>keyid</code> byte for byte; a missing or mismatched <code>kid</code> is a
+"malformed-key-document" result, not merely a discouraged omission.
+Section 9.5 explains why this equality check is required rather than
+optional: it is what prevents this key from being addressed under a host
+alias that was never told to be the same identity. The <code>algorithm</code> value
+and the decoded key type and parameters <span class="bcp14">MUST</span> match Section 7.1.<a href="#section-8.2-5" class="pilcrow">¶</a></p>
 <p id="section-8.2-6">For an <code>application/jwk+json</code> response, the JWK <code>kty</code>, <code>crv</code>, and <code>alg</code>
 members, when applicable, <span class="bcp14">MUST</span> select the same key type, parameters, and
 algorithm. An absent <code>alg</code> does not authorize algorithm inference; the
@@ -3247,18 +3261,20 @@ parsing any URL.<a href="#section-8.5-2" class="pilcrow">¶</a></p>
 <p id="section-8.5-3">For a <code>keyid</code> resolved under Section 8.1 (<code>did:web</code>): canonical form
 lowercases the ASCII method-specific identifier's host component and
 normalizes any URL-encoded colon (<code>%3A</code>, in any letter case) used to
-separate a non-default port, exactly as Section 9.5 already requires when
-deriving a revocation-list origin from a <code>did:web</code> <code>keyid</code>. The DID URL
-path and fragment, when present, are preserved and compared verbatim: a
-fragment here selects one verification method (Section 8.1) rather than
-being excluded the way a URL <code>keyid</code>'s fragment is forbidden outright, so
-it is not stripped.<a href="#section-8.5-3" class="pilcrow">¶</a></p>
+separate a non-default port. Section 9.5's revocation-list origin
+derivation for a <code>did:web</code> <code>keyid</code> follows this same rule rather than
+defining its own. The DID URL path and fragment, when present, are
+preserved and compared verbatim: a fragment here selects one
+verification method (Section 8.1) rather than being excluded the way a
+URL <code>keyid</code>'s fragment is forbidden outright, so it is not stripped.<a href="#section-8.5-3" class="pilcrow">¶</a></p>
 <p id="section-8.5-4">This canonical form is <span class="bcp14">REQUIRED</span> for the Section 9.9 revocation-list
-superseded lookup, and for the additional <code>keyid</code>-based match Section 9.7
-permits alongside the primary <code>publicKeyHash</code> match for a <code>revoked</code> entry.
-It does not change signature verification itself: the signing payload
-(Section 5.5) still binds the exact <code>keyid</code> attribute value as written, and
-a verifier <span class="bcp14">MUST NOT</span> normalize <code>keyid</code> before reproducing that payload.<a href="#section-8.5-4" class="pilcrow">¶</a></p>
+<code>superseded</code> lookup when an entry omits <code>publicKeyHash</code>. It is not used
+for a <code>revoked</code> entry: Section 9.6 requires <code>publicKeyHash</code> on every
+<code>revoked</code> entry, and Section 9.7 defines no <code>keyid</code>-based match for
+<code>revoked</code> at all, primary or secondary. It does not change signature
+verification itself: the signing payload (Section 5.5) still binds the
+exact <code>keyid</code> attribute value as written, and a verifier <span class="bcp14">MUST NOT</span>
+normalize <code>keyid</code> before reproducing that payload.<a href="#section-8.5-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3453,6 +3469,29 @@ that was attempted and failed.<a href="#section-9.5-5.3.1" class="pilcrow">¶</a
         </ul>
 <p id="section-9.5-6">A publisher with nothing to revoke need not publish this resource at all;
 see Revocation list fetch semantics, below.<a href="#section-9.5-6" class="pilcrow">¶</a></p>
+<p id="section-9.5-7">Deriving <code>&lt;origin&gt;</code> from <code>keyid</code> text this way has a consequence that is
+not itself a flaw, but that a verifier <span class="bcp14">MUST</span> understand: a server that
+answers the same key document under more than one hostname (a <code>www</code>
+subdomain and its apex, a CDN hostname distinct from the origin server, a
+bare IP literal presenting a matching certificate, a trailing-dot FQDN)
+is, for this purpose, SEVERAL origins, not one. Resolving the identical
+key material under two such hostnames derives two different revocation
+lists, and a verifier that only ever sees one of them has not fully
+checked the other. This is exactly what Section 8.1's DID-document <code>id</code>
+equality and Section 8.2's <span class="bcp14">REQUIRED</span> <code>kid</code> equality close: a key document
+<span class="bcp14">MUST</span> name its own canonical identifier, and resolution <span class="bcp14">MUST</span> fail on any
+other spelling, so a <code>keyid</code> addressing the same key material under a
+second hostname never resolves as that key's own identity in the first
+place. The key document -- which a key thief does not control without
+separately compromising the origin that serves it, a distinct threat --
+is what fixes the one true spelling, and therefore the one true
+revocation-list origin. This closes aliasing WITHIN the resolution
+methods above (a dot-segment path variant, host case, or default-port
+omission all resolve to the SAME origin already, so <code>id</code>/<code>kid</code> equality
+and the hash-based match in Section 9.7 are complementary defenses for
+those); it does not and cannot make two hostnames a publisher has not
+linked into the same identity, because nothing short of the publisher
+doing so establishes that they are the same identity at all.<a href="#section-9.5-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="revocation-list-document-shape">
@@ -3568,22 +3607,28 @@ see Revocation list fetch semantics, below.<a href="#section-9.5-6" class="pilcr
             </tr>
           </tbody>
         </table>
-<p id="section-9.6-5">A <code>revoked</code> entry missing <code>publicKeyHash</code> is schema-valid, not malformed:
-<code>publicKeyHash</code> is listed "conditional" above precisely so an entry
-lacking it is still well-formed. It does not satisfy the primary match
-(The two states, below); a verifier <span class="bcp14">MUST NOT</span> treat such an entry as
-satisfying the primary match, though it <span class="bcp14">MAY</span> still honor the weaker
-<code>keyid</code>-based secondary match described there. This is the one case in
-which an entry may deviate from the table above without being malformed.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
-<p id="section-9.6-6">An entry that instead fails to conform to this table in any other way --
-<code>keyid</code> or <code>status</code> missing or of the wrong type, a <code>status</code> value other
-than the two listed, or a present-but-wrongly-typed <code>publicKeyHash</code>,
-<code>revokedAt</code>, or <code>supersededBy</code> -- is malformed, and a malformed entry
-anywhere in <code>revocations</code> <span class="bcp14">MUST</span> invalidate the entire document: a verifier
-<span class="bcp14">MUST</span> treat the whole revocation list as unparseable (Revocation list
-fetch semantics, below) rather than silently skipping only the malformed
-entry. Skipping is fail-open, because it lets exactly the entry an
-attacker most wants ignored -- one crafted to fail parsing -- vanish
+<p id="section-9.6-5"><code>publicKeyHash</code> is <span class="bcp14">REQUIRED</span> when <code>status</code> is <code>revoked</code>. A <code>revoked</code> entry
+omitting it is malformed, exactly like a missing <code>keyid</code> or <code>status</code>
+would be, and a malformed entry anywhere in <code>revocations</code> <span class="bcp14">MUST</span> invalidate
+the entire document: a verifier <span class="bcp14">MUST</span> treat the whole revocation list as
+unparseable (Revocation list fetch semantics, below) rather than silently
+skipping only the malformed entry, or falling back to any weaker match
+for it. Earlier drafting of this section treated a <code>revoked</code> entry
+missing <code>publicKeyHash</code> as merely degraded, matchable by a
+<code>keyid</code>-based fallback; that fallback is removed. It was itself the
+alias hole this document closes: a signer who wants a <code>revoked</code> entry to
+miss could omit <code>publicKeyHash</code> on purpose, precisely because a
+<code>keyid</code>-text fallback is exactly as bypassable as <code>keyid</code>-text matching
+always is (The two states, below). There is no compatibility reason to
+keep it -- no revocation list has ever been published under this
+specification -- so it is deleted outright rather than deprecated.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
+<p id="section-9.6-6">An entry that fails to conform to this table in any other way -- <code>keyid</code>
+or <code>status</code> missing or of the wrong type, a <code>status</code> value other than the
+two listed, or a present-but-wrongly-typed <code>publicKeyHash</code>, <code>revokedAt</code>,
+or <code>supersededBy</code> -- is malformed for the same reason and with the same
+effect: the whole document is invalidated, not just that entry. Skipping
+only the malformed entry is fail-open, because it lets exactly the entry
+an attacker most wants ignored -- one crafted to fail parsing -- vanish
 instead of blocking the list that would otherwise apply it.<a href="#section-9.6-6" class="pilcrow">¶</a></p>
 <p id="section-9.6-7">Additional fields <span class="bcp14">MAY</span> be present in either object. A verifier <span class="bcp14">MUST</span> ignore
 fields it does not recognize for purposes of the status decision in The two
@@ -3598,9 +3643,10 @@ or widening the entry's effect. This revision defines only the two
 unqualified entry-wide states above. An unrecognized field on an entry that
 is otherwise well-formed under the table above does not itself make the
 entry malformed.<a href="#section-9.6-7" class="pilcrow">¶</a></p>
-<p id="section-9.6-8">If more than one entry matches the same key, whether by <code>publicKeyHash</code> or
-by the Section 8.5 canonical <code>keyid</code> form, and any of the matching entries
-has <code>status: "revoked"</code>, the key is <code>revoked</code>: a <code>superseded</code> entry for the
+<p id="section-9.6-8">If more than one entry matches the same key -- a <code>revoked</code> entry always by
+<code>publicKeyHash</code>, a <code>superseded</code> entry by <code>publicKeyHash</code> or the Section
+8.5 canonical <code>keyid</code> form -- and any matching entry has
+<code>status: "revoked"</code>, the key is <code>revoked</code>: a <code>superseded</code> entry for the
 same key <span class="bcp14">MUST NOT</span> suppress a <code>revoked</code> one, in any array order. A verifier
 <span class="bcp14">MUST NOT</span> implement this by keeping only the most recently seen entry for a
 given <code>keyid</code> and discarding earlier ones with the same <code>keyid</code>; that
@@ -3642,31 +3688,30 @@ retroactive: every signature ever produced by the <em>key material</em> a
 <code>revoked</code> entry names, at any <code>signed-at</code> value, <span class="bcp14">MUST</span> be treated as
 untrusted, regardless of which <code>keyid</code> string the signature in question
 actually carries. A verifier determines this by key material, not by
-<code>keyid</code>: the PRIMARY match compares the <code>publicKeyHash</code> of the entry
-against the SHA-256 SPKI-DER hash of the key the verifier already
-resolved and is about to use for signature verification (Section 12.6);
-a match is <code>revoked</code> regardless of whether the entry's own <code>keyid</code>
-string equals the <code>keyid</code> attribute under check. A verifier <span class="bcp14">MUST</span> perform
-this comparison for every <code>revoked</code> entry that carries <code>publicKeyHash</code>,
-not only the entry whose <code>keyid</code> happens to match textually. A verifier
-<span class="bcp14">MAY</span> additionally treat an entry as matching by a SECONDARY comparison of
-the Section 8.5 canonical form of <code>keyid</code>, which is useful chiefly when
-an entry omits <code>publicKeyHash</code>; this secondary comparison <span class="bcp14">MUST NOT</span> be
-used as the sole basis for concluding <code>not-revoked</code> when a
-<code>publicKeyHash</code> comparison was possible and did not match, and it <span class="bcp14">MUST NOT</span> be relied on in place of the primary match when <code>publicKeyHash</code> is
-present. <code>keyid</code> is opaque and signer-chosen (Section 8); a comparison
-keyed only to one spelling of it is not a safe way to detect
+<code>keyid</code>, and by key material ALONE: the match compares the entry's
+<span class="bcp14">REQUIRED</span> <code>publicKeyHash</code> (Section 9.6) against the SHA-256 SPKI-DER hash
+of the key the verifier already resolved and is about to use for
+signature verification (Section 12.6); a match is <code>revoked</code> regardless
+of whether the entry's own <code>keyid</code> string equals the <code>keyid</code> attribute
+under check. A verifier <span class="bcp14">MUST</span> perform this comparison for every <code>revoked</code>
+entry, not only the entry whose <code>keyid</code> happens to match textually.
+There is no <code>keyid</code>-based match for <code>revoked</code>, primary or secondary, in
+this revision: <code>keyid</code> is opaque and signer-chosen (Section 8), and a
+comparison keyed to it, even as a fallback, is not a safe way to detect
 compromised key material that a signer -- honest or, in the case an
 entry exists to address, actively adversarial -- can resolve under more
-than one <code>keyid</code> string. <code>revoked</code> is stated exactly once, here, with no
-time condition anywhere in it: once <code>revoked</code> is established by either
-match, a verifier <span class="bcp14">MUST</span> apply the <code>key-revoked</code> failure outcome for every
-signature the key produced, unconditionally. There is no exception
-clause, corroborated-timing or otherwise, for a key revoked through this
-list. Section 9.3's corroborated-timing exception exists only for the
-key document's own <code>revoked</code> field and is not incorporated here by
-reference or otherwise; a signer-asserted <code>signed-at</code> <span class="bcp14">MUST NOT</span> be
-weighed before applying <code>key-revoked</code> under this list, full stop.<a href="#section-9.7-2.2.1" class="pilcrow">¶</a></p>
+than one <code>keyid</code> string; a signer who wanted a <code>revoked</code> entry to miss
+could omit <code>publicKeyHash</code> specifically to fall through to such a
+fallback, which is why Section 9.6 makes its absence malformed instead.
+<code>revoked</code> is stated exactly once, here, with no time condition anywhere
+in it: once <code>revoked</code> is established, a verifier <span class="bcp14">MUST</span> apply the
+<code>key-revoked</code> failure outcome for every signature the key produced,
+unconditionally. There is no exception clause, corroborated-timing or
+otherwise, for a key revoked through this list. Section 9.3's
+corroborated-timing exception exists only for the key document's own
+<code>revoked</code> field and is not incorporated here by reference or otherwise;
+a signer-asserted <code>signed-at</code> <span class="bcp14">MUST NOT</span> be weighed before applying
+<code>key-revoked</code> under this list, full stop.<a href="#section-9.7-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-9.7-2.3">
@@ -3680,13 +3725,12 @@ not a distinct concept with separately invented semantics; a key is
 <code>superseded</code>, full stop, whichever channel says so. Signatures already
 made with the listed <code>keyid</code> remain valid. The listed key <span class="bcp14">MUST NOT</span> be
 used to sign new content going forward, exactly as Section 9.1 already
-requires of a key in this state. A verifier looks up a <code>superseded</code>
+requires of a key in this state. A verifier matches a <code>superseded</code>
 entry by <code>publicKeyHash</code> when the entry carries one, and otherwise by
 the Section 8.5 canonical form of <code>keyid</code>; unlike <code>revoked</code>, a
-keyid-string-based miss here is not a security failure; it only means
-the supersession signal is not surfaced for that particular alias, which
-is an acceptable degradation since existing signatures already remain
-valid either way. A verifier <span class="bcp14">MUST NOT</span> fail Section 12's cryptographic
+<code>keyid</code>-text-based miss here is not a security failure, only a missed
+trust-layer signal, since existing signatures from the key remain valid
+either way. A verifier <span class="bcp14">MUST NOT</span> fail Section 12's cryptographic
 verification because of a <code>superseded</code> entry; it <span class="bcp14">MAY</span> surface the entry
 as a Section 12.7 trust-layer input.<a href="#section-9.7-2.4.1" class="pilcrow">¶</a></p>
 </dd>
@@ -3763,12 +3807,14 @@ resource.<a href="#section-9.9-3.1.1" class="pilcrow">¶</a></p>
 origin matches this fetch's origin, whose signer is neither revoked nor
 superseded, and whose signature verifies, all per Revocation list
 verification, above: the verifier applies its <code>revocations</code> entries
-using the matching rules in The two states, above (primarily
-<code>publicKeyHash</code> for <code>revoked</code>, primarily the Section 8.5 canonical
-<code>keyid</code> form for <code>superseded</code>), with the duplicate-entry precedence
-Section 9.6 defines. Status is <code>revoked</code> if any entry matches; otherwise
-status is <code>not-revoked</code>, and, if some entry matches as <code>superseded</code>, the
-verifier additionally records that fact as trust-layer metadata.<a href="#section-9.9-3.2.1" class="pilcrow">¶</a></p>
+using the matching rules in The two states, above -- <code>publicKeyHash</code>
+alone for <code>revoked</code>; a verifier matches a <code>superseded</code> entry by
+<code>publicKeyHash</code> when the entry carries one, and otherwise by the
+Section 8.5 canonical form of <code>keyid</code> -- with the duplicate-entry
+precedence Section 9.6 defines. Status is <code>revoked</code> if any entry
+matches; otherwise status is <code>not-revoked</code>, and, if some entry matches
+as <code>superseded</code>, the verifier additionally records that fact as
+trust-layer metadata.<a href="#section-9.9-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.9-3.3">
             <p id="section-9.9-3.3.1">Any other outcome -- a network failure, a redirect, a non-404 error
@@ -4381,10 +4427,11 @@ algorithm it is suitable for. A retrieval or DID-resolution failure produces
 schema produces "malformed-key-document". A revoked key, or an expired key
 that Section 9 does not permit for this signature, produces "key-revoked".
 A verifier that also consults a Section 9.5 revocation list <span class="bcp14">MUST</span> apply the
-same "key-revoked" outcome when that list reports <code>revoked</code> for <code>keyid</code>; a
-<code>revocation-unknown</code> list result from that consultation does not produce a
-failure at this step (Section 9.9). The verifier <span class="bcp14">MUST</span> stop after any
-"key-revoked" or other listed result.<a href="#section-12.5-1" class="pilcrow">¶</a></p>
+same "key-revoked" outcome when that list reports <code>revoked</code> for the
+resolved key -- matched by key material (Section 9.7), not by <code>keyid</code>
+text. A <code>revocation-unknown</code> list result from that consultation does not
+produce a failure at this step (Section 9.9). The verifier <span class="bcp14">MUST</span> stop
+after any "key-revoked" or other listed result.<a href="#section-12.5-1" class="pilcrow">¶</a></p>
 <p id="section-12.5-2">If the algorithm associated with the resolved key is incompatible
 with the <code>algorithm</code> attribute of the signed section, the verifier
 <span class="bcp14">MUST</span> return an "algorithm-mismatch" failure and stop.<a href="#section-12.5-2" class="pilcrow">¶</a></p>
@@ -5591,10 +5638,22 @@ reports <code>not-revoked</code>.<a href="#appendix-B.6-9" class="pilcrow">¶</a
 <a href="#appendix-B.7" class="section-number selfRef">B.7. </a><a href="#name-revocation-list-keyid-alias" class="section-name selfRef">Revocation list keyid-alias immunity</a>
         </h3>
 <p id="appendix-B.7-1">This vector demonstrates why The two states requires matching a <code>revoked</code>
-entry by <code>publicKeyHash</code> rather than by <code>keyid</code> string. It does not
-introduce new key material; it works entirely from ordinary URL and
-<code>did:web</code> identifier equivalences that Section 8.5's canonical form, and
-the Section 5.1 syntax restriction, are built on.<a href="#appendix-B.7-1" class="pilcrow">¶</a></p>
+entry by <code>publicKeyHash</code> rather than by <code>keyid</code> string, for every alias
+form that resolves WITHIN the origin <code>keyid</code>'s own resolution method
+already names. It does not introduce new key material; it works entirely
+from ordinary URL and <code>did:web</code> identifier equivalences that Section
+8.5's canonical form, and the Section 5.1 syntax restriction, are built
+on. It does not by itself close a CROSS-HOST alias -- a key document
+reachable under a second hostname the verifier was never told is the
+same identity, such as <code>www</code> versus apex, a CDN hostname, or an IP
+literal presenting a matching certificate -- because such a hostname
+derives a genuinely different origin, and therefore a genuinely
+different revocation-list location, under Section 9.5. That closure is
+Section 8.1's DID-document <code>id</code> equality and Section 8.2's <span class="bcp14">REQUIRED</span>
+          <code>kid</code> equality, not this match rule; see Section 9.5's discussion of why
+a server answering under several hostnames is several origins, and
+Revocation list host-alias identifier binding, below, for a worked
+vector of that closure specifically.<a href="#appendix-B.7-1" class="pilcrow">¶</a></p>
 <p id="appendix-B.7-2">Take the revoked <code>keyid</code> from the vector above,
 <code>https://keys.example/alice-2024.json</code>. The following <code>keyid</code> strings are
 different from it and from each other as literal text, yet the URL
@@ -5693,6 +5752,67 @@ signed correctly by a key actually hosted at <code>https://keys.example</code> w
 be accepted.<a href="#appendix-B.8-3" class="pilcrow">¶</a></p>
 <p id="appendix-B.8-4">The machine-readable form of this vector is maintained as
 <code>ietf-draft/vectors/revocation-03.json</code> in this repository.<a href="#appendix-B.8-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="revocation-list-host-alias-identifier-binding">
+<section id="appendix-B.9">
+        <h3 id="name-revocation-list-host-alias-">
+<a href="#appendix-B.9" class="section-number selfRef">B.9. </a><a href="#name-revocation-list-host-alias-" class="section-name selfRef">Revocation list host-alias identifier binding</a>
+        </h3>
+<p id="appendix-B.9-1">This vector demonstrates Section 8.1 and Section 8.2's identifier-equality
+closure: the reason a key document reachable under a second hostname
+cannot silently detach from its own revocation list. It reuses the
+compromised key material from the alias-immunity vector above (seed
+<code>htmltrust-alias-victim-vector-01</code>, canonical keyid
+<code>https://keys.example/alice-2024.json</code>) so the two vectors together tell
+one complete story: the earlier vector closes aliasing WITHIN one origin
+by matching on <code>publicKeyHash</code>; this one closes aliasing ACROSS origins by
+requiring a key document to name its own identity.<a href="#appendix-B.9-1" class="pilcrow">¶</a></p>
+<p id="appendix-B.9-2">The key document below is what <code>https://keys.example/alice-2024.json</code>
+resolves to under Section 8.2:<a href="#appendix-B.9-2" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="appendix-B.9-3">
+<pre>
+{
+  "kid": "https://keys.example/alice-2024.json",
+  "algorithm": "ed25519",
+  "publicKeyEncoding": "spki-der",
+  "publicKey": "MCowBQYDK2VwAyEA/+NCmGTnjGQD7aRRgEMj2QZyPGESF77/tV2F4Rs8aMw"
+}
+</pre><a href="#appendix-B.9-3" class="pilcrow">¶</a>
+</div>
+<p id="appendix-B.9-4">Suppose the identical bytes are also reachable, whether by an operator's
+own hosting choice or by an adversary's, at any of the following, each a
+genuinely different origin from the canonical one above under Section
+9.5's derivation:<a href="#appendix-B.9-4" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="appendix-B.9-5">
+<pre>
+https://www.keys.example/alice-2024.json
+https://cdn.keys.example/alice-2024.json
+https://93.184.216.34/alice-2024.json
+https://keys.example./alice-2024.json
+</pre><a href="#appendix-B.9-5" class="pilcrow">¶</a>
+</div>
+<p id="appendix-B.9-6">A verifier resolving any one of these fetches the identical key document
+shown above. Its <code>kid</code> still names only <code>https://keys.example/alice-
+2024.json</code>. Section 8.2 requires <code>kid</code> to equal the <code>keyid</code> used to
+resolve it byte for byte; every alias above fails that comparison, so
+resolution <span class="bcp14">MUST</span> fail with <code>malformed-key-document</code> for each. Because
+resolution never succeeds under the alias, Section 9.5's revocation-list
+origin derivation for that alias is never reached at all -- there is no
+partial state where the key resolves but the list lookup is merely wrong;
+the whole resolution fails first.<a href="#appendix-B.9-6" class="pilcrow">¶</a></p>
+<p id="appendix-B.9-7">The equivalent case for <code>did:web</code> is host case, the same equivalence
+Section 8.5's canonical form already collapses for comparison purposes:
+<code>did:web:keys.example</code> and <code>did:web:KEYS.example</code> are different literal
+strings that resolve to the identical DID document, because Section 8.1
+resolution lowercases the host when constructing the DID document URL.
+That document's own top-level <code>id</code>, though, can equal only one spelling.
+Section 8.1 requires <code>id</code> to equal the DID portion of <code>keyid</code> byte for
+byte, so resolving <code>did:web:KEYS.example</code> against a DID document whose
+<code>id</code> is <code>did:web:keys.example</code> <span class="bcp14">MUST</span> fail with <code>key-resolution-failed</code>.<a href="#appendix-B.9-7" class="pilcrow">¶</a></p>
+<p id="appendix-B.9-8">The machine-readable form of this vector, including the alias and
+did:web-variant assertions above, is maintained as
+<code>ietf-draft/vectors/revocation-04.json</code> in this repository.<a href="#appendix-B.9-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>

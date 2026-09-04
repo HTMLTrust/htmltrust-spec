@@ -127,7 +127,7 @@ Internet-Draft                  HTMLTrust                    August 2026
    8.  Key Resolution  . . . . . . . . . . . . . . . . . . . . . . .  27
      8.1.  DID method resolution . . . . . . . . . . . . . . . . . .  27
      8.2.  Direct HTTPS URL  . . . . . . . . . . . . . . . . . . . .  27
-     8.3.  Trust directory reference . . . . . . . . . . . . . . . .  28
+     8.3.  Trust directory reference . . . . . . . . . . . . . . . .  29
      8.4.  Acceptance policy . . . . . . . . . . . . . . . . . . . .  29
      8.5.  Canonical keyid comparison form . . . . . . . . . . . . .  29
    9.  Key Lifecycle . . . . . . . . . . . . . . . . . . . . . . . .  30
@@ -136,12 +136,12 @@ Internet-Draft                  HTMLTrust                    August 2026
      9.3.  Revocation, compromise, and signed-at freshness . . . . .  31
      9.4.  Key loss and recovery . . . . . . . . . . . . . . . . . .  32
      9.5.  Publisher-served revocation list  . . . . . . . . . . . .  32
-     9.6.  Revocation list document shape  . . . . . . . . . . . . .  33
+     9.6.  Revocation list document shape  . . . . . . . . . . . . .  34
      9.7.  The two states, and why no trusted time is required . . .  37
      9.8.  Revocation list verification  . . . . . . . . . . . . . .  39
      9.9.  Revocation list fetch semantics . . . . . . . . . . . . .  39
    10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  41
-     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  42
+     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  41
      10.2.  GET /.well-known/htmltrust . . . . . . . . . . . . . . .  42
      10.3.  GET /content/{hash}  . . . . . . . . . . . . . . . . . .  42
      10.4.  POST /content  . . . . . . . . . . . . . . . . . . . . .  43
@@ -215,9 +215,9 @@ Internet-Draft                  HTMLTrust                    August 2026
      B.6.  Revocation list . . . . . . . . . . . . . . . . . . . . .  70
      B.7.  Revocation list keyid-alias immunity  . . . . . . . . . .  71
      B.8.  Revocation list cross-origin signer rejection . . . . . .  73
-   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  74
-     C.1.  Submitting a content record . . . . . . . . . . . . . . .  74
-     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  75
+     B.9.  Revocation list host-alias identifier binding . . . . . .  74
+   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  75
+     C.1.  Submitting a content record . . . . . . . . . . . . . . .  75
 
 
 
@@ -226,8 +226,9 @@ Grey                    Expires 28 February 2027                [Page 4]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  76
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  76
+     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  76
+   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  77
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  77
 
 1.  Introduction
 
@@ -273,7 +274,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       (Section 7).
 
    *  Key resolution mechanisms for the signer identifier (Section 8).
-
 
 
 
@@ -1486,6 +1486,15 @@ Internet-Draft                  HTMLTrust                    August 2026
    verification method) MUST be reported as "key-resolution-failed"
    verification failures.
 
+   The DID document's top-level id member MUST equal the DID portion of
+   keyid -- the did:web:... identifier itself, with any DID URL path,
+   query, or fragment suffix removed -- byte for byte.  A verifier MUST
+   report "key-resolution-failed" on any other value, including a
+   missing id.  Section 9.5 explains why this equality check is required
+   rather than optional: it is what prevents a did:web identity from
+   being addressed under a host alias that was never told to be the same
+   identity.
+
 8.2.  Direct HTTPS URL
 
    A keyid whose value is an absolute URL with scheme https MUST be
@@ -1498,15 +1507,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  A JSON Web Key per [RFC7517], or
 
-   *  An HTMLTrust key document with the following shape:
-
-
-
-
-
-
-
-
 
 
 Grey                    Expires 28 February 2027               [Page 27]
@@ -1514,8 +1514,10 @@ Grey                    Expires 28 February 2027               [Page 27]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
+   *  An HTMLTrust key document with the following shape:
+
       {
-        "kid": "<string, optional>",
+        "kid": "<string>",
         "algorithm": "<algorithm identifier>",
         "publicKeyEncoding": "spki-der",
         "publicKey": "<unpadded standard Base64 SPKI DER>",
@@ -1526,18 +1528,23 @@ Internet-Draft                  HTMLTrust                    August 2026
         "previousKeys": ["<keyid>"]
       }
 
-   algorithm, publicKeyEncoding, and publicKey are REQUIRED.  The other
-   members shown above are OPTIONAL.  Unknown members MUST be ignored
-   for key resolution and MAY be retained by caches or directories.
+   kid, algorithm, publicKeyEncoding, and publicKey are REQUIRED.  The
+   other members shown above are OPTIONAL.  Unknown members MUST be
+   ignored for key resolution and MAY be retained by caches or
+   directories.
 
    publicKey is the canonical unpadded standard Base64 encoding from
    Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined
    by [RFC5280]. publicKeyEncoding MUST be exactly spki-der.  A verifier
    MUST reject any other encoding in a conforming HTMLTrust key document
-   with a "malformed-key-document" result.  If kid is present, it MUST
-   equal the serialized URL used as keyid; a mismatch is a "key-
-   resolution-failed" result.  The algorithm value and the decoded key
-   type and parameters MUST match Section 7.1.
+   with a "malformed-key-document" result. kid MUST equal the serialized
+   URL used as keyid byte for byte; a missing or mismatched kid is a
+   "malformed-key-document" result, not merely a discouraged omission.
+   Section 9.5 explains why this equality check is required rather than
+   optional: it is what prevents this key from being addressed under a
+   host alias that was never told to be the same identity.  The
+   algorithm value and the decoded key type and parameters MUST match
+   Section 7.1.
 
    For an application/jwk+json response, the JWK kty, crv, and alg
    members, when applicable, MUST select the same key type, parameters,
@@ -1553,13 +1560,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    mismatch".  A conforming verifier MUST NOT use a PEM compatibility
    field or silently try a different key encoding.
 
-8.3.  Trust directory reference
-
-   A keyid whose value is an absolute URL pointing at a trust
-   directory's /keys/{id} endpoint (Section 10.6) MUST be resolved by
-   issuing a GET request to that URL.  The response format is identical
-   to Section 8.2.
-
 
 
 
@@ -1569,6 +1569,13 @@ Grey                    Expires 28 February 2027               [Page 28]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+8.3.  Trust directory reference
+
+   A keyid whose value is an absolute URL pointing at a trust
+   directory's /keys/{id} endpoint (Section 10.6) MUST be resolved by
+   issuing a GET request to that URL.  The response format is identical
+   to Section 8.2.
 
    The verifier SHOULD consider the trustworthiness of the directory
    itself before accepting a key resolved this way; directory-based
@@ -1605,19 +1612,12 @@ Internet-Draft                  HTMLTrust                    August 2026
    For a keyid resolved under Section 8.1 (did:web): canonical form
    lowercases the ASCII method-specific identifier's host component and
    normalizes any URL-encoded colon (%3A, in any letter case) used to
-   separate a non-default port, exactly as Section 9.5 already requires
-   when deriving a revocation-list origin from a did:web keyid.  The DID
-   URL path and fragment, when present, are preserved and compared
-   verbatim: a fragment here selects one verification method
-   (Section 8.1) rather than being excluded the way a URL keyid's
-   fragment is forbidden outright, so it is not stripped.
-
-
-
-
-
-
-
+   separate a non-default port.  Section 9.5's revocation-list origin
+   derivation for a did:web keyid follows this same rule rather than
+   defining its own.  The DID URL path and fragment, when present, are
+   preserved and compared verbatim: a fragment here selects one
+   verification method (Section 8.1) rather than being excluded the way
+   a URL keyid's fragment is forbidden outright, so it is not stripped.
 
 
 
@@ -1627,12 +1627,13 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
    This canonical form is REQUIRED for the Section 9.9 revocation-list
-   superseded lookup, and for the additional keyid-based match
-   Section 9.7 permits alongside the primary publicKeyHash match for a
-   revoked entry.  It does not change signature verification itself: the
-   signing payload (Section 5.5) still binds the exact keyid attribute
-   value as written, and a verifier MUST NOT normalize keyid before
-   reproducing that payload.
+   superseded lookup when an entry omits publicKeyHash.  It is not used
+   for a revoked entry: Section 9.6 requires publicKeyHash on every
+   revoked entry, and Section 9.7 defines no keyid-based match for
+   revoked at all, primary or secondary.  It does not change signature
+   verification itself: the signing payload (Section 5.5) still binds
+   the exact keyid attribute value as written, and a verifier MUST NOT
+   normalize keyid before reproducing that payload.
 
 9.  Key Lifecycle
 
@@ -1671,7 +1672,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       list is a second, independent channel for asserting this same
       state, usable even when the key document itself carries no
       expires.
-
 
 
 
@@ -1820,28 +1820,28 @@ Internet-Draft                  HTMLTrust                    August 2026
    A publisher with nothing to revoke need not publish this resource at
    all; see Revocation list fetch semantics, below.
 
-9.6.  Revocation list document shape
-
-   The revocation list is a JSON object with the following fields.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   Deriving <origin> from keyid text this way has a consequence that is
+   not itself a flaw, but that a verifier MUST understand: a server that
+   answers the same key document under more than one hostname (a www
+   subdomain and its apex, a CDN hostname distinct from the origin
+   server, a bare IP literal presenting a matching certificate, a
+   trailing-dot FQDN) is, for this purpose, SEVERAL origins, not one.
+   Resolving the identical key material under two such hostnames derives
+   two different revocation lists, and a verifier that only ever sees
+   one of them has not fully checked the other.  This is exactly what
+   Section 8.1's DID-document id equality and Section 8.2's REQUIRED kid
+   equality close: a key document MUST name its own canonical
+   identifier, and resolution MUST fail on any other spelling, so a
+   keyid addressing the same key material under a second hostname never
+   resolves as that key's own identity in the first place.  The key
+   document -- which a key thief does not control without separately
+   compromising the origin that serves it, a distinct threat -- is what
+   fixes the one true spelling, and therefore the one true revocation-
+   list origin.  This closes aliasing WITHIN the resolution methods
+   above (a dot-segment path variant, host case, or default-port
+   omission all resolve to the SAME origin already, so id/kid equality
+   and the hash-based match in Section 9.7 are complementary defenses
+   for those); it does not and cannot make two hostnames a publisher has
 
 
 
@@ -1849,6 +1849,14 @@ Grey                    Expires 28 February 2027               [Page 33]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   not linked into the same identity, because nothing short of the
+   publisher doing so establishes that they are the same identity at
+   all.
+
+9.6.  Revocation list document shape
+
+   The revocation list is a JSON object with the following fields.
 
      +=============+========+==========+=============================+
      | Field       | Type   | Required | Description                 |
@@ -1879,14 +1887,6 @@ Internet-Draft                  HTMLTrust                    August 2026
                                   Table 4
 
    Each entry of revocations is itself a JSON object:
-
-
-
-
-
-
-
-
 
 
 
@@ -1951,9 +1951,9 @@ Internet-Draft                  HTMLTrust                    August 2026
 
                                   Table 5
 
-   A revoked entry missing publicKeyHash is schema-valid, not malformed:
-   publicKeyHash is listed "conditional" above precisely so an entry
-   lacking it is still well-formed.  It does not satisfy the primary
+   publicKeyHash is REQUIRED when status is revoked.  A revoked entry
+   omitting it is malformed, exactly like a missing keyid or status
+   would be, and a malformed entry anywhere in revocations MUST
 
 
 
@@ -1962,23 +1962,29 @@ Grey                    Expires 28 February 2027               [Page 35]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-   match (The two states, below); a verifier MUST NOT treat such an
-   entry as satisfying the primary match, though it MAY still honor the
-   weaker keyid-based secondary match described there.  This is the one
-   case in which an entry may deviate from the table above without being
-   malformed.
+   invalidate the entire document: a verifier MUST treat the whole
+   revocation list as unparseable (Revocation list fetch semantics,
+   below) rather than silently skipping only the malformed entry, or
+   falling back to any weaker match for it.  Earlier drafting of this
+   section treated a revoked entry missing publicKeyHash as merely
+   degraded, matchable by a keyid-based fallback; that fallback is
+   removed.  It was itself the alias hole this document closes: a signer
+   who wants a revoked entry to miss could omit publicKeyHash on
+   purpose, precisely because a keyid-text fallback is exactly as
+   bypassable as keyid-text matching always is (The two states, below).
+   There is no compatibility reason to keep it -- no revocation list has
+   ever been published under this specification -- so it is deleted
+   outright rather than deprecated.
 
-   An entry that instead fails to conform to this table in any other way
-   -- keyid or status missing or of the wrong type, a status value other
+   An entry that fails to conform to this table in any other way --
+   keyid or status missing or of the wrong type, a status value other
    than the two listed, or a present-but-wrongly-typed publicKeyHash,
-   revokedAt, or supersededBy -- is malformed, and a malformed entry
-   anywhere in revocations MUST invalidate the entire document: a
-   verifier MUST treat the whole revocation list as unparseable
-   (Revocation list fetch semantics, below) rather than silently
-   skipping only the malformed entry.  Skipping is fail-open, because it
-   lets exactly the entry an attacker most wants ignored -- one crafted
-   to fail parsing -- vanish instead of blocking the list that would
-   otherwise apply it.
+   revokedAt, or supersededBy -- is malformed for the same reason and
+   with the same effect: the whole document is invalidated, not just
+   that entry.  Skipping only the malformed entry is fail-open, because
+   it lets exactly the entry an attacker most wants ignored -- one
+   crafted to fail parsing -- vanish instead of blocking the list that
+   would otherwise apply it.
 
    Additional fields MAY be present in either object.  A verifier MUST
    ignore fields it does not recognize for purposes of the status
@@ -1996,11 +2002,28 @@ Internet-Draft                  HTMLTrust                    August 2026
    unrecognized field on an entry that is otherwise well-formed under
    the table above does not itself make the entry malformed.
 
-   If more than one entry matches the same key, whether by publicKeyHash
-   or by the Section 8.5 canonical keyid form, and any of the matching
-   entries has status: "revoked", the key is revoked: a superseded entry
-   for the same key MUST NOT suppress a revoked one, in any array order.
-   A verifier MUST NOT implement this by keeping only the most recently
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 36]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   If more than one entry matches the same key -- a revoked entry always
+   by publicKeyHash, a superseded entry by publicKeyHash or the
+   Section 8.5 canonical keyid form -- and any matching entry has
+   status: "revoked", the key is revoked: a superseded entry for the
+   same key MUST NOT suppress a revoked one, in any array order.  A
+   verifier MUST NOT implement this by keeping only the most recently
    seen entry for a given keyid and discarding earlier ones with the
    same keyid; that discards information the matching rule above depends
    on.
@@ -2010,14 +2033,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    keyid form exactly as The two states describes for any other key, as
    a revoked or superseded entry within the same revision of the list it
    signs; a verifier that already knows the signer is revoked, from an
-
-
-
-Grey                    Expires 28 February 2027               [Page 36]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    earlier revision it holds or from any other source, MUST also reject
    the list.  This check runs once the signer is resolved (Revocation
    list verification, below defines the full order: origin check, then
@@ -2046,26 +2061,11 @@ Internet-Draft                  HTMLTrust                    August 2026
       material_ a revoked entry names, at any signed-at value, MUST be
       treated as untrusted, regardless of which keyid string the
       signature in question actually carries.  A verifier determines
-      this by key material, not by keyid: the PRIMARY match compares the
-      publicKeyHash of the entry against the SHA-256 SPKI-DER hash of
-      the key the verifier already resolved and is about to use for
-      signature verification (Section 12.6); a match is revoked
-      regardless of whether the entry's own keyid string equals the
-      keyid attribute under check.  A verifier MUST perform this
-      comparison for every revoked entry that carries publicKeyHash, not
-      only the entry whose keyid happens to match textually.  A verifier
-      MAY additionally treat an entry as matching by a SECONDARY
-      comparison of the Section 8.5 canonical form of keyid, which is
-      useful chiefly when an entry omits publicKeyHash; this secondary
-      comparison MUST NOT be used as the sole basis for concluding not-
-      revoked when a publicKeyHash comparison was possible and did not
-      match, and it MUST NOT be relied on in place of the primary match
-      when publicKeyHash is present. keyid is opaque and signer-chosen
-      (Section 8); a comparison keyed only to one spelling of it is not
-      a safe way to detect compromised key material that a signer --
-      honest or, in the case an entry exists to address, actively
-      adversarial -- can resolve under more than one keyid string.
-      revoked is stated exactly once, here, with no time condition
+      this by key material, not by keyid, and by key material ALONE: the
+      match compares the entry's REQUIRED publicKeyHash (Section 9.6)
+      against the SHA-256 SPKI-DER hash of the key the verifier already
+      resolved and is about to use for signature verification
+      (Section 12.6); a match is revoked regardless of whether the
 
 
 
@@ -2074,10 +2074,22 @@ Grey                    Expires 28 February 2027               [Page 37]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-      anywhere in it: once revoked is established by either match, a
-      verifier MUST apply the key-revoked failure outcome for every
-      signature the key produced, unconditionally.  There is no
-      exception clause, corroborated-timing or otherwise, for a key
+      entry's own keyid string equals the keyid attribute under check.
+      A verifier MUST perform this comparison for every revoked entry,
+      not only the entry whose keyid happens to match textually.  There
+      is no keyid-based match for revoked, primary or secondary, in this
+      revision: keyid is opaque and signer-chosen (Section 8), and a
+      comparison keyed to it, even as a fallback, is not a safe way to
+      detect compromised key material that a signer -- honest or, in the
+      case an entry exists to address, actively adversarial -- can
+      resolve under more than one keyid string; a signer who wanted a
+      revoked entry to miss could omit publicKeyHash specifically to
+      fall through to such a fallback, which is why Section 9.6 makes
+      its absence malformed instead. revoked is stated exactly once,
+      here, with no time condition anywhere in it: once revoked is
+      established, a verifier MUST apply the key-revoked failure outcome
+      for every signature the key produced, unconditionally.  There is
+      no exception clause, corroborated-timing or otherwise, for a key
       revoked through this list.  Section 9.3's corroborated-timing
       exception exists only for the key document's own revoked field and
       is not incorporated here by reference or otherwise; a signer-
@@ -2093,16 +2105,14 @@ Internet-Draft                  HTMLTrust                    August 2026
       whichever channel says so.  Signatures already made with the
       listed keyid remain valid.  The listed key MUST NOT be used to
       sign new content going forward, exactly as Section 9.1 already
-      requires of a key in this state.  A verifier looks up a superseded
+      requires of a key in this state.  A verifier matches a superseded
       entry by publicKeyHash when the entry carries one, and otherwise
       by the Section 8.5 canonical form of keyid; unlike revoked, a
-      keyid-string-based miss here is not a security failure; it only
-      means the supersession signal is not surfaced for that particular
-      alias, which is an acceptable degradation since existing
-      signatures already remain valid either way.  A verifier MUST NOT
-      fail Section 12's cryptographic verification because of a
-      superseded entry; it MAY surface the entry as a Section 12.7
-      trust-layer input.
+      keyid-text-based miss here is not a security failure, only a
+      missed trust-layer signal, since existing signatures from the key
+      remain valid either way.  A verifier MUST NOT fail Section 12's
+      cryptographic verification because of a superseded entry; it MAY
+      surface the entry as a Section 12.7 trust-layer input.
 
    This design requires no trusted time source, and that is deliberate.
    A signed-at value cannot be trusted for reasoning about a revocation
@@ -2112,16 +2122,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    backdated signed-at to defeat. revokedAt is retained for operator and
    user- interface use, not as an input to the pass/fail decision.
    Absolute revocation is, as a result, the only revocation semantic in
-   this document that needs no clock. superseded needs no trusted time
-   either, but for a different reason: it does not gate verification at
-   all, so there is no window to reason about.  It is a forward-looking
-   statement about future signing, not a retroactive judgment about past
-   signatures.
-
-
-
-
-
 
 
 
@@ -2129,6 +2129,12 @@ Grey                    Expires 28 February 2027               [Page 38]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   this document that needs no clock. superseded needs no trusted time
+   either, but for a different reason: it does not gate verification at
+   all, so there is no window to reason about.  It is a forward-looking
+   statement about future signing, not a retroactive judgment about past
+   signatures.
 
 9.8.  Revocation list verification
 
@@ -2172,12 +2178,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    permits HTTPS-to-HTTPS redirects for a different class of fetch; a
    revocation-list fetch does not inherit that permission.
 
-   The outcome maps to one of three revocation-status values:
-
-   *  HTTP 404: the publisher has published no revocation list.  Status
-      is not-revoked.  A publisher with nothing to revoke need not
-      publish this resource.
-
 
 
 
@@ -2186,13 +2186,20 @@ Grey                    Expires 28 February 2027               [Page 39]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
+   The outcome maps to one of three revocation-status values:
+
+   *  HTTP 404: the publisher has published no revocation list.  Status
+      is not-revoked.  A publisher with nothing to revoke need not
+      publish this resource.
+
    *  HTTP 200 with a document that parses per Section 9.6, whose
       signer's origin matches this fetch's origin, whose signer is
       neither revoked nor superseded, and whose signature verifies, all
       per Revocation list verification, above: the verifier applies its
       revocations entries using the matching rules in The two states,
-      above (primarily publicKeyHash for revoked, primarily the
-      Section 8.5 canonical keyid form for superseded), with the
+      above -- publicKeyHash alone for revoked; a verifier matches a
+      superseded entry by publicKeyHash when the entry carries one, and
+      otherwise by the Section 8.5 canonical form of keyid -- with the
       duplicate-entry precedence Section 9.6 defines.  Status is revoked
       if any entry matches; otherwise status is not-revoked, and, if
       some entry matches as superseded, the verifier additionally
@@ -2220,20 +2227,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    alongside a cryptographic result, unable to invalidate one.  Only a
    revoked status produces the key-revoked failure outcome.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   A verifier caches a fetched revocation list subject to HTTP cache
+   semantics [RFC9111], but MUST additionally apply a maximum acceptable
+   staleness regardless of cache-control directives, because a
+   publisher's ability to signal compromise must not be indefinitely
+   deferred by a long-lived cache entry set before the compromise
+   occurred.  The recommended default is 24 hours; an implementation MAY
+   use a shorter value and MUST document any value longer than 24 hours.
 
 
 
@@ -2242,13 +2242,6 @@ Grey                    Expires 28 February 2027               [Page 40]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-   A verifier caches a fetched revocation list subject to HTTP cache
-   semantics [RFC9111], but MUST additionally apply a maximum acceptable
-   staleness regardless of cache-control directives, because a
-   publisher's ability to signal compromise must not be indefinitely
-   deferred by a long-lived cache entry set before the compromise
-   occurred.  The recommended default is 24 hours; an implementation MAY
-   use a shorter value and MUST document any value longer than 24 hours.
    This value is a CEILING, not a fixed cache lifetime: a verifier MUST
    honor a shorter freshness lifetime from the response's Cache-Control
    (max-age, or s-maxage when present) and Age headers when the server
@@ -2291,17 +2284,19 @@ Internet-Draft                  HTMLTrust                    August 2026
    verification (Section 12.1 through 12.6); only endorsement and
    reputation use cases require directory access.
 
+10.1.  Base URL and discovery
+
+   A directory MUST be reachable at an https-scheme base URL.  The
+   endpoints below are relative to that base URL.
+
+
+
 
 
 Grey                    Expires 28 February 2027               [Page 41]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
-
-10.1.  Base URL and discovery
-
-   A directory MUST be reachable at an https-scheme base URL.  The
-   endpoints below are relative to that base URL.
 
    A directory SHOULD also expose a discovery document at the well-known
    URI [RFC8615] /.well-known/htmltrust (Section 10.2).
@@ -2341,6 +2336,11 @@ Internet-Draft                  HTMLTrust                    August 2026
    / in the Base64 value becomes %2F).
 
    A successful response is JSON of the form:
+
+
+
+
+
 
 
 
@@ -2823,7 +2823,8 @@ Internet-Draft                  HTMLTrust                    August 2026
    document".  A revoked key, or an expired key that Section 9 does not
    permit for this signature, produces "key-revoked".  A verifier that
    also consults a Section 9.5 revocation list MUST apply the same "key-
-   revoked" outcome when that list reports revoked for keyid; a
+   revoked" outcome when that list reports revoked for the resolved key
+   -- matched by key material (Section 9.7), not by keyid text.  A
    revocation-unknown list result from that consultation does not
    produce a failure at this step (Section 9.9).  The verifier MUST stop
    after any "key-revoked" or other listed result.
@@ -2844,7 +2845,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    If the verification succeeds, the verifier MUST return a "valid"
    cryptographic outcome.
-
 
 
 
@@ -3965,11 +3965,11 @@ Internet-Draft                  HTMLTrust                    August 2026
 B.7.  Revocation list keyid-alias immunity
 
    This vector demonstrates why The two states requires matching a
-   revoked entry by publicKeyHash rather than by keyid string.  It does
-   not introduce new key material; it works entirely from ordinary URL
-   and did:web identifier equivalences that Section 8.5's canonical
-   form, and the Section 5.1 syntax restriction, are built on.
-
+   revoked entry by publicKeyHash rather than by keyid string, for every
+   alias form that resolves WITHIN the origin keyid's own resolution
+   method already names.  It does not introduce new key material; it
+   works entirely from ordinary URL and did:web identifier equivalences
+   that Section 8.5's canonical form, and the Section 5.1 syntax
 
 
 
@@ -3977,6 +3977,19 @@ Grey                    Expires 28 February 2027               [Page 71]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   restriction, are built on.  It does not by itself close a CROSS-HOST
+   alias -- a key document reachable under a second hostname the
+   verifier was never told is the same identity, such as www versus
+   apex, a CDN hostname, or an IP literal presenting a matching
+   certificate -- because such a hostname derives a genuinely different
+   origin, and therefore a genuinely different revocation-list location,
+   under Section 9.5.  That closure is Section 8.1's DID-document id
+   equality and Section 8.2's REQUIRED kid equality, not this match
+   rule; see Section 9.5's discussion of why a server answering under
+   several hostnames is several origins, and Revocation list host-alias
+   identifier binding, below, for a worked vector of that closure
+   specifically.
 
    Take the revoked keyid from the vector above, https://keys.example/
    alice-2024.json.  The following keyid strings are different from it
@@ -4014,6 +4027,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    Section 12, before any resolution or revocation-list consultation is
    attempted.
 
+
+
+Grey                    Expires 28 February 2027               [Page 72]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    The equivalent case for a did:web keyid is host case: did:web:
    example.com and did:web:EXAMPLE.com are different literal strings
    that resolve to the identical DID document, because Section 8.1
@@ -4026,13 +4046,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    The machine-readable form of this vector, including the URL-
    equivalence assertions above, is maintained as ietf-draft/vectors/
    revocation-02.json in this repository.
-
-
-
-Grey                    Expires 28 February 2027               [Page 72]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
 B.8.  Revocation list cross-origin signer rejection
 
@@ -4069,6 +4082,14 @@ B.8.  Revocation list cross-origin signer rejection
    from https://attacker.example/signer.json under Section 9.5 --
    https://attacker.example -- and compares it to the origin this
    document was actually fetched from, https://keys.example.  They
+
+
+
+Grey                    Expires 28 February 2027               [Page 73]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    differ, so Section 9.8 requires rejecting the document as revocation-
    unknown BEFORE resolving signer at all: the verifier never fetches
    https://attacker.example/signer.json, and never reaches the point of
@@ -4082,13 +4103,70 @@ B.8.  Revocation list cross-origin signer rejection
    The machine-readable form of this vector is maintained as ietf-
    draft/vectors/revocation-03.json in this repository.
 
+B.9.  Revocation list host-alias identifier binding
+
+   This vector demonstrates Section 8.1 and Section 8.2's identifier-
+   equality closure: the reason a key document reachable under a second
+   hostname cannot silently detach from its own revocation list.  It
+   reuses the compromised key material from the alias-immunity vector
+   above (seed htmltrust-alias-victim-vector-01, canonical keyid
+   https://keys.example/alice-2024.json) so the two vectors together
+   tell one complete story: the earlier vector closes aliasing WITHIN
+   one origin by matching on publicKeyHash; this one closes aliasing
+   ACROSS origins by requiring a key document to name its own identity.
+
+   The key document below is what https://keys.example/alice-2024.json
+   resolves to under Section 8.2:
+
+   {
+     "kid": "https://keys.example/alice-2024.json",
+     "algorithm": "ed25519",
+     "publicKeyEncoding": "spki-der",
+     "publicKey": "MCowBQYDK2VwAyEA/+NCmGTnjGQD7aRRgEMj2QZyPGESF77/tV2F4Rs8aMw"
+   }
+
+   Suppose the identical bytes are also reachable, whether by an
+   operator's own hosting choice or by an adversary's, at any of the
+   following, each a genuinely different origin from the canonical one
+   above under Section 9.5's derivation:
+
+   https://www.keys.example/alice-2024.json
+   https://cdn.keys.example/alice-2024.json
+   https://93.184.216.34/alice-2024.json
+   https://keys.example./alice-2024.json
+
+   A verifier resolving any one of these fetches the identical key
+   document shown above.  Its kid still names only https://keys.example/
+   alice- 2024.json.  Section 8.2 requires kid to equal the keyid used
 
 
 
-Grey                    Expires 28 February 2027               [Page 73]
+Grey                    Expires 28 February 2027               [Page 74]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   to resolve it byte for byte; every alias above fails that comparison,
+   so resolution MUST fail with malformed-key-document for each.
+   Because resolution never succeeds under the alias, Section 9.5's
+   revocation-list origin derivation for that alias is never reached at
+   all -- there is no partial state where the key resolves but the list
+   lookup is merely wrong; the whole resolution fails first.
+
+   The equivalent case for did:web is host case, the same equivalence
+   Section 8.5's canonical form already collapses for comparison
+   purposes: did:web:keys.example and did:web:KEYS.example are different
+   literal strings that resolve to the identical DID document, because
+   Section 8.1 resolution lowercases the host when constructing the DID
+   document URL.  That document's own top-level id, though, can equal
+   only one spelling.  Section 8.1 requires id to equal the DID portion
+   of keyid byte for byte, so resolving did:web:KEYS.example against a
+   DID document whose id is did:web:keys.example MUST fail with key-
+   resolution-failed.
+
+   The machine-readable form of this vector, including the alias and
+   did:web-variant assertions above, is maintained as ietf-
+   draft/vectors/revocation-04.json in this repository.
 
 Appendix C.  Example Directory Exchange
 
@@ -4117,34 +4195,14 @@ Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
   "claims": [{"name":"author","content":"Ada Lovelace"},{"name":"claim:License","content":"CC-BY-4.0"},{"name":"signed-at","content":"2026-01-15T12:00:00Z"}]
 }
 
-   Response:
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 74]
+Grey                    Expires 28 February 2027               [Page 75]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   Response:
 
 HTTP/1.1 201 Created
 Location: https://directory.example/content/sha256%3AIVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
@@ -4195,9 +4253,7 @@ C.2.  Submitting an endorsement
 
 
 
-
-
-Grey                    Expires 28 February 2027               [Page 75]
+Grey                    Expires 28 February 2027               [Page 76]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -4253,4 +4309,4 @@ Author's Address
 
 
 
-Grey                    Expires 28 February 2027               [Page 76]
+Grey                    Expires 28 February 2027               [Page 77]

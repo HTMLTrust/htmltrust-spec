@@ -1123,6 +1123,15 @@ document invalid where the method demands one, expired or revoked
 verification method) MUST be reported as "key-resolution-failed"
 verification failures.
 
+The DID document's top-level `id` member MUST equal the DID portion of
+`keyid` -- the `did:web:...` identifier itself, with any DID URL path,
+query, or fragment suffix removed -- byte for byte. A verifier MUST
+report "key-resolution-failed" on any other value, including a missing
+`id`. Section 9.5 explains why this equality check is required rather
+than optional: it is what prevents a `did:web` identity from being
+addressed under a host alias that was never told to be the same
+identity.
+
 ## Direct HTTPS URL
 
 A `keyid` whose value is an absolute URL with scheme `https` MUST be
@@ -1138,7 +1147,7 @@ The retrieved document MUST be one of:
 
   ~~~
   {
-    "kid": "<string, optional>",
+    "kid": "<string>",
     "algorithm": "<algorithm identifier>",
     "publicKeyEncoding": "spki-der",
     "publicKey": "<unpadded standard Base64 SPKI DER>",
@@ -1150,18 +1159,21 @@ The retrieved document MUST be one of:
   }
   ~~~
 
-`algorithm`, `publicKeyEncoding`, and `publicKey` are REQUIRED. The other
-members shown above are OPTIONAL. Unknown members MUST be ignored for key
-resolution and MAY be retained by caches or directories.
+`kid`, `algorithm`, `publicKeyEncoding`, and `publicKey` are REQUIRED. The
+other members shown above are OPTIONAL. Unknown members MUST be ignored
+for key resolution and MAY be retained by caches or directories.
 
 `publicKey` is the canonical unpadded standard Base64 encoding from
 Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
 [RFC5280]. `publicKeyEncoding` MUST be exactly `spki-der`. A verifier MUST
 reject any other encoding in a conforming HTMLTrust key document with a
-"malformed-key-document" result. If `kid` is present, it MUST equal the
-serialized URL used as `keyid`; a mismatch is a "key-resolution-failed" result.
-The `algorithm` value and the decoded key type and parameters MUST match
-Section 7.1.
+"malformed-key-document" result. `kid` MUST equal the serialized URL used
+as `keyid` byte for byte; a missing or mismatched `kid` is a
+"malformed-key-document" result, not merely a discouraged omission.
+Section 9.5 explains why this equality check is required rather than
+optional: it is what prevents this key from being addressed under a host
+alias that was never told to be the same identity. The `algorithm` value
+and the decoded key type and parameters MUST match Section 7.1.
 
 For an `application/jwk+json` response, the JWK `kty`, `crv`, and `alg`
 members, when applicable, MUST select the same key type, parameters, and
@@ -1218,19 +1230,21 @@ parsing any URL.
 For a `keyid` resolved under Section 8.1 (`did:web`): canonical form
 lowercases the ASCII method-specific identifier's host component and
 normalizes any URL-encoded colon (`%3A`, in any letter case) used to
-separate a non-default port, exactly as Section 9.5 already requires when
-deriving a revocation-list origin from a `did:web` `keyid`. The DID URL
-path and fragment, when present, are preserved and compared verbatim: a
-fragment here selects one verification method (Section 8.1) rather than
-being excluded the way a URL `keyid`'s fragment is forbidden outright, so
-it is not stripped.
+separate a non-default port. Section 9.5's revocation-list origin
+derivation for a `did:web` `keyid` follows this same rule rather than
+defining its own. The DID URL path and fragment, when present, are
+preserved and compared verbatim: a fragment here selects one
+verification method (Section 8.1) rather than being excluded the way a
+URL `keyid`'s fragment is forbidden outright, so it is not stripped.
 
 This canonical form is REQUIRED for the Section 9.9 revocation-list
-superseded lookup, and for the additional `keyid`-based match Section 9.7
-permits alongside the primary `publicKeyHash` match for a `revoked` entry.
-It does not change signature verification itself: the signing payload
-(Section 5.5) still binds the exact `keyid` attribute value as written, and
-a verifier MUST NOT normalize `keyid` before reproducing that payload.
+`superseded` lookup when an entry omits `publicKeyHash`. It is not used
+for a `revoked` entry: Section 9.6 requires `publicKeyHash` on every
+`revoked` entry, and Section 9.7 defines no `keyid`-based match for
+`revoked` at all, primary or secondary. It does not change signature
+verification itself: the signing payload (Section 5.5) still binds the
+exact `keyid` attribute value as written, and a verifier MUST NOT
+normalize `keyid` before reproducing that payload.
 
 # Key Lifecycle
 
@@ -1376,6 +1390,30 @@ resolution method (Section 8) applies to it:
 A publisher with nothing to revoke need not publish this resource at all;
 see Revocation list fetch semantics, below.
 
+Deriving `<origin>` from `keyid` text this way has a consequence that is
+not itself a flaw, but that a verifier MUST understand: a server that
+answers the same key document under more than one hostname (a `www`
+subdomain and its apex, a CDN hostname distinct from the origin server, a
+bare IP literal presenting a matching certificate, a trailing-dot FQDN)
+is, for this purpose, SEVERAL origins, not one. Resolving the identical
+key material under two such hostnames derives two different revocation
+lists, and a verifier that only ever sees one of them has not fully
+checked the other. This is exactly what Section 8.1's DID-document `id`
+equality and Section 8.2's REQUIRED `kid` equality close: a key document
+MUST name its own canonical identifier, and resolution MUST fail on any
+other spelling, so a `keyid` addressing the same key material under a
+second hostname never resolves as that key's own identity in the first
+place. The key document -- which a key thief does not control without
+separately compromising the origin that serves it, a distinct threat --
+is what fixes the one true spelling, and therefore the one true
+revocation-list origin. This closes aliasing WITHIN the resolution
+methods above (a dot-segment path variant, host case, or default-port
+omission all resolve to the SAME origin already, so `id`/`kid` equality
+and the hash-based match in Section 9.7 are complementary defenses for
+those); it does not and cannot make two hostnames a publisher has not
+linked into the same identity, because nothing short of the publisher
+doing so establishes that they are the same identity at all.
+
 ## Revocation list document shape
 
 The revocation list is a JSON object with the following fields.
@@ -1398,23 +1436,29 @@ Each entry of `revocations` is itself a JSON object:
 | `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
 | `supersededBy` | string | no | Successor `keyid`; meaningful only when `status` is `superseded`. Same semantics as the `supersededBy` field of Section 8.2. |
 
-A `revoked` entry missing `publicKeyHash` is schema-valid, not malformed:
-`publicKeyHash` is listed "conditional" above precisely so an entry
-lacking it is still well-formed. It does not satisfy the primary match
-(The two states, below); a verifier MUST NOT treat such an entry as
-satisfying the primary match, though it MAY still honor the weaker
-`keyid`-based secondary match described there. This is the one case in
-which an entry may deviate from the table above without being malformed.
+`publicKeyHash` is REQUIRED when `status` is `revoked`. A `revoked` entry
+omitting it is malformed, exactly like a missing `keyid` or `status`
+would be, and a malformed entry anywhere in `revocations` MUST invalidate
+the entire document: a verifier MUST treat the whole revocation list as
+unparseable (Revocation list fetch semantics, below) rather than silently
+skipping only the malformed entry, or falling back to any weaker match
+for it. Earlier drafting of this section treated a `revoked` entry
+missing `publicKeyHash` as merely degraded, matchable by a
+`keyid`-based fallback; that fallback is removed. It was itself the
+alias hole this document closes: a signer who wants a `revoked` entry to
+miss could omit `publicKeyHash` on purpose, precisely because a
+`keyid`-text fallback is exactly as bypassable as `keyid`-text matching
+always is (The two states, below). There is no compatibility reason to
+keep it -- no revocation list has ever been published under this
+specification -- so it is deleted outright rather than deprecated.
 
-An entry that instead fails to conform to this table in any other way --
-`keyid` or `status` missing or of the wrong type, a `status` value other
-than the two listed, or a present-but-wrongly-typed `publicKeyHash`,
-`revokedAt`, or `supersededBy` -- is malformed, and a malformed entry
-anywhere in `revocations` MUST invalidate the entire document: a verifier
-MUST treat the whole revocation list as unparseable (Revocation list
-fetch semantics, below) rather than silently skipping only the malformed
-entry. Skipping is fail-open, because it lets exactly the entry an
-attacker most wants ignored -- one crafted to fail parsing -- vanish
+An entry that fails to conform to this table in any other way -- `keyid`
+or `status` missing or of the wrong type, a `status` value other than the
+two listed, or a present-but-wrongly-typed `publicKeyHash`, `revokedAt`,
+or `supersededBy` -- is malformed for the same reason and with the same
+effect: the whole document is invalidated, not just that entry. Skipping
+only the malformed entry is fail-open, because it lets exactly the entry
+an attacker most wants ignored -- one crafted to fail parsing -- vanish
 instead of blocking the list that would otherwise apply it.
 
 Additional fields MAY be present in either object. A verifier MUST ignore
@@ -1432,9 +1476,10 @@ unqualified entry-wide states above. An unrecognized field on an entry that
 is otherwise well-formed under the table above does not itself make the
 entry malformed.
 
-If more than one entry matches the same key, whether by `publicKeyHash` or
-by the Section 8.5 canonical `keyid` form, and any of the matching entries
-has `status: "revoked"`, the key is `revoked`: a `superseded` entry for the
+If more than one entry matches the same key -- a `revoked` entry always by
+`publicKeyHash`, a `superseded` entry by `publicKeyHash` or the Section
+8.5 canonical `keyid` form -- and any matching entry has
+`status: "revoked"`, the key is `revoked`: a `superseded` entry for the
 same key MUST NOT suppress a `revoked` one, in any array order. A verifier
 MUST NOT implement this by keeping only the most recently seen entry for a
 given `keyid` and discarding earlier ones with the same `keyid`; that
@@ -1473,32 +1518,30 @@ list, and this distinction is the entire point of separating them:
   `revoked` entry names, at any `signed-at` value, MUST be treated as
   untrusted, regardless of which `keyid` string the signature in question
   actually carries. A verifier determines this by key material, not by
-  `keyid`: the PRIMARY match compares the `publicKeyHash` of the entry
-  against the SHA-256 SPKI-DER hash of the key the verifier already
-  resolved and is about to use for signature verification (Section 12.6);
-  a match is `revoked` regardless of whether the entry's own `keyid`
-  string equals the `keyid` attribute under check. A verifier MUST perform
-  this comparison for every `revoked` entry that carries `publicKeyHash`,
-  not only the entry whose `keyid` happens to match textually. A verifier
-  MAY additionally treat an entry as matching by a SECONDARY comparison of
-  the Section 8.5 canonical form of `keyid`, which is useful chiefly when
-  an entry omits `publicKeyHash`; this secondary comparison MUST NOT be
-  used as the sole basis for concluding `not-revoked` when a
-  `publicKeyHash` comparison was possible and did not match, and it MUST
-  NOT be relied on in place of the primary match when `publicKeyHash` is
-  present. `keyid` is opaque and signer-chosen (Section 8); a comparison
-  keyed only to one spelling of it is not a safe way to detect
+  `keyid`, and by key material ALONE: the match compares the entry's
+  REQUIRED `publicKeyHash` (Section 9.6) against the SHA-256 SPKI-DER hash
+  of the key the verifier already resolved and is about to use for
+  signature verification (Section 12.6); a match is `revoked` regardless
+  of whether the entry's own `keyid` string equals the `keyid` attribute
+  under check. A verifier MUST perform this comparison for every `revoked`
+  entry, not only the entry whose `keyid` happens to match textually.
+  There is no `keyid`-based match for `revoked`, primary or secondary, in
+  this revision: `keyid` is opaque and signer-chosen (Section 8), and a
+  comparison keyed to it, even as a fallback, is not a safe way to detect
   compromised key material that a signer -- honest or, in the case an
   entry exists to address, actively adversarial -- can resolve under more
-  than one `keyid` string. `revoked` is stated exactly once, here, with no
-  time condition anywhere in it: once `revoked` is established by either
-  match, a verifier MUST apply the `key-revoked` failure outcome for every
-  signature the key produced, unconditionally. There is no exception
-  clause, corroborated-timing or otherwise, for a key revoked through this
-  list. Section 9.3's corroborated-timing exception exists only for the
-  key document's own `revoked` field and is not incorporated here by
-  reference or otherwise; a signer-asserted `signed-at` MUST NOT be
-  weighed before applying `key-revoked` under this list, full stop.
+  than one `keyid` string; a signer who wanted a `revoked` entry to miss
+  could omit `publicKeyHash` specifically to fall through to such a
+  fallback, which is why Section 9.6 makes its absence malformed instead.
+  `revoked` is stated exactly once, here, with no time condition anywhere
+  in it: once `revoked` is established, a verifier MUST apply the
+  `key-revoked` failure outcome for every signature the key produced,
+  unconditionally. There is no exception clause, corroborated-timing or
+  otherwise, for a key revoked through this list. Section 9.3's
+  corroborated-timing exception exists only for the key document's own
+  `revoked` field and is not incorporated here by reference or otherwise;
+  a signer-asserted `signed-at` MUST NOT be weighed before applying
+  `key-revoked` under this list, full stop.
 
 `superseded`:
 : The same state Section 9.1 already defines -- the key is retired on
@@ -1509,13 +1552,12 @@ list, and this distinction is the entire point of separating them:
   `superseded`, full stop, whichever channel says so. Signatures already
   made with the listed `keyid` remain valid. The listed key MUST NOT be
   used to sign new content going forward, exactly as Section 9.1 already
-  requires of a key in this state. A verifier looks up a `superseded`
+  requires of a key in this state. A verifier matches a `superseded`
   entry by `publicKeyHash` when the entry carries one, and otherwise by
   the Section 8.5 canonical form of `keyid`; unlike `revoked`, a
-  keyid-string-based miss here is not a security failure; it only means
-  the supersession signal is not surfaced for that particular alias, which
-  is an acceptable degradation since existing signatures already remain
-  valid either way. A verifier MUST NOT fail Section 12's cryptographic
+  `keyid`-text-based miss here is not a security failure, only a missed
+  trust-layer signal, since existing signatures from the key remain valid
+  either way. A verifier MUST NOT fail Section 12's cryptographic
   verification because of a `superseded` entry; it MAY surface the entry
   as a Section 12.7 trust-layer input.
 
@@ -1581,12 +1623,14 @@ The outcome maps to one of three revocation-status values:
   origin matches this fetch's origin, whose signer is neither revoked nor
   superseded, and whose signature verifies, all per Revocation list
   verification, above: the verifier applies its `revocations` entries
-  using the matching rules in The two states, above (primarily
-  `publicKeyHash` for `revoked`, primarily the Section 8.5 canonical
-  `keyid` form for `superseded`), with the duplicate-entry precedence
-  Section 9.6 defines. Status is `revoked` if any entry matches; otherwise
-  status is `not-revoked`, and, if some entry matches as `superseded`, the
-  verifier additionally records that fact as trust-layer metadata.
+  using the matching rules in The two states, above -- `publicKeyHash`
+  alone for `revoked`; a verifier matches a `superseded` entry by
+  `publicKeyHash` when the entry carries one, and otherwise by the
+  Section 8.5 canonical form of `keyid` -- with the duplicate-entry
+  precedence Section 9.6 defines. Status is `revoked` if any entry
+  matches; otherwise status is `not-revoked`, and, if some entry matches
+  as `superseded`, the verifier additionally records that fact as
+  trust-layer metadata.
 - Any other outcome -- a network failure, a redirect, a non-404 error
   status, a body that is not valid JSON, a document that does not parse
   per Section 9.6 (including a document containing any malformed entry),
@@ -2064,10 +2108,11 @@ algorithm it is suitable for. A retrieval or DID-resolution failure produces
 schema produces "malformed-key-document". A revoked key, or an expired key
 that Section 9 does not permit for this signature, produces "key-revoked".
 A verifier that also consults a Section 9.5 revocation list MUST apply the
-same "key-revoked" outcome when that list reports `revoked` for `keyid`; a
-`revocation-unknown` list result from that consultation does not produce a
-failure at this step (Section 9.9). The verifier MUST stop after any
-"key-revoked" or other listed result.
+same "key-revoked" outcome when that list reports `revoked` for the
+resolved key -- matched by key material (Section 9.7), not by `keyid`
+text. A `revocation-unknown` list result from that consultation does not
+produce a failure at this step (Section 9.9). The verifier MUST stop
+after any "key-revoked" or other listed result.
 
 If the algorithm associated with the resolved key is incompatible
 with the `algorithm` attribute of the signed section, the verifier
@@ -2814,10 +2859,22 @@ The machine-readable form of this vector is maintained as
 ## Revocation list keyid-alias immunity
 
 This vector demonstrates why The two states requires matching a `revoked`
-entry by `publicKeyHash` rather than by `keyid` string. It does not
-introduce new key material; it works entirely from ordinary URL and
-`did:web` identifier equivalences that Section 8.5's canonical form, and
-the Section 5.1 syntax restriction, are built on.
+entry by `publicKeyHash` rather than by `keyid` string, for every alias
+form that resolves WITHIN the origin `keyid`'s own resolution method
+already names. It does not introduce new key material; it works entirely
+from ordinary URL and `did:web` identifier equivalences that Section
+8.5's canonical form, and the Section 5.1 syntax restriction, are built
+on. It does not by itself close a CROSS-HOST alias -- a key document
+reachable under a second hostname the verifier was never told is the
+same identity, such as `www` versus apex, a CDN hostname, or an IP
+literal presenting a matching certificate -- because such a hostname
+derives a genuinely different origin, and therefore a genuinely
+different revocation-list location, under Section 9.5. That closure is
+Section 8.1's DID-document `id` equality and Section 8.2's REQUIRED
+`kid` equality, not this match rule; see Section 9.5's discussion of why
+a server answering under several hostnames is several origins, and
+Revocation list host-alias identifier binding, below, for a worked
+vector of that closure specifically.
 
 Take the revoked `keyid` from the vector above,
 `https://keys.example/alice-2024.json`. The following `keyid` strings are
@@ -2918,6 +2975,66 @@ be accepted.
 
 The machine-readable form of this vector is maintained as
 `ietf-draft/vectors/revocation-03.json` in this repository.
+
+## Revocation list host-alias identifier binding
+
+This vector demonstrates Section 8.1 and Section 8.2's identifier-equality
+closure: the reason a key document reachable under a second hostname
+cannot silently detach from its own revocation list. It reuses the
+compromised key material from the alias-immunity vector above (seed
+`htmltrust-alias-victim-vector-01`, canonical keyid
+`https://keys.example/alice-2024.json`) so the two vectors together tell
+one complete story: the earlier vector closes aliasing WITHIN one origin
+by matching on `publicKeyHash`; this one closes aliasing ACROSS origins by
+requiring a key document to name its own identity.
+
+The key document below is what `https://keys.example/alice-2024.json`
+resolves to under Section 8.2:
+
+~~~ json
+{
+  "kid": "https://keys.example/alice-2024.json",
+  "algorithm": "ed25519",
+  "publicKeyEncoding": "spki-der",
+  "publicKey": "MCowBQYDK2VwAyEA/+NCmGTnjGQD7aRRgEMj2QZyPGESF77/tV2F4Rs8aMw"
+}
+~~~
+
+Suppose the identical bytes are also reachable, whether by an operator's
+own hosting choice or by an adversary's, at any of the following, each a
+genuinely different origin from the canonical one above under Section
+9.5's derivation:
+
+~~~
+https://www.keys.example/alice-2024.json
+https://cdn.keys.example/alice-2024.json
+https://93.184.216.34/alice-2024.json
+https://keys.example./alice-2024.json
+~~~
+
+A verifier resolving any one of these fetches the identical key document
+shown above. Its `kid` still names only `https://keys.example/alice-
+2024.json`. Section 8.2 requires `kid` to equal the `keyid` used to
+resolve it byte for byte; every alias above fails that comparison, so
+resolution MUST fail with `malformed-key-document` for each. Because
+resolution never succeeds under the alias, Section 9.5's revocation-list
+origin derivation for that alias is never reached at all -- there is no
+partial state where the key resolves but the list lookup is merely wrong;
+the whole resolution fails first.
+
+The equivalent case for `did:web` is host case, the same equivalence
+Section 8.5's canonical form already collapses for comparison purposes:
+`did:web:keys.example` and `did:web:KEYS.example` are different literal
+strings that resolve to the identical DID document, because Section 8.1
+resolution lowercases the host when constructing the DID document URL.
+That document's own top-level `id`, though, can equal only one spelling.
+Section 8.1 requires `id` to equal the DID portion of `keyid` byte for
+byte, so resolving `did:web:KEYS.example` against a DID document whose
+`id` is `did:web:keys.example` MUST fail with `key-resolution-failed`.
+
+The machine-readable form of this vector, including the alias and
+did:web-variant assertions above, is maintained as
+`ietf-draft/vectors/revocation-04.json` in this repository.
 
 # Example Directory Exchange
 
