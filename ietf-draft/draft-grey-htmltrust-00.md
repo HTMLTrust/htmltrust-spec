@@ -407,29 +407,81 @@ In particular, HTML character references are resolved by the parse
 model before text normalization (Section 4.4). A byte-oriented
 implementation MUST decode the full set of HTML5 named character
 references, matched case-sensitively (`&Omega;` and `&omega;` are
-distinct). This document requires character references in signed
-content to be semicolon-terminated and does not define canonical
-behavior for the legacy unterminated forms. Numeric character
-references are decoded using the HTML5 rules: a value of zero, a value
-greater than U+10FFFF, or a surrogate code point (U+D800..U+DFFF)
-becomes U+FFFD, and a C1 control in the range U+0080..U+009F maps
-through the standard windows-1252 replacement table. The abbreviated
-"common entity" tables shipped by some early implementations are NOT
-conforming.
+distinct). The abbreviated "common entity" tables shipped by some early
+implementations are NOT conforming.
+
+A U+0026 AMPERSAND in text content or in an attribute value, when
+followed by an ASCII alphanumeric or U+0023 NUMBER SIGN, MUST begin a
+complete character reference: the characters up to and including the
+next U+003B SEMICOLON MUST form either a named character reference
+present in the HTML5 named character references table (matched
+case-sensitively, in its semicolon-terminated form) or a numeric
+character reference whose decoded value is not zero, not greater than
+U+10FFFF, not a surrogate code point (U+D800..U+DFFF), not a
+noncharacter, and not a C0 or C1 control other than U+0009, U+000A,
+U+000C, or U+000D. Any other such ampersand -- including a legacy named
+reference with no terminating semicolon, a named reference matching no
+table entry, and a numeric reference decoding to a value outside the
+ranges above -- is outside the portable parser profile (Section 4.1.1)
+and MUST be rejected with "parser-profile-unsupported". This rule
+replaces the legacy behavior of decoding an out-of-range numeric
+reference to U+FFFD or through the windows-1252 replacement table: such
+a reference is now rejected rather than decoded.
+
+One exception is inherited from the HTML Standard's attribute-value
+character-reference state, for historical reasons: inside an attribute
+value, when the longest matching named reference does not end in a
+semicolon and the next character is U+003D EQUALS SIGN or an ASCII
+alphanumeric, the ampersand and the characters that would otherwise have
+formed the reference are literal text, not a rejection. This is why
+`href="?a=1&copy=2"` binds a literal `&`, not a truncated `&copy`
+reference. The exception is specific to attribute values: the identical
+byte sequence in text content is rejected, because there the legacy
+`&copy` match with no terminating semicolon has no attribute-value
+exception available to it.
 
 ### Portable parser profile
 
 To make independent implementations interoperable, this revision defines
 a portable input profile. Every signed section conforming to this revision
 MUST satisfy this profile. This revision defines no in-band profile
-negotiation. A signed section MUST be encoded as UTF-8, contain no duplicate
-attributes, and contain no parse
-errors involving unclosed or misnested elements, table foster parenting,
-foreign-content integration points, ambiguous character references, or
-malformed HTML comments. Outside raw-text elements, an HTML comment in the
-signed input MUST have a closing `-->`; its body MUST NOT contain `--` and
-MUST NOT end in `-`. An unclosed comment, a comment body containing `--`, or
-a comment body ending in `-` is a parse error for this profile.
+negotiation.
+
+A signed section MUST be encoded as UTF-8, contain no duplicate
+attributes, and contain no parse error reported by the HTML Standard's
+tokenizer or tree construction stage. The categories named in this
+section -- unclosed or misnested elements, table foster parenting,
+foreign-content integration points, ambiguous character references, and
+malformed HTML comments -- are worked examples of that general rule, not
+a closed list of it: any parse error the HTML Standard defines is
+outside this profile, whether or not it is named here. Outside raw-text
+elements, an HTML comment in the signed input MUST have a closing
+`-->`; its body MUST NOT contain `--` and MUST NOT end in `-`. An
+unclosed comment, a comment body containing `--`, or a comment body
+ending in `-` is a parse error for this profile. Misnesting includes
+every case where HTML5 tree construction repairs the nesting rather than
+reporting an outright syntax error, such as table foster parenting, a
+start tag that implicitly closes an open `p`, a heading nested in
+another heading, and `<a>` nested in `<a>`.
+
+In addition, the following are outside this profile even though the
+HTML Standard does not itself treat them as parse errors:
+
+1. Omission of the end tag of any non-void element, including an
+   element whose end tag the HTML Standard permits omitting (`p`,
+   `li`, `dt`, `dd`, `tr`, `td`, `th`, `option`, and the rest of the
+   HTML Standard's "Optional tags" list). Every non-void element in a
+   signed section MUST have an explicit end tag.
+2. A start tag whose tag name, ASCII-lowercased, is `svg`, `math`, or
+   `foreignobject`. Foreign content (SVG and MathML) is outside this
+   profile entirely: such a start tag MUST be rejected wherever it
+   appears in the signed section, including in ordinary HTML content
+   where the HTML parser would create an unremarkable element of that
+   name rather than entering a foreign-content integration point. The
+   check is on the tag name as written in the source, not on the
+   element's namespace after tree construction.
+3. A character reference outside the restrictions given in Section 4.1.
+
 The profile excludes `template` and nested browsing contexts from the
 signed subtree as specified in Section 4.3.1. A parser-backed verifier
 MUST reject an input outside this profile with
@@ -437,10 +489,12 @@ MUST reject an input outside this profile with
 emit other HTML under an experimental protocol version outside this
 revision, but MUST NOT identify that output as conforming to this revision.
 
-The profile cases in `vectors/parser-profile.json` cover duplicate
-attributes, malformed nesting, table insertion, foreign content, ambiguous
-character references, and malformed comments. A conforming verifier MUST
-produce the specified accept/reject result before accepting a signed section.
+`vectors/parser-profile.json` mirrors a subset of the reference
+implementation's conformance fixture set as portable accept/reject test
+cases; that fixture set is the normative source, and the vector file is
+regenerated from it rather than maintained independently. A conforming
+verifier MUST produce the specified accept/reject result for every case
+in either file before accepting a signed section.
 
 ## Walk and text extraction
 
@@ -528,8 +582,8 @@ U+000A, so consecutive attribute records need no additional separator.
 
 `element-local-name` and `attribute-name` are ASCII-lowercase names as
 exposed by the HTML parser. `normalized-value` for `alt` and `aria-label`
-is produced by applying the plain-text normalization in
-Section 4.4. `normalized-value` for `href` and `src` is produced by
+is `normalize_field` (Section 4.4) applied to the attribute value.
+`normalized-value` for `href` and `src` is produced by
 applying `htmltrust-safe-url-v1` in Section 5.2, then serializing the
 resulting URL with the Web URL serializer. A URL parsing failure produces
 "attribute-canonicalization-failed"; a parsed URL outside the selected
@@ -568,13 +622,26 @@ The element `br` introduces a soft line break (see Section 4.5).
 
 ## Text normalization
 
-For each `Text` node included in the walk, its data is normalized as
-follows, in order:
+The procedure `normalize_text(s)` applies the following four steps, in
+order, to a string `s`:
 
 1. Apply Unicode Normalization Form NFKC ([UNICODE-NFC]).
 2. Strip the formatting characters defined in Section 4.4.2.
 3. Apply the whitespace mapping defined in Section 4.4.3.
 4. Apply the punctuation normalizations defined in Section 4.4.4.
+
+`normalize_text` performs no trimming of its own. For each `Text` node
+included in the walk, the canonicalizer applies `normalize_text` to its
+data; leading and trailing whitespace at a block boundary is removed
+separately, once the whole canonical-content buffer has been assembled
+(Section 4.5), because a block's leading or trailing content is often
+split across more than one `Text` node.
+
+Where this document cites Section 4.4 for a single field rather than for
+each `Text` node in a walk -- `alt` and `aria-label` in Section 4.3.2,
+and a claim's `name` and `content` in Section 4.6 -- it means
+`normalize_field`, defined here: `normalize_field(s)` is
+`normalize_text(s)` with any leading or trailing U+0020 SPACE removed.
 
 ### Rationale
 
@@ -625,9 +692,12 @@ U+0009, U+000A, U+000B, U+000C, U+000D, U+0085, U+00A0, U+1680,
 U+2000..U+200A, U+2028, U+2029, U+202F, U+205F, U+3000.
 
 After replacement, runs of two or more U+0020 SPACE characters MUST
-be collapsed to a single U+0020 SPACE. Leading and trailing whitespace
-within each block (delimited by Section 4.5 boundaries) MUST be
-removed.
+be collapsed to a single U+0020 SPACE. This step, like the rest of
+`normalize_text`, operates on one `Text` node's data; the collapse
+applies again, across `Text`-node boundaries within a block, when the
+canonical-content buffer is assembled (Section 4.5), and that section
+also defines the leading/trailing block-whitespace removal a single
+`Text` node cannot evaluate on its own.
 
 In this revision, `<pre>` receives no special whitespace treatment: it
 is a boundary-producing block (Section 4.3.3) and the text within it is
@@ -668,6 +738,18 @@ LINE FEED character after its descendants have contributed their
 text. The `br` element emits a single U+000A LINE FEED character at
 its position.
 
+Once all boundaries have been emitted, and before the final trim below,
+runs of two or more U+0020 SPACE MUST be collapsed to a single U+0020
+SPACE across the whole canonical-content buffer (this repeats
+Section 4.4.3's per-`Text`-node collapse across the `Text`-node
+boundaries within one block), and every remaining run of U+0020 SPACE
+immediately before or after a U+000A LINE FEED MUST be removed, so no
+block begins or ends with U+0020. A block, for this purpose, is
+delimited by the U+000A boundaries this section defines, not evaluated
+per `Text` node: an inline element's trailing space before a block
+boundary, for example, is ordinarily contributed by a different `Text`
+node than the boundary itself.
+
 After the entire subtree has been walked, the resulting byte sequence
 is trimmed: leading and trailing runs of U+000A and U+0020 are
 removed, and runs of two or more U+000A in a row are collapsed to a
@@ -691,9 +773,10 @@ the normalized `name` is the empty string, verification MUST fail with
 
 For each claim `<meta>` element:
 
-1. The `name` attribute value is processed as plain text per
-   Section 4.4 (NFKC, formatting strip, whitespace collapse).
-2. The `content` attribute value is processed identically.
+1. `name` is `normalize_field` (Section 4.4) applied to the `name`
+   attribute value.
+2. `content` is `normalize_field` (Section 4.4) applied to the
+   `content` attribute value.
 3. The pair is serialized as
 
    escaped-name `:` escaped-content `\n`

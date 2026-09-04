@@ -87,25 +87,25 @@ Table of Contents
    4.  Canonicalization  . . . . . . . . . . . . . . . . . . . . . .   9
      4.1.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .   9
        4.1.1.  Portable parser profile . . . . . . . . . . . . . . .  11
-     4.2.  Walk and text extraction  . . . . . . . . . . . . . . . .  11
-     4.3.  Element categories  . . . . . . . . . . . . . . . . . . .  12
-       4.3.1.  Excluded elements . . . . . . . . . . . . . . . . . .  12
-       4.3.2.  Included elements . . . . . . . . . . . . . . . . . .  13
-       4.3.3.  Boundary-producing elements . . . . . . . . . . . . .  14
-     4.4.  Text normalization  . . . . . . . . . . . . . . . . . . .  14
-       4.4.1.  Rationale . . . . . . . . . . . . . . . . . . . . . .  15
-       4.4.2.  Stripped formatting characters  . . . . . . . . . . .  15
-       4.4.3.  Whitespace  . . . . . . . . . . . . . . . . . . . . .  16
-       4.4.4.  Punctuation normalization . . . . . . . . . . . . . .  16
-     4.5.  Block structure . . . . . . . . . . . . . . . . . . . . .  17
-     4.6.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  17
-     4.7.  Opt-out marker (Editor's Note)  . . . . . . . . . . . . .  18
-   5.  Signing Payload Binding . . . . . . . . . . . . . . . . . . .  18
-     5.1.  Profile identifiers and wire attributes . . . . . . . . .  19
-     5.2.  Signed-attribute and safe-URL profiles  . . . . . . . . .  19
-     5.3.  Location scope and same-origin replay . . . . . . . . . .  20
-     5.4.  Timestamp profile . . . . . . . . . . . . . . . . . . . .  21
-     5.5.  Canonical signing object  . . . . . . . . . . . . . . . .  21
+     4.2.  Walk and text extraction  . . . . . . . . . . . . . . . .  12
+     4.3.  Element categories  . . . . . . . . . . . . . . . . . . .  13
+       4.3.1.  Excluded elements . . . . . . . . . . . . . . . . . .  13
+       4.3.2.  Included elements . . . . . . . . . . . . . . . . . .  14
+       4.3.3.  Boundary-producing elements . . . . . . . . . . . . .  15
+     4.4.  Text normalization  . . . . . . . . . . . . . . . . . . .  15
+       4.4.1.  Rationale . . . . . . . . . . . . . . . . . . . . . .  16
+       4.4.2.  Stripped formatting characters  . . . . . . . . . . .  16
+       4.4.3.  Whitespace  . . . . . . . . . . . . . . . . . . . . .  17
+       4.4.4.  Punctuation normalization . . . . . . . . . . . . . .  18
+     4.5.  Block structure . . . . . . . . . . . . . . . . . . . . .  18
+     4.6.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  19
+     4.7.  Opt-out marker (Editor's Note)  . . . . . . . . . . . . .  20
+   5.  Signing Payload Binding . . . . . . . . . . . . . . . . . . .  20
+     5.1.  Profile identifiers and wire attributes . . . . . . . . .  20
+     5.2.  Signed-attribute and safe-URL profiles  . . . . . . . . .  21
+     5.3.  Location scope and same-origin replay . . . . . . . . . .  22
+     5.4.  Timestamp profile . . . . . . . . . . . . . . . . . . . .  22
+     5.5.  Canonical signing object  . . . . . . . . . . . . . . . .  23
 
 
 
@@ -114,54 +114,54 @@ Grey                    Expires 28 February 2027                [Page 2]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-     5.6.  Algorithm and signer binding  . . . . . . . . . . . . . .  22
-     5.7.  Legacy payloads . . . . . . . . . . . . . . . . . . . . .  23
-   6.  Hash and Signature Encoding . . . . . . . . . . . . . . . . .  23
-     6.1.  Encoding choice . . . . . . . . . . . . . . . . . . . . .  23
-     6.2.  Content hash and claims hash  . . . . . . . . . . . . . .  24
-     6.3.  Signature . . . . . . . . . . . . . . . . . . . . . . . .  24
-   7.  Algorithm Registry  . . . . . . . . . . . . . . . . . . . . .  25
-     7.1.  Signature algorithms  . . . . . . . . . . . . . . . . . .  25
-     7.2.  Hash algorithms . . . . . . . . . . . . . . . . . . . . .  25
-     7.3.  Algorithm agility . . . . . . . . . . . . . . . . . . . .  26
-   8.  Key Resolution  . . . . . . . . . . . . . . . . . . . . . . .  26
-     8.1.  DID method resolution . . . . . . . . . . . . . . . . . .  26
-     8.2.  Direct HTTPS URL  . . . . . . . . . . . . . . . . . . . .  27
-     8.3.  Trust directory reference . . . . . . . . . . . . . . . .  28
-     8.4.  Acceptance policy . . . . . . . . . . . . . . . . . . . .  28
-   9.  Key Lifecycle . . . . . . . . . . . . . . . . . . . . . . . .  28
-     9.1.  Key states  . . . . . . . . . . . . . . . . . . . . . . .  28
-     9.2.  Rotation and supersession . . . . . . . . . . . . . . . .  29
-     9.3.  Revocation, compromise, and signed-at freshness . . . . .  29
-     9.4.  Key loss and recovery . . . . . . . . . . . . . . . . . .  30
-   10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  30
-     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  31
-     10.2.  GET /.well-known/htmltrust . . . . . . . . . . . . . . .  31
-     10.3.  GET /content/{hash}  . . . . . . . . . . . . . . . . . .  31
-     10.4.  POST /content  . . . . . . . . . . . . . . . . . . . . .  32
-     10.5.  GET /content/{hash}/endorsements . . . . . . . . . . . .  33
-     10.6.  POST /endorsements . . . . . . . . . . . . . . . . . . .  33
-     10.7.  GET /keys/{id} . . . . . . . . . . . . . . . . . . . . .  34
-     10.8.  GET /signers/{id}/reputation . . . . . . . . . . . . . .  34
-     10.9.  Authentication . . . . . . . . . . . . . . . . . . . . .  34
-     10.10. Errors . . . . . . . . . . . . . . . . . . . . . . . . .  35
-   11. Endorsement Format  . . . . . . . . . . . . . . . . . . . . .  35
-     11.1.  Document shape . . . . . . . . . . . . . . . . . . . . .  36
-     11.2.  Canonicalization for signing . . . . . . . . . . . . . .  37
-     11.3.  Revocation and expiry  . . . . . . . . . . . . . . . . .  37
-     11.4.  Endorsement of an endorsement  . . . . . . . . . . . . .  38
-   12. Verification Procedure  . . . . . . . . . . . . . . . . . . .  38
-     12.1.  Step 1: Extract attributes and content . . . . . . . . .  38
+     5.6.  Algorithm and signer binding  . . . . . . . . . . . . . .  24
+     5.7.  Legacy payloads . . . . . . . . . . . . . . . . . . . . .  24
+   6.  Hash and Signature Encoding . . . . . . . . . . . . . . . . .  24
+     6.1.  Encoding choice . . . . . . . . . . . . . . . . . . . . .  25
+     6.2.  Content hash and claims hash  . . . . . . . . . . . . . .  25
+     6.3.  Signature . . . . . . . . . . . . . . . . . . . . . . . .  26
+   7.  Algorithm Registry  . . . . . . . . . . . . . . . . . . . . .  26
+     7.1.  Signature algorithms  . . . . . . . . . . . . . . . . . .  26
+     7.2.  Hash algorithms . . . . . . . . . . . . . . . . . . . . .  27
+     7.3.  Algorithm agility . . . . . . . . . . . . . . . . . . . .  28
+   8.  Key Resolution  . . . . . . . . . . . . . . . . . . . . . . .  28
+     8.1.  DID method resolution . . . . . . . . . . . . . . . . . .  28
+     8.2.  Direct HTTPS URL  . . . . . . . . . . . . . . . . . . . .  28
+     8.3.  Trust directory reference . . . . . . . . . . . . . . . .  30
+     8.4.  Acceptance policy . . . . . . . . . . . . . . . . . . . .  30
+   9.  Key Lifecycle . . . . . . . . . . . . . . . . . . . . . . . .  30
+     9.1.  Key states  . . . . . . . . . . . . . . . . . . . . . . .  30
+     9.2.  Rotation and supersession . . . . . . . . . . . . . . . .  31
+     9.3.  Revocation, compromise, and signed-at freshness . . . . .  31
+     9.4.  Key loss and recovery . . . . . . . . . . . . . . . . . .  32
+   10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  32
+     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  33
+     10.2.  GET /.well-known/htmltrust . . . . . . . . . . . . . . .  33
+     10.3.  GET /content/{hash}  . . . . . . . . . . . . . . . . . .  33
+     10.4.  POST /content  . . . . . . . . . . . . . . . . . . . . .  34
+     10.5.  GET /content/{hash}/endorsements . . . . . . . . . . . .  35
+     10.6.  POST /endorsements . . . . . . . . . . . . . . . . . . .  35
+     10.7.  GET /keys/{id} . . . . . . . . . . . . . . . . . . . . .  36
+     10.8.  GET /signers/{id}/reputation . . . . . . . . . . . . . .  36
+     10.9.  Authentication . . . . . . . . . . . . . . . . . . . . .  36
+     10.10. Errors . . . . . . . . . . . . . . . . . . . . . . . . .  37
+   11. Endorsement Format  . . . . . . . . . . . . . . . . . . . . .  37
+     11.1.  Document shape . . . . . . . . . . . . . . . . . . . . .  38
+     11.2.  Canonicalization for signing . . . . . . . . . . . . . .  39
+     11.3.  Revocation and expiry  . . . . . . . . . . . . . . . . .  39
+     11.4.  Endorsement of an endorsement  . . . . . . . . . . . . .  40
+   12. Verification Procedure  . . . . . . . . . . . . . . . . . . .  40
+     12.1.  Step 1: Extract attributes and content . . . . . . . . .  40
      12.2.  Step 2: Canonicalize content; compute and compare content
-             hash  . . . . . . . . . . . . . . . . . . . . . . . . .  39
-     12.3.  Step 3: Canonicalize claims; compute claims hash . . . .  39
-     12.4.  Step 4: Construct signing payload  . . . . . . . . . . .  39
-     12.5.  Step 5: Resolve keyid  . . . . . . . . . . . . . . . . .  40
-     12.6.  Step 6: Verify signature . . . . . . . . . . . . . . . .  40
-     12.7.  Step 7: Trust decision (out of scope)  . . . . . . . . .  40
-     12.8.  Failure outcomes . . . . . . . . . . . . . . . . . . . .  41
-     12.9.  Verifier network fetch policy  . . . . . . . . . . . . .  41
-     12.10. Resource limits  . . . . . . . . . . . . . . . . . . . .  42
+             hash  . . . . . . . . . . . . . . . . . . . . . . . . .  41
+     12.3.  Step 3: Canonicalize claims; compute claims hash . . . .  41
+     12.4.  Step 4: Construct signing payload  . . . . . . . . . . .  41
+     12.5.  Step 5: Resolve keyid  . . . . . . . . . . . . . . . . .  42
+     12.6.  Step 6: Verify signature . . . . . . . . . . . . . . . .  42
+     12.7.  Step 7: Trust decision (out of scope)  . . . . . . . . .  42
+     12.8.  Failure outcomes . . . . . . . . . . . . . . . . . . . .  43
+     12.9.  Verifier network fetch policy  . . . . . . . . . . . . .  43
+     12.10. Resource limits  . . . . . . . . . . . . . . . . . . . .  44
 
 
 
@@ -170,43 +170,43 @@ Grey                    Expires 28 February 2027                [Page 3]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-   13. Security Considerations . . . . . . . . . . . . . . . . . . .  43
-     13.1.  Threat model . . . . . . . . . . . . . . . . . . . . . .  43
-     13.2.  Deliberate semantic-subset signing trade-off . . . . . .  44
-     13.3.  Claim metadata normalization and duplicate binding . . .  45
-       13.3.1.  Injective record encoding  . . . . . . . . . . . . .  45
-     13.4.  Revocation latency . . . . . . . . . . . . . . . . . . .  46
-     13.5.  Algorithm agility risks  . . . . . . . . . . . . . . . .  46
-     13.6.  Side channels  . . . . . . . . . . . . . . . . . . . . .  46
-   14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  46
-     14.1.  Directory query exposure . . . . . . . . . . . . . . . .  46
-     14.2.  Key resolution exposure  . . . . . . . . . . . . . . . .  47
-     14.3.  Endorsement disclosure . . . . . . . . . . . . . . . . .  47
-   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  47
-     15.1.  Media types  . . . . . . . . . . . . . . . . . . . . . .  47
-       15.1.1.  application/htmltrust-key+json . . . . . . . . . . .  47
-       15.1.2.  application/htmltrust-endorsement+json . . . . . . .  48
-       15.1.3.  application/htmltrust-directory+json . . . . . . . .  48
-       15.1.4.  application/htmltrust-content+json . . . . . . . . .  48
-     15.2.  Well-known URI . . . . . . . . . . . . . . . . . . . . .  48
-     15.3.  Signature algorithm registry . . . . . . . . . . . . . .  48
-     15.4.  Hash algorithm registry  . . . . . . . . . . . . . . . .  49
-     15.5.  HTMLTrust error type prefix  . . . . . . . . . . . . . .  49
-   16. References  . . . . . . . . . . . . . . . . . . . . . . . . .  49
-     16.1.  Normative References . . . . . . . . . . . . . . . . . .  49
-     16.2.  Informative References . . . . . . . . . . . . . . . . .  51
-   Appendix A.  Acknowledgements . . . . . . . . . . . . . . . . . .  53
-   Appendix B.  Test Vectors . . . . . . . . . . . . . . . . . . . .  53
-     B.1.  Test key (Ed25519)  . . . . . . . . . . . . . . . . . . .  53
-     B.2.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .  54
-     B.3.  Canonical content . . . . . . . . . . . . . . . . . . . .  54
-     B.4.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  54
-     B.5.  Signing payload and signature . . . . . . . . . . . . . .  55
-   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  55
-     C.1.  Submitting a content record . . . . . . . . . . . . . . .  55
-     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  56
-   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  57
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  57
+   13. Security Considerations . . . . . . . . . . . . . . . . . . .  45
+     13.1.  Threat model . . . . . . . . . . . . . . . . . . . . . .  45
+     13.2.  Deliberate semantic-subset signing trade-off . . . . . .  46
+     13.3.  Claim metadata normalization and duplicate binding . . .  47
+       13.3.1.  Injective record encoding  . . . . . . . . . . . . .  47
+     13.4.  Revocation latency . . . . . . . . . . . . . . . . . . .  48
+     13.5.  Algorithm agility risks  . . . . . . . . . . . . . . . .  48
+     13.6.  Side channels  . . . . . . . . . . . . . . . . . . . . .  48
+   14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  48
+     14.1.  Directory query exposure . . . . . . . . . . . . . . . .  48
+     14.2.  Key resolution exposure  . . . . . . . . . . . . . . . .  49
+     14.3.  Endorsement disclosure . . . . . . . . . . . . . . . . .  49
+   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  49
+     15.1.  Media types  . . . . . . . . . . . . . . . . . . . . . .  49
+       15.1.1.  application/htmltrust-key+json . . . . . . . . . . .  49
+       15.1.2.  application/htmltrust-endorsement+json . . . . . . .  50
+       15.1.3.  application/htmltrust-directory+json . . . . . . . .  50
+       15.1.4.  application/htmltrust-content+json . . . . . . . . .  50
+     15.2.  Well-known URI . . . . . . . . . . . . . . . . . . . . .  50
+     15.3.  Signature algorithm registry . . . . . . . . . . . . . .  50
+     15.4.  Hash algorithm registry  . . . . . . . . . . . . . . . .  51
+     15.5.  HTMLTrust error type prefix  . . . . . . . . . . . . . .  51
+   16. References  . . . . . . . . . . . . . . . . . . . . . . . . .  51
+     16.1.  Normative References . . . . . . . . . . . . . . . . . .  51
+     16.2.  Informative References . . . . . . . . . . . . . . . . .  53
+   Appendix A.  Acknowledgements . . . . . . . . . . . . . . . . . .  55
+   Appendix B.  Test Vectors . . . . . . . . . . . . . . . . . . . .  55
+     B.1.  Test key (Ed25519)  . . . . . . . . . . . . . . . . . . .  55
+     B.2.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .  56
+     B.3.  Canonical content . . . . . . . . . . . . . . . . . . . .  56
+     B.4.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  56
+     B.5.  Signing payload and signature . . . . . . . . . . . . . .  57
+   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  57
+     C.1.  Submitting a content record . . . . . . . . . . . . . . .  57
+     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  58
+   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  59
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  59
 
 1.  Introduction
 
@@ -537,23 +537,23 @@ Internet-Draft                  HTMLTrust                    August 2026
    model before text normalization (Section 4.4).  A byte-oriented
    implementation MUST decode the full set of HTML5 named character
    references, matched case-sensitively (&Omega; and &omega; are
-   distinct).  This document requires character references in signed
-   content to be semicolon-terminated and does not define canonical
-   behavior for the legacy unterminated forms.  Numeric character
-   references are decoded using the HTML5 rules: a value of zero, a
-   value greater than U+10FFFF, or a surrogate code point
-   (U+D800..U+DFFF) becomes U+FFFD, and a C1 control in the range
-   U+0080..U+009F maps through the standard windows-1252 replacement
-   table.  The abbreviated "common entity" tables shipped by some early
-   implementations are NOT conforming.
+   distinct).  The abbreviated "common entity" tables shipped by some
+   early implementations are NOT conforming.
 
-
-
-
-
-
-
-
+   A U+0026 AMPERSAND in text content or in an attribute value, when
+   followed by an ASCII alphanumeric or U+0023 NUMBER SIGN, MUST begin a
+   complete character reference: the characters up to and including the
+   next U+003B SEMICOLON MUST form either a named character reference
+   present in the HTML5 named character references table (matched case-
+   sensitively, in its semicolon-terminated form) or a numeric character
+   reference whose decoded value is not zero, not greater than U+10FFFF,
+   not a surrogate code point (U+D800..U+DFFF), not a noncharacter, and
+   not a C0 or C1 control other than U+0009, U+000A, U+000C, or U+000D.
+   Any other such ampersand -- including a legacy named reference with
+   no terminating semicolon, a named reference matching no table entry,
+   and a numeric reference decoding to a value outside the ranges above
+   -- is outside the portable parser profile (Section 4.1.1) and MUST be
+   rejected with "parser-profile-unsupported".  This rule replaces the
 
 
 
@@ -562,32 +562,88 @@ Grey                    Expires 28 February 2027               [Page 10]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
+   legacy behavior of decoding an out-of-range numeric reference to
+   U+FFFD or through the windows-1252 replacement table: such a
+   reference is now rejected rather than decoded.
+
+   One exception is inherited from the HTML Standard's attribute-value
+   character-reference state, for historical reasons: inside an
+   attribute value, when the longest matching named reference does not
+   end in a semicolon and the next character is U+003D EQUALS SIGN or an
+   ASCII alphanumeric, the ampersand and the characters that would
+   otherwise have formed the reference are literal text, not a
+   rejection.  This is why href="?a=1&copy=2" binds a literal &, not a
+   truncated &copy reference.  The exception is specific to attribute
+   values: the identical byte sequence in text content is rejected,
+   because there the legacy &copy match with no terminating semicolon
+   has no attribute-value exception available to it.
+
 4.1.1.  Portable parser profile
 
    To make independent implementations interoperable, this revision
    defines a portable input profile.  Every signed section conforming to
    this revision MUST satisfy this profile.  This revision defines no
-   in-band profile negotiation.  A signed section MUST be encoded as
-   UTF-8, contain no duplicate attributes, and contain no parse errors
-   involving unclosed or misnested elements, table foster parenting,
-   foreign-content integration points, ambiguous character references,
-   or malformed HTML comments.  Outside raw-text elements, an HTML
-   comment in the signed input MUST have a closing -->; its body MUST
-   NOT contain -- and MUST NOT end in -. An unclosed comment, a comment
-   body containing --, or a comment body ending in - is a parse error
-   for this profile.  The profile excludes template and nested browsing
-   contexts from the signed subtree as specified in Section 4.3.1.  A
-   parser-backed verifier MUST reject an input outside this profile with
-   "parser-profile-unsupported" rather than guessing at a tree.  A
-   signer MAY emit other HTML under an experimental protocol version
-   outside this revision, but MUST NOT identify that output as
-   conforming to this revision.
+   in-band profile negotiation.
 
-   The profile cases in vectors/parser-profile.json cover duplicate
-   attributes, malformed nesting, table insertion, foreign content,
-   ambiguous character references, and malformed comments.  A conforming
-   verifier MUST produce the specified accept/reject result before
-   accepting a signed section.
+   A signed section MUST be encoded as UTF-8, contain no duplicate
+   attributes, and contain no parse error reported by the HTML
+   Standard's tokenizer or tree construction stage.  The categories
+   named in this section -- unclosed or misnested elements, table foster
+   parenting, foreign-content integration points, ambiguous character
+   references, and malformed HTML comments -- are worked examples of
+   that general rule, not a closed list of it: any parse error the HTML
+   Standard defines is outside this profile, whether or not it is named
+   here.  Outside raw-text elements, an HTML comment in the signed input
+   MUST have a closing -->; its body MUST NOT contain -- and MUST NOT
+   end in -. An unclosed comment, a comment body containing --, or a
+   comment body ending in - is a parse error for this profile.
+   Misnesting includes every case where HTML5 tree construction repairs
+   the nesting rather than reporting an outright syntax error, such as
+   table foster parenting, a start tag that implicitly closes an open p,
+   a heading nested in another heading, and <a> nested in <a>.
+
+   In addition, the following are outside this profile even though the
+   HTML Standard does not itself treat them as parse errors:
+
+   1.  Omission of the end tag of any non-void element, including an
+       element whose end tag the HTML Standard permits omitting (p, li,
+       dt, dd, tr, td, th, option, and the rest of the HTML Standard's
+       "Optional tags" list).  Every non-void element in a signed
+       section MUST have an explicit end tag.
+
+
+
+Grey                    Expires 28 February 2027               [Page 11]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   2.  A start tag whose tag name, ASCII-lowercased, is svg, math, or
+       foreignobject.  Foreign content (SVG and MathML) is outside this
+       profile entirely: such a start tag MUST be rejected wherever it
+       appears in the signed section, including in ordinary HTML content
+       where the HTML parser would create an unremarkable element of
+       that name rather than entering a foreign-content integration
+       point.  The check is on the tag name as written in the source,
+       not on the element's namespace after tree construction.
+
+   3.  A character reference outside the restrictions given in
+       Section 4.1.
+
+   The profile excludes template and nested browsing contexts from the
+   signed subtree as specified in Section 4.3.1.  A parser-backed
+   verifier MUST reject an input outside this profile with "parser-
+   profile-unsupported" rather than guessing at a tree.  A signer MAY
+   emit other HTML under an experimental protocol version outside this
+   revision, but MUST NOT identify that output as conforming to this
+   revision.
+
+   vectors/parser-profile.json mirrors a subset of the reference
+   implementation's conformance fixture set as portable accept/reject
+   test cases; that fixture set is the normative source, and the vector
+   file is regenerated from it rather than maintained independently.  A
+   conforming verifier MUST produce the specified accept/reject result
+   for every case in either file before accepting a signed section.
 
 4.2.  Walk and text extraction
 
@@ -613,7 +669,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 11]
+Grey                    Expires 28 February 2027               [Page 12]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -669,7 +725,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 12]
+Grey                    Expires 28 February 2027               [Page 13]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -713,7 +769,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    element-local-name and attribute-name are ASCII-lowercase names as
    exposed by the HTML parser. normalized-value for alt and aria-label
-   is produced by applying the plain-text normalization in Section 4.4.
+   is normalize_field (Section 4.4) applied to the attribute value.
    normalized-value for href and src is produced by applying htmltrust-
    safe-url-v1 in Section 5.2, then serializing the resulting URL with
    the Web URL serializer.  A URL parsing failure produces "attribute-
@@ -725,7 +781,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 13]
+Grey                    Expires 28 February 2027               [Page 14]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -761,8 +817,8 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 4.4.  Text normalization
 
-   For each Text node included in the walk, its data is normalized as
-   follows, in order:
+   The procedure normalize_text(s) applies the following four steps, in
+   order, to a string s:
 
    1.  Apply Unicode Normalization Form NFKC ([UNICODE-NFC]).
 
@@ -772,19 +828,25 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    4.  Apply the punctuation normalizations defined in Section 4.4.4.
 
+   normalize_text performs no trimming of its own.  For each Text node
+   included in the walk, the canonicalizer applies normalize_text to its
+   data; leading and trailing whitespace at a block boundary is removed
+   separately, once the whole canonical-content buffer has been
+   assembled (Section 4.5), because a block's leading or trailing
+   content is often split across more than one Text node.
 
 
 
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 14]
+Grey                    Expires 28 February 2027               [Page 15]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   Where this document cites Section 4.4 for a single field rather than
+   for each Text node in a walk -- alt and aria-label in Section 4.3.2,
+   and a claim's name and content in Section 4.6 -- it means
+   normalize_field, defined here: normalize_field(s) is
+   normalize_text(s) with any leading or trailing U+0020 SPACE removed.
 
 4.4.1.  Rationale
 
@@ -828,19 +890,20 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  U+202A..U+202E BIDI EMBEDDING CONTROLS
 
+
+
+
+Grey                    Expires 28 February 2027               [Page 16]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    *  U+2066..U+2069 BIDI ISOLATE CONTROLS
 
    *  U+2061..U+2064 INVISIBLE MATH OPERATORS
 
    *  U+FFF9..U+FFFC INTERLINEAR ANNOTATION ANCHORS AND OBJECT
       REPLACEMENT
-
-
-
-Grey                    Expires 28 February 2027               [Page 15]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    The following characters MUST be preserved despite their visual
    invisibility.  They are semantically significant in major writing
@@ -861,9 +924,12 @@ Internet-Draft                  HTMLTrust                    August 2026
    U+2000..U+200A, U+2028, U+2029, U+202F, U+205F, U+3000.
 
    After replacement, runs of two or more U+0020 SPACE characters MUST
-   be collapsed to a single U+0020 SPACE.  Leading and trailing
-   whitespace within each block (delimited by Section 4.5 boundaries)
-   MUST be removed.
+   be collapsed to a single U+0020 SPACE.  This step, like the rest of
+   normalize_text, operates on one Text node's data; the collapse
+   applies again, across Text-node boundaries within a block, when the
+   canonical-content buffer is assembled (Section 4.5), and that section
+   also defines the leading/trailing block-whitespace removal a single
+   Text node cannot evaluate on its own.
 
    In this revision, <pre> receives no special whitespace treatment: it
    is a boundary-producing block (Section 4.3.3) and the text within it
@@ -880,6 +946,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    consistent with the deliberate semantic-subset signing trade-off (see
    Security Considerations).
 
+
+
+
+Grey                    Expires 28 February 2027               [Page 17]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 4.4.4.  Punctuation normalization
 
    The following character classes are normalized to ASCII.  The intent
@@ -887,16 +961,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    Single quotation marks: each of U+2018, U+2019, U+201A, U+201B,
    U+2032, U+2039, U+203A, U+0060, U+00B4 MUST be replaced with U+0027.
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 16]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    Double quotation marks: each of U+201C, U+201D, U+201E, U+201F,
    U+2033, U+00AB, U+00BB, U+300C, U+300D, U+300E, U+300F,
@@ -915,12 +979,36 @@ Internet-Draft                  HTMLTrust                    August 2026
    text.  The br element emits a single U+000A LINE FEED character at
    its position.
 
+   Once all boundaries have been emitted, and before the final trim
+   below, runs of two or more U+0020 SPACE MUST be collapsed to a single
+   U+0020 SPACE across the whole canonical-content buffer (this repeats
+   Section 4.4.3's per-Text-node collapse across the Text-node
+   boundaries within one block), and every remaining run of U+0020 SPACE
+   immediately before or after a U+000A LINE FEED MUST be removed, so no
+   block begins or ends with U+0020.  A block, for this purpose, is
+   delimited by the U+000A boundaries this section defines, not
+   evaluated per Text node: an inline element's trailing space before a
+   block boundary, for example, is ordinarily contributed by a different
+   Text node than the boundary itself.
+
    After the entire subtree has been walked, the resulting byte sequence
    is trimmed: leading and trailing runs of U+000A and U+0020 are
    removed, and runs of two or more U+000A in a row are collapsed to a
    single U+000A.
 
    The result is a UTF-8 byte string.
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 18]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 4.6.  Canonical claims
 
@@ -938,21 +1026,15 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    For each claim <meta> element:
 
-   1.  The name attribute value is processed as plain text per
-       Section 4.4 (NFKC, formatting strip, whitespace collapse).
+   1.  name is normalize_field (Section 4.4) applied to the name
+       attribute value.
 
-   2.  The content attribute value is processed identically.
+   2.  content is normalize_field (Section 4.4) applied to the content
+       attribute value.
 
    3.  The pair is serialized as
 
        escaped-name : escaped-content \n
-
-
-
-Grey                    Expires 28 February 2027               [Page 17]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
        where : is U+003A COLON and \n is U+000A LINE FEED.  Escaping is
        applied after normalization: U+005C REVERSE SOLIDUS becomes \\,
@@ -973,6 +1055,16 @@ Internet-Draft                  HTMLTrust                    August 2026
    signed-at has protocol semantics in v1.  Other names, including
    author and names in the claim: namespace, are signed metadata whose
    meaning is defined outside the cryptographic verification procedure.
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 19]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The signed-at claim is not special for purposes of the claims hash:
    it is included in canonical claims like every other direct child
@@ -1003,13 +1095,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    revision that changes any of those rules MUST use a different
    signing-profile identifier.
 
-
-
-Grey                    Expires 28 February 2027               [Page 18]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
 5.1.  Profile identifiers and wire attributes
 
    The identifiers fixed by this profile are:
@@ -1027,6 +1112,15 @@ Internet-Draft                  HTMLTrust                    August 2026
            +--------------------------+------------------------+
 
                                   Table 1
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 20]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The identifiers are case-sensitive ASCII strings.  They are protocol
    identifiers, not implementation version numbers.
@@ -1058,14 +1152,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    preprocessing and character-reference resolution.  Before passing
    that value to the URL Standard parser, the verifier MUST inspect
    every code point and reject an ASCII C0 control or U+007F.  This
-
-
-
-Grey                    Expires 28 February 2027               [Page 19]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    order prevents URL preprocessing from silently stripping a tab or
    line feed.  The value is resolved against the source snapshot's
    document base URL.  The result MUST use the https scheme and MUST NOT
@@ -1084,6 +1170,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    attributes, or attributes outside htmltrust-attrs-v1.  User
    interfaces MUST describe the result as verification of the covered
    content and attributes rather than as whole-document integrity.
+
+
+
+Grey                    Expires 28 February 2027               [Page 21]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 5.3.  Location scope and same-origin replay
 
@@ -1115,13 +1208,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    Standard.  A URL that cannot produce the required public location
    produces origin-not-supported.
 
-
-
-Grey                    Expires 28 February 2027               [Page 20]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
 5.4.  Timestamp profile
 
    Every v1 section MUST contain exactly one direct-child claim whose
@@ -1140,6 +1226,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    signed-at is an assertion made by the signer.  It proves that the
    timestamp was covered by the signature, but it does not prove when
    the signature was created.  Freshness limits and future-clock-skew
+
+
+
+Grey                    Expires 28 February 2027               [Page 22]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    rules are trust-policy decisions and MUST NOT be reported as
    signature-invalid.  A verifier that accepts a signature from a
    revoked key based on time needs independent evidence, such as an
@@ -1171,13 +1265,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    algorithm:  The exact algorithm attribute value.  The value MUST be a
       registered algorithm identifier accepted by the verifier.
 
-
-
-Grey                    Expires 28 February 2027               [Page 21]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    attributeProfile, canonicalizationProfile, profile, urlProfile:  The
       exact identifiers in Section 5.1.  These values are constants for
       v1 and MUST NOT be copied from attacker-selected markup.
@@ -1195,6 +1282,14 @@ Internet-Draft                  HTMLTrust                    August 2026
       signatures from signatures made for another protocol.
 
    keyid:  The exact keyid attribute value after the protocol-attribute
+
+
+
+Grey                    Expires 28 February 2027               [Page 23]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
       validation in Section 5.1.  It selects one verification key under
       Section 8.
 
@@ -1226,14 +1321,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    fingerprint for diagnostics or trust policy, but it does not replace
    signed keyid binding.
 
-
-
-
-Grey                    Expires 28 February 2027               [Page 22]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
 5.7.  Legacy payloads
 
    The four-field colon-joined payload used by pre-v1 prototypes is not
@@ -1246,6 +1333,18 @@ Internet-Draft                  HTMLTrust                    August 2026
    signature.  Re-encoding a legacy signature does not migrate it.
 
 6.  Hash and Signature Encoding
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 24]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 6.1.  Encoding choice
 
@@ -1282,14 +1381,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    Editor's Note: Hex (familiar from git and TLS tooling) and base32
    (case-insensitive and easier to transcribe) remain useful diagnostic
    formats, but they are not wire encodings for this revision.  Ecoji
-
-
-
-Grey                    Expires 28 February 2027               [Page 23]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    [ECOJI] has been proposed; it has been rejected on wire-byte grounds
    (32-byte SHA-256 digest is 26 emoji = 104 UTF-8 bytes versus 43
    Base64 characters) and is noted here for completeness.
@@ -1303,6 +1394,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    2.  A single U+003A COLON.
 
    3.  The Base64-encoded, unpadded hash output.
+
+
+
+Grey                    Expires 28 February 2027               [Page 25]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    For example, a SHA-256 hash of an empty string is:
 
@@ -1337,15 +1435,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       SHA-256, and a 32-octet salt. rsa-pkcs1-sha256 uses RSASSA-
       PKCS1-v1_5 with SHA-256.
 
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 24]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    ECDSA ASN.1 DER signatures are not valid HTMLTrust signature values.
    Verifiers MUST reject a signature whose decoded length or
    representation does not match the selected algorithm before
@@ -1360,6 +1449,14 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    The following identifiers are defined for use in the algorithm
    attribute of a signed section.
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 26]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    +==================+===================================+===========+
    | Identifier       | Algorithm                         | Reference |
@@ -1395,13 +1492,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    The following identifiers are defined for use in the algorithm prefix
    of content-hash and claims-hash.
 
-
-
-Grey                    Expires 28 February 2027               [Page 25]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
                 +============+===========+===============+
                 | Identifier | Algorithm | Output length |
                 +============+===========+===============+
@@ -1413,6 +1503,16 @@ Internet-Draft                  HTMLTrust                    August 2026
                 +------------+-----------+---------------+
 
                                  Table 3
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 27]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The mandatory-to-implement hash algorithm is sha256.  The hash
    algorithm used for content-hash and claims-hash within a single
@@ -1450,14 +1550,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    of the DID document; if no such method exists, the verifier MAY use
    any verification method of compatible type.
 
-
-
-
-Grey                    Expires 28 February 2027               [Page 26]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    DID resolution failures (DID document not found, signature on DID
    document invalid where the method demands one, expired or revoked
    verification method) MUST be reported as "key-resolution-failed"
@@ -1470,6 +1562,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    have a media type of application/htmltrust-key+json (Section 15) or
    application/jwk+json per [RFC7517]; verifiers MAY accept application/
    json for backward compatibility.
+
+
+
+Grey                    Expires 28 February 2027               [Page 28]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The retrieved document MUST be one of:
 
@@ -1502,18 +1601,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    resolution-failed" result.  The algorithm value and the decoded key
    type and parameters MUST match Section 7.1.
 
-
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 27]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    For an application/jwk+json response, the JWK kty, crv, and alg
    members, when applicable, MUST select the same key type, parameters,
    and algorithm.  An absent alg does not authorize algorithm inference;
@@ -1527,6 +1614,17 @@ Internet-Draft                  HTMLTrust                    August 2026
    algorithm does not match the signed section produces "algorithm-
    mismatch".  A conforming verifier MUST NOT use a PEM compatibility
    field or silently try a different key encoding.
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 29]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 8.3.  Trust directory reference
 
@@ -1563,13 +1661,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    A published key is in exactly one of four states from a verifier's
    perspective:
 
-
-
-Grey                    Expires 28 February 2027               [Page 28]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    *  *active* -- neither expired nor revoked; usable for verification.
 
    *  *expired* -- the key document carries an expires timestamp in the
@@ -1582,6 +1673,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    *  *revoked* -- the key document carries revoked: true.  Revocation
       signals suspected or confirmed key compromise.  See Revocation,
       compromise, and signed-at freshness, below.
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 30]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    *  *superseded* -- the key is expired and the publisher has
       designated a successor (see Rotation and supersession, below).
@@ -1617,15 +1716,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    a holder of a stolen key can produce signatures bearing any signed-at
    value, including one predating the compromise.  Therefore:
 
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 29]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    *  A revoked key document SHOULD carry a revokedAt RFC 3339 timestamp
       indicating when compromise is believed to have begun.
 
@@ -1633,6 +1723,20 @@ Internet-Draft                  HTMLTrust                    August 2026
       key as untrusted, regardless of its signed-at, because the
       timestamp is not independently attestable.  This is the safe
       default.
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 31]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    *  A verifier MAY accept a signature from a revoked key whose signed-
       at precedes revokedAt ONLY when the signature's timing is
@@ -1675,17 +1779,20 @@ Internet-Draft                  HTMLTrust                    August 2026
    verification requirements need to change to match this specification
    rather than the reverse.
 
-
-
-Grey                    Expires 28 February 2027               [Page 30]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    A verifier MAY consult zero, one, or multiple directories.  The
    protocol does not require directory consultation for cryptographic
    verification (Section 12.1 through 12.6); only endorsement and
    reputation use cases require directory access.
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 32]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 10.1.  Base URL and discovery
 
@@ -1733,7 +1840,12 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 31]
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 33]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -1789,7 +1901,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 32]
+Grey                    Expires 28 February 2027               [Page 34]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -1845,7 +1957,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 33]
+Grey                    Expires 28 February 2027               [Page 35]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -1901,7 +2013,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 34]
+Grey                    Expires 28 February 2027               [Page 36]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -1957,7 +2069,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 35]
+Grey                    Expires 28 February 2027               [Page 37]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2013,7 +2125,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 36]
+Grey                    Expires 28 February 2027               [Page 38]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2069,7 +2181,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 37]
+Grey                    Expires 28 February 2027               [Page 39]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2125,7 +2237,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 38]
+Grey                    Expires 28 February 2027               [Page 40]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2181,7 +2293,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 39]
+Grey                    Expires 28 February 2027               [Page 41]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2237,7 +2349,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 40]
+Grey                    Expires 28 February 2027               [Page 42]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2293,7 +2405,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 41]
+Grey                    Expires 28 February 2027               [Page 43]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2349,7 +2461,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 42]
+Grey                    Expires 28 February 2027               [Page 44]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2405,7 +2517,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 43]
+Grey                    Expires 28 February 2027               [Page 45]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2461,7 +2573,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 44]
+Grey                    Expires 28 February 2027               [Page 46]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2517,7 +2629,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 45]
+Grey                    Expires 28 February 2027               [Page 47]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2573,7 +2685,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 46]
+Grey                    Expires 28 February 2027               [Page 48]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2629,7 +2741,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 47]
+Grey                    Expires 28 February 2027               [Page 49]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2685,7 +2797,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 48]
+Grey                    Expires 28 February 2027               [Page 50]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2741,7 +2853,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 49]
+Grey                    Expires 28 February 2027               [Page 51]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2797,7 +2909,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 50]
+Grey                    Expires 28 February 2027               [Page 52]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2853,7 +2965,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 51]
+Grey                    Expires 28 February 2027               [Page 53]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2909,7 +3021,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 52]
+Grey                    Expires 28 February 2027               [Page 54]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2965,7 +3077,7 @@ public key (hex): ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c
 
 
 
-Grey                    Expires 28 February 2027               [Page 53]
+Grey                    Expires 28 February 2027               [Page 55]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3021,7 +3133,7 @@ B.4.  Canonical claims
 
 
 
-Grey                    Expires 28 February 2027               [Page 54]
+Grey                    Expires 28 February 2027               [Page 56]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3077,7 +3189,7 @@ C.1.  Submitting a content record
 
 
 
-Grey                    Expires 28 February 2027               [Page 55]
+Grey                    Expires 28 February 2027               [Page 57]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3133,7 +3245,7 @@ C.2.  Submitting an endorsement
 
 
 
-Grey                    Expires 28 February 2027               [Page 56]
+Grey                    Expires 28 February 2027               [Page 58]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3189,4 +3301,4 @@ Author's Address
 
 
 
-Grey                    Expires 28 February 2027               [Page 57]
+Grey                    Expires 28 February 2027               [Page 59]
