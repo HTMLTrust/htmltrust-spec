@@ -727,7 +727,13 @@ dictionary SignedSectionTrustOutcome {
         A user agent that implements revocation-list consultation
         additionally fetches the resolved key's revocation list per
         [[I-D.grey-htmltrust]] and sets
-        {{SignedSectionCryptoOutcome/revocationStatus}} accordingly; a
+        {{SignedSectionCryptoOutcome/revocationStatus}} accordingly. Per
+        [[I-D.grey-htmltrust]], a <code>"revoked"</code> entry is matched
+        against the resolved key's own public-key hash, not against the
+        <code>keyid</code> string: <code>keyid</code> is opaque and
+        signer-chosen, so a user agent <em class="rfc2119">MUST NOT</em>
+        determine <code>"revoked"</code> status by comparing
+        <code>keyid</code> strings alone. A
         <code>"revoked"</code> result fails verification with
         {{SignedSectionCryptoOutcome/reason}} = <code>"key-revoked"</code>,
         exactly as a <code>revoked: true</code> key document does. A

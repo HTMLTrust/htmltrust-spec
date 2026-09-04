@@ -773,6 +773,20 @@ produces `profile-unsupported`, and an unknown `signature-scope` produces
 canonicalization and MUST NOT retry a failed v1 verification with another
 profile.
 
+When `keyid` is an absolute URL resolved under Section 8.2 or 8.3, it MUST
+NOT contain a query component or a fragment component; a verifier MUST
+reject such a `keyid` with `key-resolution-failed` before attempting
+resolution. This rule does not apply to a `did:web` `keyid` (Section 8.1),
+where a fragment is the normal, load-bearing way to select one
+verification method from a DID document and MUST continue to be accepted.
+The rule exists because `keyid` is opaque to the protocol (Section 8) and
+is a value the signer chooses; without it, two syntactically different
+`keyid` strings could resolve, after ordinary URL parsing, to the identical
+key document and public key, which would let a signature evade a
+revocation-list entry (Section 9.6) naming only one spelling. Section 8.5
+defines the canonical comparison a verifier uses for the `keyid` forms this
+rule still permits to vary.
+
 ## Signed-attribute and safe-URL profiles
 
 `htmltrust-attrs-v1` contains exactly `href`, `src`, `alt`, and `aria-label`
@@ -1182,6 +1196,42 @@ MUST NOT privilege any one method over another within its accepted
 set; selection is determined by the `keyid` value, not by the
 verifier.
 
+## Canonical keyid comparison form
+
+`keyid` is opaque to the protocol and is a value the signer chooses, not a
+fixed identifier for a key (this section). Comparing two `keyid` values for
+equality, anywhere this document requires it other than the exact-match
+signing/verification binding of Section 5.1 and Section 5.5, MUST use the
+canonical form below rather than a raw string comparison. A raw string
+comparison is not safe for this purpose: a signer, honest or not, can spell
+the same resolvable `keyid` more than one way, and a comparison keyed to one
+spelling can be evaded by using another.
+
+For a `keyid` resolved under Section 8.2 or 8.3 (an absolute HTTPS URL):
+canonical form is the URL Standard serialization of the `keyid`. Section 5.1
+already forbids a query or fragment component in such a `keyid`, so this
+canonicalization is normalization of scheme and host case, IPv4 and IPv6
+host representation, default-port omission, and dot-segment path
+resolution, all exactly as the URL Standard already defines them for
+parsing any URL.
+
+For a `keyid` resolved under Section 8.1 (`did:web`): canonical form
+lowercases the ASCII method-specific identifier's host component and
+normalizes any URL-encoded colon (`%3A`, in any letter case) used to
+separate a non-default port, exactly as Section 9.5 already requires when
+deriving a revocation-list origin from a `did:web` `keyid`. The DID URL
+path and fragment, when present, are preserved and compared verbatim: a
+fragment here selects one verification method (Section 8.1) rather than
+being excluded the way a URL `keyid`'s fragment is forbidden outright, so
+it is not stripped.
+
+This canonical form is REQUIRED for the Section 9.9 revocation-list
+superseded lookup, and for the additional `keyid`-based match Section 9.7
+permits alongside the primary `publicKeyHash` match for a `revoked` entry.
+It does not change signature verification itself: the signing payload
+(Section 5.5) still binds the exact `keyid` attribute value as written, and
+a verifier MUST NOT normalize `keyid` before reproducing that payload.
+
 # Key Lifecycle
 
 A provenance system that binds durable content to keys must define what
@@ -1326,10 +1376,16 @@ Each entry of `revocations` is itself a JSON object:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `keyid` | string | yes | The key identifier this entry applies to. |
+| `keyid` | string | yes | The key identifier this entry applies to, for human readability and for the `superseded` case. Not the primary match for `revoked` (below). |
+| `publicKeyHash` | string | conditional | SHA-256 hash of the resolved key's SubjectPublicKeyInfo DER encoding (Section 8.2), as canonical unpadded standard Base64 (Section 6.1). REQUIRED when `status` is `revoked`; OPTIONAL when `status` is `superseded`. |
 | `status` | string | yes | Exactly `revoked` or `superseded`. |
 | `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
 | `supersededBy` | string | no | Successor `keyid`; meaningful only when `status` is `superseded`. Same semantics as the `supersededBy` field of Section 8.2. |
+
+A `revoked` entry missing `publicKeyHash` is malformed for the purpose of
+the primary match (The two states, below); a verifier MUST NOT treat such
+an entry as satisfying the primary match, though it MAY still honor the
+weaker `keyid`-based secondary match described there.
 
 Additional fields MAY be present in either object. A verifier MUST ignore
 fields it does not recognize for purposes of the status decision in The two
@@ -1362,13 +1418,33 @@ list, and this distinction is the entire point of separating them:
 
 `revoked`:
 : Compromise, suspected or confirmed. The effect is absolute and
-  retroactive: every signature ever produced by the listed `keyid`, at any
-  `signed-at` value, MUST be treated as untrusted. A verifier MUST apply
-  the `key-revoked` failure outcome and MUST NOT weigh the signature's
-  claimed timing before doing so, for the same reason Section 9.3 already
-  gives for the key document's own `revoked` field: a `signed-at` value is
-  signer-asserted, and a holder of a stolen key can backdate it to precede
-  the compromise.
+  retroactive: every signature ever produced by the *key material* a
+  `revoked` entry names, at any `signed-at` value, MUST be treated as
+  untrusted, regardless of which `keyid` string the signature in question
+  actually carries. A verifier determines this by key material, not by
+  `keyid`: the PRIMARY match compares the `publicKeyHash` of the entry
+  against the SHA-256 SPKI-DER hash of the key the verifier already
+  resolved and is about to use for signature verification (Section 12.6);
+  a match is `revoked` regardless of whether the entry's own `keyid`
+  string equals the `keyid` attribute under check. A verifier MUST perform
+  this comparison for every `revoked` entry that carries `publicKeyHash`,
+  not only the entry whose `keyid` happens to match textually. A verifier
+  MAY additionally treat an entry as matching by a SECONDARY comparison of
+  the Section 8.5 canonical form of `keyid`, which is useful chiefly when
+  an entry omits `publicKeyHash`; this secondary comparison MUST NOT be
+  used as the sole basis for concluding `not-revoked` when a
+  `publicKeyHash` comparison was possible and did not match, and it MUST
+  NOT be relied on in place of the primary match when `publicKeyHash` is
+  present. `keyid` is opaque and signer-chosen (Section 8); a comparison
+  keyed only to one spelling of it is not a safe way to detect
+  compromised key material that a signer -- honest or, in the case an
+  entry exists to address, actively adversarial -- can resolve under more
+  than one `keyid` string. Once `revoked` is established, a verifier MUST
+  apply the `key-revoked` failure outcome and MUST NOT weigh the
+  signature's claimed timing before doing so, for the same reason Section
+  9.3 already gives for the key document's own `revoked` field: a
+  `signed-at` value is signer-asserted, and a holder of a stolen key can
+  backdate it to precede the compromise.
 : A verifier MAY additionally apply the Section 9.3 corroborated-timing
   exception (an RFC 3161 time-stamp token, transparency-log inclusion, or a
   directory's first-seen record) to a signature from a key revoked through
@@ -1378,9 +1454,15 @@ list, and this distinction is the entire point of separating them:
 : Orderly rotation, asserted independently of the key document's own
   `expires`/`supersededBy` fields (Section 9.2). Signatures already made
   with the listed `keyid` remain valid. The listed key MUST NOT be used to
-  sign new content going forward. A verifier MUST NOT fail Section 12's
-  cryptographic verification because of a `superseded` entry; it MAY
-  surface the entry as a Section 12.7 trust-layer input.
+  sign new content going forward. A verifier looks up a `superseded` entry
+  by `publicKeyHash` when the entry carries one, and otherwise by the
+  Section 8.5 canonical form of `keyid`; unlike `revoked`, a
+  keyid-string-based miss here is not a security failure; it only means
+  the supersession signal is not surfaced for that particular alias, which
+  is an acceptable degradation since existing signatures already remain
+  valid either way. A verifier MUST NOT fail Section 12's cryptographic
+  verification because of a `superseded` entry; it MAY surface the entry
+  as a Section 12.7 trust-layer input.
 
 This design requires no trusted time source, and that is deliberate. A
 `signed-at` value cannot be trusted for reasoning about a revocation
@@ -1417,11 +1499,13 @@ outcome maps to one of three revocation-status values:
   `not-revoked`. A publisher with nothing to revoke need not publish this
   resource.
 - HTTP 200 with a document that parses and verifies per Revocation list
-  verification, above: the verifier applies its `revocations` entries.
-  Status is `revoked` if the `keyid` under check appears with
-  `status: "revoked"`; otherwise status is `not-revoked`, and, if the
-  `keyid` appears with `status: "superseded"`, the verifier additionally
-  records that fact as trust-layer metadata.
+  verification, above: the verifier applies its `revocations` entries
+  using the matching rules in The two states, above (primarily
+  `publicKeyHash` for `revoked`, primarily the Section 8.5 canonical
+  `keyid` form for `superseded`). Status is `revoked` if any entry
+  matches; otherwise status is `not-revoked`, and, if some entry matches
+  as `superseded`, the verifier additionally records that fact as
+  trust-layer metadata.
 - Any other outcome -- a network failure, a non-404 error status, a body
   that is not valid JSON, a document whose signature does not verify, or a
   document signed by a key the verifier already knows to be revoked --
@@ -1814,6 +1898,9 @@ Require `profile` to equal `htmltrust-signature-v1`; otherwise return
 `profile-unsupported`. Require `signature-scope` to equal `url` or `origin`;
 otherwise return `scope-unsupported`. Select the profile before performing
 canonicalization and do not try a different profile after a later failure.
+
+Apply the Section 5.1 `keyid` query/fragment restriction here, before Step 5
+attempts resolution; a violation returns `key-resolution-failed`.
 
 Validate the `content-hash` and `signature` encodings against Section 6.
 A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
@@ -2556,7 +2643,14 @@ independent even though they reuse the same example `keyid` string for
 "Alice." Alice's revocation list, derived from that `keyid`'s origin per
 Section 9.5, is `https://keys.example/.well-known/htmltrust-revocations.json`.
 The document below revokes one prior key of hers outright and separately
-marks another as superseded by her current key:
+marks another as superseded by her current key. The revoked entry's
+`publicKeyHash` is the SHA-256 SPKI-DER hash of a third dedicated test key,
+representing the actual compromised key material at
+`https://keys.example/alice-2024.json`; its 32-byte private seed is the
+ASCII string `htmltrust-alias-victim-vector-01`
+(seed hex `68746d6c74727573742d616c6961732d76696374696d2d766563746f722d3031`,
+public key hex
+`ffe3429864e78c6403eda451804323d906723c611217beffb55d85e11b3c68cc`):
 
 ~~~ json
 {
@@ -2567,7 +2661,8 @@ marks another as superseded by her current key:
     {
       "keyid": "https://keys.example/alice-2024.json",
       "status": "revoked",
-      "revokedAt": "2026-05-30T00:00:00Z"
+      "revokedAt": "2026-05-30T00:00:00Z",
+      "publicKeyHash": "IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0"
     },
     {
       "keyid": "https://keys.example/alice-2025.json",
@@ -2575,7 +2670,7 @@ marks another as superseded by her current key:
       "supersededBy": "https://keys.example/alice-2026.json"
     }
   ],
-  "signature": "6pl20NgiwKTo4Ed5yL085suxRKRVCnl3yi+GH6LOFB4V/810/dKFhloh4LiIbCEMycoW3GHj4UP9HWl68YevCg"
+  "signature": "MmFMbzWNTHO0OVRrtFhqYhHlj3rcGu74wzxTVdSPCY4AFaBAzQ3sHRG05sz6aALbKReWQL4FdmWnWOzPsRLPAg"
 }
 ~~~
 
@@ -2583,21 +2678,81 @@ The JCS input for the document above (the object with `signature`
 omitted), shown on one line:
 
 ~~~ json
-{"algorithm":"ed25519","revocations":[{"keyid":"https://keys.example/alice-2024.json","revokedAt":"2026-05-30T00:00:00Z","status":"revoked"},{"keyid":"https://keys.example/alice-2025.json","status":"superseded","supersededBy":"https://keys.example/alice-2026.json"}],"signer":"https://keys.example/alice-2026.json","timestamp":"2026-06-01T00:00:00Z"}
+{"algorithm":"ed25519","revocations":[{"keyid":"https://keys.example/alice-2024.json","publicKeyHash":"IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0","revokedAt":"2026-05-30T00:00:00Z","status":"revoked"},{"keyid":"https://keys.example/alice-2025.json","status":"superseded","supersededBy":"https://keys.example/alice-2026.json"}],"signer":"https://keys.example/alice-2026.json","timestamp":"2026-06-01T00:00:00Z"}
 ~~~
 
-A verifier checking `https://keys.example/alice-2024.json` against this
-list observes `status: "revoked"` and MUST return `key-revoked` for any
-signature made with that `keyid`, regardless of its `signed-at` value. A
-verifier checking `https://keys.example/alice-2025.json` observes
+A verifier checking a signature whose resolved key's SPKI-DER SHA-256 hash
+equals `IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0` MUST return
+`key-revoked`, regardless of its `signed-at` value and regardless of the
+`keyid` attribute string that signature carries: The two states, above,
+requires this primary match by key material rather than by `keyid` string.
+A verifier checking `https://keys.example/alice-2025.json` observes
 `status: "superseded"`; existing signatures from that `keyid` remain
 cryptographically valid, and the verifier MAY surface the supersession as
-trust-layer metadata. A verifier checking any other `keyid` under this
-origin, including `https://keys.example/alice-2026.json` itself, finds no
-matching entry and reports `not-revoked`.
+trust-layer metadata. A verifier checking any other key, including
+`https://keys.example/alice-2026.json` itself, finds no matching entry and
+reports `not-revoked`.
 
 The machine-readable form of this vector is maintained as
 `ietf-draft/vectors/revocation-01.json` in this repository.
+
+## Revocation list keyid-alias immunity
+
+This vector demonstrates why The two states requires matching a `revoked`
+entry by `publicKeyHash` rather than by `keyid` string. It does not
+introduce new key material; it works entirely from ordinary URL and
+`did:web` identifier equivalences that Section 8.5's canonical form, and
+the Section 5.1 syntax restriction, are built on.
+
+Take the revoked `keyid` from the vector above,
+`https://keys.example/alice-2024.json`. The following `keyid` strings are
+different from it and from each other as literal text, yet the URL
+Standard resolves every one of them to the identical origin and path,
+because dot-segment removal, host lowercasing, default-port omission, and
+leading-zero IPv4 octet normalization are all part of ordinary URL
+parsing, not an extra step a verifier must remember to apply:
+
+~~~
+https://keys.example/./alice-2024.json
+https://keys.example/x/../alice-2024.json
+https://KEYS.EXAMPLE/alice-2024.json
+https://keys.example:443/alice-2024.json
+~~~
+
+A signer who resolves any of these fetches the identical key document as
+`https://keys.example/alice-2024.json`, obtains the identical public key,
+and therefore produces the identical `publicKeyHash`,
+`IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0`, regardless of which of the
+four strings above -- or the original -- appears in a signed section's
+`keyid` attribute. A verifier applying the primary `publicKeyHash` match
+correctly returns `key-revoked` for a signature carrying any of them. A
+verifier that instead compared only the literal `keyid` string against the
+revocation entry's `keyid` field would incorrectly return `not-revoked`
+for all four: this is the vulnerability the primary match closes.
+
+The following two strings are also different from the original, but MUST
+NOT reach key resolution at all, because Section 5.1 forbids a query or
+fragment component in a URL `keyid`:
+
+~~~
+https://keys.example/alice-2024.json?
+https://keys.example/alice-2024.json#x
+~~~
+
+A verifier rejects each with `key-resolution-failed` at Step 1 of Section
+12, before any resolution or revocation-list consultation is attempted.
+
+The equivalent case for a `did:web` `keyid` is host case: `did:web:
+example.com` and `did:web:EXAMPLE.com` are different literal strings that
+resolve to the identical DID document, because Section 8.1 resolution and
+Section 8.5's canonical form both lowercase the ASCII host. A `publicKeyHash`
+match is unaffected by this either way, since it does not depend on the
+`keyid` string at all; the canonical form matters for the `superseded`
+secondary match and for any future comparison that does depend on `keyid`.
+
+The machine-readable form of this vector, including the URL-equivalence
+assertions above, is maintained as `ietf-draft/vectors/revocation-02.json`
+in this repository.
 
 # Example Directory Exchange
 

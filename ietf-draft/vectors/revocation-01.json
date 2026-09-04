@@ -1,8 +1,14 @@
 {
   "description": "HTMLTrust RFC 8785 revocation list vector 01",
-  "key": {
+  "signerKey": {
     "seedHex": "68746d6c74727573742d7265766f636174696f6e2d766563746f722d30303031",
     "publicKeyRawHex": "91bf5c75896638143e837df158a6378d9b2b2b45bc5762b527a2851f7bd36cff"
+  },
+  "revokedKey": {
+    "description": "The actual compromised key material behind https://keys.example/alice-2024.json",
+    "seedHex": "68746d6c74727573742d616c6961732d76696374696d2d766563746f722d3031",
+    "publicKeyRawHex": "ffe3429864e78c6403eda451804323d906723c611217beffb55d85e11b3c68cc",
+    "publicKeyHash": "IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0"
   },
   "document": {
     "signer": "https://keys.example/alice-2026.json",
@@ -12,7 +18,8 @@
       {
         "keyid": "https://keys.example/alice-2024.json",
         "status": "revoked",
-        "revokedAt": "2026-05-30T00:00:00Z"
+        "revokedAt": "2026-05-30T00:00:00Z",
+        "publicKeyHash": "IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0"
       },
       {
         "keyid": "https://keys.example/alice-2025.json",
@@ -20,12 +27,14 @@
         "supersededBy": "https://keys.example/alice-2026.json"
       }
     ],
-    "signature": "6pl20NgiwKTo4Ed5yL085suxRKRVCnl3yi+GH6LOFB4V/810/dKFhloh4LiIbCEMycoW3GHj4UP9HWl68YevCg"
+    "signature": "MmFMbzWNTHO0OVRrtFhqYhHlj3rcGu74wzxTVdSPCY4AFaBAzQ3sHRG05sz6aALbKReWQL4FdmWnWOzPsRLPAg"
   },
-  "jcsWithoutSignature": "{\"algorithm\":\"ed25519\",\"revocations\":[{\"keyid\":\"https://keys.example/alice-2024.json\",\"revokedAt\":\"2026-05-30T00:00:00Z\",\"status\":\"revoked\"},{\"keyid\":\"https://keys.example/alice-2025.json\",\"status\":\"superseded\",\"supersededBy\":\"https://keys.example/alice-2026.json\"}],\"signer\":\"https://keys.example/alice-2026.json\",\"timestamp\":\"2026-06-01T00:00:00Z\"}",
+  "jcsWithoutSignature": "{\"algorithm\":\"ed25519\",\"revocations\":[{\"keyid\":\"https://keys.example/alice-2024.json\",\"publicKeyHash\":\"IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0\",\"revokedAt\":\"2026-05-30T00:00:00Z\",\"status\":\"revoked\"},{\"keyid\":\"https://keys.example/alice-2025.json\",\"status\":\"superseded\",\"supersededBy\":\"https://keys.example/alice-2026.json\"}],\"signer\":\"https://keys.example/alice-2026.json\",\"timestamp\":\"2026-06-01T00:00:00Z\"}",
   "revocationChecks": [
     {
+      "description": "the exact keyid string named in the revoked entry, backed by the real revoked key",
       "keyid": "https://keys.example/alice-2024.json",
+      "resolvedPublicKeyHash": "IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0",
       "expected": "revoked"
     },
     {

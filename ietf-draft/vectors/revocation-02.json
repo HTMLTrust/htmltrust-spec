@@ -1,0 +1,23 @@
+{
+  "description": "HTMLTrust revocation-list keyid-alias immunity vector 02: demonstrates why a revoked entry MUST be matched by publicKeyHash rather than by keyid string. Reuses the revoked key material from revocation-01.json.",
+  "canonicalKeyid": "https://keys.example/alice-2024.json",
+  "publicKeyHash": "IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0",
+  "urlAliasesResolvingToSameOrigin": [
+    "https://keys.example/./alice-2024.json",
+    "https://keys.example/x/../alice-2024.json",
+    "https://KEYS.EXAMPLE/alice-2024.json",
+    "https://keys.example:443/alice-2024.json"
+  ],
+  "note_urlAliases": "Each string above is a different keyid literal from canonicalKeyid, but the URL Standard serializes every one of them (and canonicalKeyid) to the identical https://keys.example/alice-2024.json. A signer resolving any of them fetches the identical key document, obtains the identical public key, and therefore produces the identical publicKeyHash above -- regardless of which string a signed section's keyid attribute carries. A verifier matching a revoked entry by publicKeyHash (Section 9.7) correctly returns key-revoked for a signature carrying any alias here; a verifier matching only the literal keyid string would incorrectly return not-revoked for all of them.",
+  "keyidFormsForbiddenBySection5_1": [
+    "https://keys.example/alice-2024.json?",
+    "https://keys.example/alice-2024.json#x",
+    "https://keys.example/alice-2024.json?x=1"
+  ],
+  "note_forbiddenForms": "Each string above differs from canonicalKeyid only by an added query or fragment component, which Section 5.1 forbids outright in a URL keyid. A verifier MUST reject each with key-resolution-failed at Step 1 of Section 12, before any resolution or revocation-list consultation, rather than relying on canonicalization to strip the difference away.",
+  "didWebCaseVariant": {
+    "canonical": "did:web:example.com",
+    "alias": "did:web:EXAMPLE.com"
+  },
+  "note_didWebCaseVariant": "did:web resolution (Section 8.1) and the Section 8.5 canonical keyid form both lowercase the ASCII host, so these two literal strings resolve to the identical DID document and therefore the identical key material, exactly as the URL aliases above do for direct HTTPS keyids."
+}
