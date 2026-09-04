@@ -565,6 +565,7 @@ dictionary SignedSectionCryptoOutcome {
   DOMString? revocationStatus;   // "not-revoked" | "revoked" | "revocation-unknown"
   boolean keySuperseded;
   USVString? supersededBy;
+  unsigned long? keyPeriod;      // 0 for a legacy or anchor key; null when not implemented
 };
 
 dictionary SignedSectionTrustOutcome {
@@ -629,6 +630,22 @@ dictionary SignedSectionTrustOutcome {
     conforming to [[I-D.grey-htmltrust]]'s revocation-list requirements,
     even though the {{HTMLSignedSectionElement}} interface itself does not
     enforce that distinction on the page's behalf.
+  </p>
+  <p>
+    {{SignedSectionCryptoOutcome/keyPeriod}} carries the period index of
+    the key that verified the section when the signer uses the
+    period-scoped key scheme of [[I-D.grey-htmltrust]] Section 9.10, and
+    <code>0</code> for a legacy or anchor key. Key selection follows
+    [[I-D.grey-htmltrust]] Section 8.1: a <code>keyid</code> fragment such
+    as <code>did:web:author.example#p3</code> selects exactly the
+    verification method with that <code>id</code>, and a user agent
+    <em class="rfc2119">MUST NOT</em> fall through to another method. A user
+    agent that does not implement period-scoped selection
+    <em class="rfc2119">MUST</em> leave this member <code>null</code>; such
+    an agent resolves a bare <code>keyid</code> to the identity's first
+    verification method, which the scheme's ordering rule guarantees is an
+    anchor key, so it fails closed on period signatures and never reports a
+    false <code>valid</code>.
   </p>
   <p>
     {{SignedSectionCryptoOutcome/keySuperseded}} is <code>true</code> when
