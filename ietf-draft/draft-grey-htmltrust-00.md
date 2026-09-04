@@ -2224,13 +2224,13 @@ them. An entry E applies to S when any of the following holds:
 
 identity(E) is E's `keyid` with its fragment removed when that `keyid`
 begins with `did:`, and E's `identity` member when that `keyid` is an
-HTTPS URL. An entry whose `identity` is absent when required, or present
-but not a string, or not an absolute HTTPS URL on an HTTPS-keyid entry;
-whose `to-period` is present without `from-period`; whose range members
-are not integers as Section 9.10.3 defines them, not positive, not
-ordered, or above 2147483647 for `from-period` or 2147483648 for
-`to-period`; or which carries `identity`, `from-period`, or `to-period`
-while its `status` is `superseded`, is malformed, and Section 9.6 then
+HTTPS URL. The following entries are malformed. `identity` absent when
+required, or present but not a string, or not an absolute HTTPS URL on
+an HTTPS-keyid entry. `to-period` present without `from-period`. A range
+member that is not an integer as Section 9.10.3 defines it, not
+positive, not ordered, or above 2147483647 for `from-period` or
+2147483648 for `to-period`. Any of `identity`, `from-period`, or
+`to-period` on an entry whose `status` is `superseded`. Section 9.6 then
 makes the whole document malformed (`revocation-unknown`). Because P is 0 for every anchor and legacy key
 and `from-period` is at least 1, a range entry never applies to a
 signature made under an anchor.
@@ -2273,12 +2273,12 @@ A verifier that implements this section performs Step 5 of Section 12 as
 follows. Steps 1 through 4 and Steps 6 and 7 are unchanged.
 
 1. Parse `keyid`. If it begins with `did:`, split it at the first `#`
-   into D (before) and F (after). Return "key-resolution-failed" if D
-   contains `/` or `?`, if `keyid` contains `#` but F is empty, if F
-   contains `#`, `/`, or `?`, or if F begins with `p` followed by a
-   decimal digit but is not a period fragment (a leading zero, or a value
-   above 2147483647). If F is a period fragment, the kind is period and P
-   is its value. If `keyid` contains no `#`, the kind is bare and P = 0.
+   into D (before) and F (after). Return "key-resolution-failed" in four
+   cases: D contains `/` or `?`; `keyid` contains `#` but F is empty; F
+   contains `#`, `/`, or `?`; or F begins with `p` followed by a decimal
+   digit but is not a period fragment, because of a leading zero or a
+   value above 2147483647. If F is a period fragment, the kind is period
+   and P is its value. If `keyid` contains no `#`, the kind is bare and P = 0.
    Otherwise the kind is anchor and P = 0. I = D. If `keyid` is an absolute HTTPS URL (Sections
    8.2 and 8.3), the kind is url, and I and P are set in step 5. Any other
    form is "key-resolution-failed", as Section 12.1 requires.

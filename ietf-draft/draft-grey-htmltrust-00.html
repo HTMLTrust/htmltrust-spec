@@ -4567,13 +4567,13 @@ identity(E) equals I in the Section 8.5 canonical form, <code>from-period</code>
           </ul>
 <p id="section-9.10.7-6">identity(E) is E's <code>keyid</code> with its fragment removed when that <code>keyid</code>
 begins with <code>did:</code>, and E's <code>identity</code> member when that <code>keyid</code> is an
-HTTPS URL. An entry whose <code>identity</code> is absent when required, or present
-but not a string, or not an absolute HTTPS URL on an HTTPS-keyid entry;
-whose <code>to-period</code> is present without <code>from-period</code>; whose range members
-are not integers as Section 9.10.3 defines them, not positive, not
-ordered, or above 2147483647 for <code>from-period</code> or 2147483648 for
-<code>to-period</code>; or which carries <code>identity</code>, <code>from-period</code>, or <code>to-period</code>
-while its <code>status</code> is <code>superseded</code>, is malformed, and Section 9.6 then
+HTTPS URL. The following entries are malformed. <code>identity</code> absent when
+required, or present but not a string, or not an absolute HTTPS URL on
+an HTTPS-keyid entry. <code>to-period</code> present without <code>from-period</code>. A range
+member that is not an integer as Section 9.10.3 defines it, not
+positive, not ordered, or above 2147483647 for <code>from-period</code> or
+2147483648 for <code>to-period</code>. Any of <code>identity</code>, <code>from-period</code>, or
+<code>to-period</code> on an entry whose <code>status</code> is <code>superseded</code>. Section 9.6 then
 makes the whole document malformed (<code>revocation-unknown</code>). Because P is 0 for every anchor and legacy key
 and <code>from-period</code> is at least 1, a range entry never applies to a
 signature made under an anchor.<a href="#section-9.10.7-6" class="pilcrow">¶</a></p>
@@ -4646,12 +4646,12 @@ follows. Steps 1 through 4 and Steps 6 and 7 are unchanged.<a href="#section-9.1
 <ol start="1" type="1" class="normal type-1" id="section-9.10.8-2">
 <li id="section-9.10.8-2.1">
               <p id="section-9.10.8-2.1.1">Parse <code>keyid</code>. If it begins with <code>did:</code>, split it at the first <code>#</code>
-into D (before) and F (after). Return "key-resolution-failed" if D
-contains <code>/</code> or <code>?</code>, if <code>keyid</code> contains <code>#</code> but F is empty, if F
-contains <code>#</code>, <code>/</code>, or <code>?</code>, or if F begins with <code>p</code> followed by a
-decimal digit but is not a period fragment (a leading zero, or a value
-above 2147483647). If F is a period fragment, the kind is period and P
-is its value. If <code>keyid</code> contains no <code>#</code>, the kind is bare and P = 0.
+into D (before) and F (after). Return "key-resolution-failed" in four
+cases: D contains <code>/</code> or <code>?</code>; <code>keyid</code> contains <code>#</code> but F is empty; F
+contains <code>#</code>, <code>/</code>, or <code>?</code>; or F begins with <code>p</code> followed by a decimal
+digit but is not a period fragment, because of a leading zero or a
+value above 2147483647. If F is a period fragment, the kind is period
+and P is its value. If <code>keyid</code> contains no <code>#</code>, the kind is bare and P = 0.
 Otherwise the kind is anchor and P = 0. I = D. If <code>keyid</code> is an absolute HTTPS URL (Sections
 8.2 and 8.3), the kind is url, and I and P are set in step 5. Any other
 form is "key-resolution-failed", as Section 12.1 requires.<a href="#section-9.10.8-2.1.1" class="pilcrow">¶</a></p>
