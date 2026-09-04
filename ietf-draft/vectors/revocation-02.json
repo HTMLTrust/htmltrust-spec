@@ -8,7 +8,7 @@
     "https://KEYS.EXAMPLE/alice-2024.json",
     "https://keys.example:443/alice-2024.json"
   ],
-  "note_urlAliases": "Each string above is a different keyid literal from canonicalKeyid, but the URL Standard serializes every one of them (and canonicalKeyid) to the identical https://keys.example/alice-2024.json. A signer resolving any of them fetches the identical key document, obtains the identical public key, and therefore produces the identical publicKeyHash above -- regardless of which string a signed section's keyid attribute carries. A verifier matching a revoked entry by publicKeyHash (Section 9.7) correctly returns key-revoked for a signature carrying any alias here; a verifier matching only the literal keyid string would incorrectly return not-revoked for all of them.",
+  "note_urlAliases": "Each string above is a different keyid literal from canonicalKeyid, and the URL Standard would serialize every one of them (and canonicalKeyid) to the identical https://keys.example/alice-2024.json if keyid were merely used to construct a fetch. It is not merely used that way: Section 8.2 requires the retrieved key document's kid to equal the literal keyid text byte for byte, not a URL-Standard-normalized form of it. The key document at this location has kid \"https://keys.example/alice-2024.json\", so resolving any alias above fails that comparison and MUST return malformed-key-document at Section 12 Step 5, before a revocation list is ever consulted. publicKeyHash above is the hash produced only by resolving canonicalKeyid itself; a signature carrying an alias here never reaches the point of computing it.",
   "keyidFormsForbiddenBySection5_1": [
     "https://keys.example/alice-2024.json?",
     "https://keys.example/alice-2024.json#x",
@@ -19,5 +19,5 @@
     "canonical": "did:web:example.com",
     "alias": "did:web:EXAMPLE.com"
   },
-  "note_didWebCaseVariant": "did:web resolution (Section 8.1) and the Section 8.5 canonical keyid form both lowercase the ASCII host, so these two literal strings resolve to the identical DID document and therefore the identical key material, exactly as the URL aliases above do for direct HTTPS keyids."
+  "note_didWebCaseVariant": "did:web resolution (Section 8.1) lowercases the host when constructing the DID document URL, so both strings fetch the identical DID document. That document's own top-level id can equal only one spelling, the canonical did:web:example.com, so resolving the alias did:web:EXAMPLE.com against it fails Section 8.1's required id equality with key-resolution-failed -- the same outcome the URL aliases above reach under Section 8.2, for the same reason: an identifier that differs from the document's own declared identity does not resolve, even when the underlying fetch lands on the right document."
 }

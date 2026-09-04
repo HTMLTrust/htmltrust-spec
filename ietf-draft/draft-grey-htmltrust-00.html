@@ -3212,24 +3212,34 @@ Core specification <span>[<a href="#W3C.did-core" class="cite xref">W3C.did-core
 the second URI scheme component. The DID document <span class="bcp14">MUST</span> be retrieved,
 and the public key <span class="bcp14">MUST</span> be selected from its <code>verificationMethod</code>
 array.<a href="#section-8.1-1" class="pilcrow">¶</a></p>
-<p id="section-8.1-2">The verifier <span class="bcp14">MUST</span> select a verification method whose <code>type</code> is
+<p id="section-8.1-2">For the <code>did:web</code> method specifically, resolution constructs the DID
+document URL from the method-specific identifier per the did:web method
+specification: the host component is lowercased, and a <code>%3A</code>-encoded
+colon (in any letter case) used to separate a non-default port is decoded
+back to <code>:</code> before the port is appended to the authority. This is
+resolution's own URL-construction step, distinct from the <code>keyid</code>
+comparison form Section 8.5 defines for other purposes; Section 8.5's
+<code>did:web</code> canonical form applies the same host-lowercasing and
+<code>%3A</code>-decoding rule rather than a different one, so the two agree on what
+a given <code>did:web</code> identifier names.<a href="#section-8.1-2" class="pilcrow">¶</a></p>
+<p id="section-8.1-3">The verifier <span class="bcp14">MUST</span> select a verification method whose <code>type</code> is
 compatible with the <code>algorithm</code> attribute of the signed section. If
 multiple verification methods are present, the verifier <span class="bcp14">MUST</span> prefer a
 method whose <code>id</code> is referenced from the <code>assertionMethod</code> relationship
 of the DID document; if no such method exists, the verifier <span class="bcp14">MAY</span> use
-any verification method of compatible type.<a href="#section-8.1-2" class="pilcrow">¶</a></p>
-<p id="section-8.1-3">DID resolution failures (DID document not found, signature on DID
+any verification method of compatible type.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+<p id="section-8.1-4">DID resolution failures (DID document not found, signature on DID
 document invalid where the method demands one, expired or revoked
 verification method) <span class="bcp14">MUST</span> be reported as "key-resolution-failed"
-verification failures.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
-<p id="section-8.1-4">The DID document's top-level <code>id</code> member <span class="bcp14">MUST</span> equal the DID portion of
+verification failures.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
+<p id="section-8.1-5">The DID document's top-level <code>id</code> member <span class="bcp14">MUST</span> equal the DID portion of
 <code>keyid</code> -- the <code>did:web:...</code> identifier itself, with any DID URL path,
 query, or fragment suffix removed -- byte for byte. A verifier <span class="bcp14">MUST</span>
 report "key-resolution-failed" on any other value, including a missing
 <code>id</code>. Section 9.5 explains why this equality check is required rather
 than optional: it is what prevents a <code>did:web</code> identity from being
 addressed under a host alias that was never told to be the same
-identity.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
+identity.<a href="#section-8.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="direct-https-url">
@@ -3268,29 +3278,37 @@ or <code>application/jwk+json</code> per <span>[<a href="#RFC7517" class="cite x
         </ul>
 <p id="section-8.2-4"><code>kid</code>, <code>algorithm</code>, <code>publicKeyEncoding</code>, and <code>publicKey</code> are <span class="bcp14">REQUIRED</span>. The
 other members shown above are <span class="bcp14">OPTIONAL</span>. Unknown members <span class="bcp14">MUST</span> be ignored
-for key resolution and <span class="bcp14">MAY</span> be retained by caches or directories.<a href="#section-8.2-4" class="pilcrow">¶</a></p>
-<p id="section-8.2-5"><code>publicKey</code> is the canonical unpadded standard Base64 encoding from
+for key resolution and <span class="bcp14">MAY</span> be retained by caches or directories.
+Publishers <span class="bcp14">MUST NOT</span> emit duplicate member names in either response shape
+(RFC 8259 Section 4); a verifier that detects a duplicate member name <span class="bcp14">MUST</span>
+treat the document as malformed.<a href="#section-8.2-4" class="pilcrow">¶</a></p>
+<p id="section-8.2-5">Regardless of which of the two response shapes above is retrieved, its
+<code>kid</code> member <span class="bcp14">MUST</span> be present and <span class="bcp14">MUST</span> equal the serialized URL used as
+<code>keyid</code> byte for byte. This applies equally to a bare <code>application/jwk+json</code>
+response: <span>[<a href="#RFC7517" class="cite xref">RFC7517</a>]</span> itself defines <code>kid</code> as <span class="bcp14">OPTIONAL</span>, but this
+specification requires it, for both response shapes, as a condition of a
+successful Section 8.2 resolution. A missing or mismatched <code>kid</code>, in either
+shape, is a "malformed-key-document" result, not merely a discouraged
+omission. Section 9.5 explains why this equality check is required rather
+than optional: it is what prevents this key from being addressed under a
+host alias that was never told to be the same identity.<a href="#section-8.2-5" class="pilcrow">¶</a></p>
+<p id="section-8.2-6"><code>publicKey</code> is the canonical unpadded standard Base64 encoding from
 Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
 <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>. <code>publicKeyEncoding</code> <span class="bcp14">MUST</span> be exactly <code>spki-der</code>. A verifier <span class="bcp14">MUST</span>
 reject any other encoding in a conforming HTMLTrust key document with a
-"malformed-key-document" result. <code>kid</code> <span class="bcp14">MUST</span> equal the serialized URL used
-as <code>keyid</code> byte for byte; a missing or mismatched <code>kid</code> is a
-"malformed-key-document" result, not merely a discouraged omission.
-Section 9.5 explains why this equality check is required rather than
-optional: it is what prevents this key from being addressed under a host
-alias that was never told to be the same identity. The <code>algorithm</code> value
-and the decoded key type and parameters <span class="bcp14">MUST</span> match Section 7.1.<a href="#section-8.2-5" class="pilcrow">¶</a></p>
-<p id="section-8.2-6">For an <code>application/jwk+json</code> response, the JWK <code>kty</code>, <code>crv</code>, and <code>alg</code>
+"malformed-key-document" result. The <code>algorithm</code> value and the decoded key
+type and parameters <span class="bcp14">MUST</span> match Section 7.1.<a href="#section-8.2-6" class="pilcrow">¶</a></p>
+<p id="section-8.2-7">For an <code>application/jwk+json</code> response, the JWK <code>kty</code>, <code>crv</code>, and <code>alg</code>
 members, when applicable, <span class="bcp14">MUST</span> select the same key type, parameters, and
 algorithm. An absent <code>alg</code> does not authorize algorithm inference; the
-signed section's <code>algorithm</code> still selects the verification operation.<a href="#section-8.2-6" class="pilcrow">¶</a></p>
-<p id="section-8.2-7">The verifier <span class="bcp14">MUST</span> process <code>expires</code> and <code>revoked</code> according to Section 9.
+signed section's <code>algorithm</code> still selects the verification operation.<a href="#section-8.2-7" class="pilcrow">¶</a></p>
+<p id="section-8.2-8">The verifier <span class="bcp14">MUST</span> process <code>expires</code> and <code>revoked</code> according to Section 9.
 Malformed timestamps, malformed Base64, an invalid SPKI structure, and
 missing or incorrectly typed required members are "malformed-key-document"
 results. A well-formed key whose type, curve, or declared algorithm does not
 match the signed section produces "algorithm-mismatch". A conforming verifier
 <span class="bcp14">MUST NOT</span> use a PEM compatibility field or silently try a different key
-encoding.<a href="#section-8.2-7" class="pilcrow">¶</a></p>
+encoding.<a href="#section-8.2-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="trust-directory-reference">
@@ -3653,7 +3671,7 @@ doing so establishes that they are the same identity at all.<a href="#section-9.
 </td>
               <td class="text-left" rowspan="1" colspan="1">string</td>
               <td class="text-left" rowspan="1" colspan="1">yes</td>
-              <td class="text-left" rowspan="1" colspan="1">The key identifier this entry applies to, for human readability and for the <code>superseded</code> case. Not the primary match for <code>revoked</code> (below).</td>
+              <td class="text-left" rowspan="1" colspan="1">The key identifier this entry applies to, for human readability and for the <code>superseded</code> case. Not a match criterion for <code>revoked</code> (below).</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -3695,15 +3713,12 @@ would be, and a malformed entry anywhere in <code>revocations</code> <span class
 the entire document: a verifier <span class="bcp14">MUST</span> treat the whole revocation list as
 unparseable (Revocation list fetch semantics, below) rather than silently
 skipping only the malformed entry, or falling back to any weaker match
-for it. Earlier drafting of this section treated a <code>revoked</code> entry
-missing <code>publicKeyHash</code> as merely degraded, matchable by a
-<code>keyid</code>-based fallback; that fallback is removed. It was itself the
-alias hole this document closes: a signer who wants a <code>revoked</code> entry to
-miss could omit <code>publicKeyHash</code> on purpose, precisely because a
-<code>keyid</code>-text fallback is exactly as bypassable as <code>keyid</code>-text matching
-always is (The two states, below). There is no compatibility reason to
-keep it -- no revocation list has ever been published under this
-specification -- so it is deleted outright rather than deprecated.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
+for it. There is no <code>keyid</code>-based fallback match for a <code>revoked</code> entry
+missing <code>publicKeyHash</code>: a signer who wanted a <code>revoked</code> entry to miss
+could omit <code>publicKeyHash</code> on purpose, precisely because a <code>keyid</code>-text
+match is exactly as bypassable as <code>keyid</code>-text matching always is (The two
+states, below), which is why its absence on a <code>revoked</code> entry is malformed
+rather than merely degraded.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
 <p id="section-9.6-6">An entry that fails to conform to this table in any other way -- <code>keyid</code>
 or <code>status</code> missing or of the wrong type, a <code>status</code> value other than the
 two listed, or a present-but-wrongly-typed <code>publicKeyHash</code>, <code>revokedAt</code>,
@@ -3733,10 +3748,12 @@ same key <span class="bcp14">MUST NOT</span> suppress a <code>revoked</code> one
 <span class="bcp14">MUST NOT</span> implement this by keeping only the most recently seen entry for a
 given <code>keyid</code> and discarding earlier ones with the same <code>keyid</code>; that
 discards information the matching rule above depends on.<a href="#section-9.6-8" class="pilcrow">¶</a></p>
-<p id="section-9.6-9">The signer key <span class="bcp14">MUST</span> be neither <code>revoked</code> nor <code>superseded</code>. It <span class="bcp14">MUST NOT</span>
-appear, matched by <code>publicKeyHash</code> or by the Section 8.5 canonical <code>keyid</code>
-form exactly as The two states describes for any other key, as a
-<code>revoked</code> or <code>superseded</code> entry within the same revision of the list it
+<p id="section-9.6-9">The signer key <span class="bcp14">MUST</span> be neither <code>revoked</code> nor <code>superseded</code>, matched exactly
+as The two states, below, defines for any other key: a <code>revoked</code> entry
+matches the signer's key by <code>publicKeyHash</code> alone, and a <code>superseded</code>
+entry matches by <code>publicKeyHash</code> when the entry carries one, otherwise by
+the Section 8.5 canonical <code>keyid</code> form. The signer key <span class="bcp14">MUST NOT</span> appear as
+either kind of matching entry within the same revision of the list it
 signs; a verifier that already knows the signer is revoked, from an
 earlier revision it holds or from any other source, <span class="bcp14">MUST</span> also reject the
 list. This check runs once the signer is resolved (Revocation list
@@ -3749,9 +3766,14 @@ rule follows directly from Section 9.1: a superseded key <span class="bcp14">MUS
 content, and this list is new content the same as any other. Because
 revocation is absolute (below), neither half of this check depends on
 comparing timestamps between revisions.<a href="#section-9.6-9" class="pilcrow">¶</a></p>
-<p id="section-9.6-10">The revocation list <span class="bcp14">SHOULD</span> be served with the media type
+<p id="section-9.6-10"><code>publicKeyHash</code>, wherever it appears in a <code>revocations</code> entry, <span class="bcp14">MUST</span> decode
+(Section 6.1) to exactly 32 bytes, the SHA-256 output length. A value that
+fails to decode, or that decodes to any other length, makes that entry --
+and therefore the whole document, for the same reason given above -- malformed,
+and the fetch outcome is <code>revocation-unknown</code>.<a href="#section-9.6-10" class="pilcrow">¶</a></p>
+<p id="section-9.6-11">The revocation list <span class="bcp14">SHOULD</span> be served with the media type
 <code>application/htmltrust-revocation+json</code> (Section 15.1). A verifier <span class="bcp14">MUST NOT</span> reject an otherwise valid document solely on <code>Content-Type</code>; this is a
-static file, and many hosting environments serve it as generic JSON.<a href="#section-9.6-10" class="pilcrow">¶</a></p>
+static file, and many hosting environments serve it as generic JSON.<a href="#section-9.6-11" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="the-two-states-and-why-no-trusted-time-is-required">
@@ -3850,12 +3872,21 @@ fetch to that origin in the first place; resolving <code>signer</code>, which al
 always means fetching its key document, is exactly the kind of action a
 hostile signer value could otherwise use as a probe.<a href="#section-9.8-1" class="pilcrow">¶</a></p>
 <p id="section-9.8-2">Only once the signer's origin is confirmed does a verifier resolve
-<code>signer</code> per Section 8, confirm the signer is neither revoked nor
-superseded per Section 9.6 (both by the signer's own key document per
-Section 8.2 and by the list's own content per Section 9.6), and validate
-every entry in <code>revocations</code> against the Section 9.6 shape, rejecting the
-whole document as <code>revocation-unknown</code> if any entry is malformed. Only
-then does a verifier compute the signing payload -- the JSON
+<code>signer</code> per Section 8, in full: this includes the Section 8.1 DID-document
+<code>id</code> equality or the Section 8.2 <code>kid</code> equality, exactly as resolving any
+other <code>keyid</code> would. A <code>signer</code> value that fails that identifier-binding
+check produces <code>key-resolution-failed</code> or <code>malformed-key-document</code> as
+Section 8.1 or Section 8.2 requires, and the list is <code>revocation-unknown</code>
+for the same reason any other resolution failure makes it so; a verifier
+<span class="bcp14">MUST NOT</span> skip this check for <code>signer</code> on the theory that the list's own
+signature will catch a substituted identity, since Revocation list
+cross-origin signer rejection, below, is exactly the case where it would
+not. Once <code>signer</code> resolves, a verifier confirms the signer is neither
+revoked nor superseded per Section 9.6 (both by the signer's own key
+document per Section 8.2 and by the list's own content per Section 9.6),
+and validates every entry in <code>revocations</code> against the Section 9.6 shape,
+rejecting the whole document as <code>revocation-unknown</code> if any entry is
+malformed. Only then does a verifier compute the signing payload -- the JSON
 Canonicalization Scheme <span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span> serialization of the document with the
 <code>signature</code> field omitted, exactly as specified for endorsements in
 Section 11.2, including its requirements on JCS conformance, member
@@ -3928,25 +3959,38 @@ long-lived cache entry set before the compromise occurred. The recommended
 default is 24 hours; an implementation <span class="bcp14">MAY</span> use a shorter value and <span class="bcp14">MUST</span>
 document any value longer than 24 hours. This value is a CEILING, not a
 fixed cache lifetime: a verifier <span class="bcp14">MUST</span> honor a shorter freshness lifetime
-from the response's <code>Cache-Control</code> (<code>max-age</code>, or <code>s-maxage</code> when
-present) and <code>Age</code> headers when the server supplies one, and <span class="bcp14">MUST</span> treat
-<code>Cache-Control: no-cache</code> or <code>no-store</code> as requiring revalidation on the
-very next consultation rather than reuse for any interval. Absent any
-freshness information in the response, a verifier applies the 24-hour
-default as the effective freshness lifetime, not an unconditional 24-hour
-reuse regardless of what the server said.<a href="#section-9.9-5" class="pilcrow">¶</a></p>
-<p id="section-9.9-6">A <code>revocation-unknown</code> outcome <span class="bcp14">MUST NOT</span> be cached for anywhere near the
+computed from the response's <code>Cache-Control</code> and <code>Expires</code> headers
+<span>[<a href="#RFC9111" class="cite xref">RFC9111</a>]</span> when the server supplies one. Freshness lifetime is computed
+with the following precedence: <code>s-maxage</code>, if present; otherwise
+<code>max-age</code>, if present; otherwise <code>Expires</code> minus the response <code>Date</code>
+header (Section 5.3 of <span>[<a href="#RFC9111" class="cite xref">RFC9111</a>]</span>); otherwise the 24-hour default. Once a
+lifetime is selected this way, the response's <code>Age</code> header, when present,
+is subtracted from it to obtain the remaining freshness. A <code>Cache-Control</code>
+or <code>Expires</code> value that is present but does not parse counts as a
+freshness lifetime of zero -- immediate revalidation -- rather than as
+absent, so a malformed header cannot extend a cache entry's life. A
+verifier <span class="bcp14">MUST</span> treat <code>Cache-Control: no-cache</code> or <code>no-store</code> as requiring
+revalidation on the very next consultation rather than reuse for any
+interval. Absent any freshness information in the response, a verifier
+applies the 24-hour default as the effective freshness lifetime, not an
+unconditional 24-hour reuse regardless of what the server said.<a href="#section-9.9-5" class="pilcrow">¶</a></p>
+<p id="section-9.9-6">An HTTP 404 response (<code>not-revoked</code>, above) is cached the same way, subject
+to a lower ceiling: for the lesser of its computed freshness lifetime and
+one hour, or for at most one hour when the response carries no freshness
+information. A publisher's 404 response claiming a long <code>max-age</code> <span class="bcp14">MUST NOT</span>
+let a newly published revocation list stay invisible to a verifier for
+longer than one hour.<a href="#section-9.9-6" class="pilcrow">¶</a></p>
+<p id="section-9.9-7">A <code>revocation-unknown</code> outcome <span class="bcp14">MUST NOT</span> be cached for anywhere near the
 24-hour ceiling above; doing so would let a single transient failure
 suppress revocation for as long as a legitimately fresh list would have
-been trusted. A verifier <span class="bcp14">MUST</span> retry a <code>revocation-unknown</code> outcome after a
-short backoff interval, on the order of one minute, rather than treating
-it as settled for the remainder of the caching window that would have
-applied to a successful fetch.<a href="#section-9.9-6" class="pilcrow">¶</a></p>
-<p id="section-9.9-7">When a verifier consults both this list and the key document's own
+been trusted. A verifier <span class="bcp14">MUST</span> retry a <code>revocation-unknown</code> outcome after at
+most 60 seconds, rather than treating it as settled for the remainder of
+the caching window that would have applied to a successful fetch.<a href="#section-9.9-7" class="pilcrow">¶</a></p>
+<p id="section-9.9-8">When a verifier consults both this list and the key document's own
 <code>revoked</code> field (Section 8.2) for the same <code>keyid</code>, the two sources are
 additive: a <code>revoked</code> result from either one is sufficient to produce the
 <code>key-revoked</code> failure outcome, and neither source's <code>not-revoked</code> or
-absence overrides a <code>revoked</code> result from the other.<a href="#section-9.9-7" class="pilcrow">¶</a></p>
+absence overrides a <code>revoked</code> result from the other.<a href="#section-9.9-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -4430,12 +4474,17 @@ If a Section 12.10 resource ceiling is reached, return
 signed section. If any required attribute is missing or empty, or if a
 protocol attribute has leading or trailing ASCII whitespace, the verifier
 <span class="bcp14">MUST</span> return <code>incomplete</code> and stop.<a href="#section-12.1-2" class="pilcrow">¶</a></p>
-<p id="section-12.1-3">Require <code>profile</code> to equal <code>htmltrust-signature-v1</code>; otherwise return
+<p id="section-12.1-3">Validate <code>keyid</code> syntax next, before either check in the following
+paragraph: per Section 5.1, <code>keyid</code> <span class="bcp14">MUST</span> be an absolute URL with scheme
+<code>https</code> and no query or fragment component, or a <code>did:</code> URI. Any other
+value -- a relative reference, an unsupported scheme, an opaque non-URL
+string, or an <code>https</code> URL carrying a query or fragment -- returns
+<code>key-resolution-failed</code> and stops here, before <code>profile-unsupported</code> or
+<code>scope-unsupported</code> is considered.<a href="#section-12.1-3" class="pilcrow">¶</a></p>
+<p id="section-12.1-4">Require <code>profile</code> to equal <code>htmltrust-signature-v1</code>; otherwise return
 <code>profile-unsupported</code>. Require <code>signature-scope</code> to equal <code>url</code> or <code>origin</code>;
 otherwise return <code>scope-unsupported</code>. Select the profile before performing
-canonicalization and do not try a different profile after a later failure.<a href="#section-12.1-3" class="pilcrow">¶</a></p>
-<p id="section-12.1-4">Apply the Section 5.1 <code>keyid</code> query/fragment restriction here, before Step 5
-attempts resolution; a violation returns <code>key-resolution-failed</code>.<a href="#section-12.1-4" class="pilcrow">¶</a></p>
+canonicalization and do not try a different profile after a later failure.<a href="#section-12.1-4" class="pilcrow">¶</a></p>
 <p id="section-12.1-5">Validate the <code>content-hash</code> and <code>signature</code> encodings against Section 6.
 A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
 the wrong natural output length produces "invalid-encoding". If the
@@ -4859,21 +4908,25 @@ the key-document server.<a href="#section-13.4-1" class="pilcrow">¶</a></p>
 <p id="section-13.4-2">The Section 9.5 revocation list has the same category of dependency, with
 its own recommended 24-hour maximum staleness (Section 9.9) as a CEILING
 rather than a fixed cache lifetime: Section 9.9 requires a verifier to
-honor a shorter <code>Cache-Control</code> freshness lifetime when the server
-supplies one. The 24-hour ceiling is longer than the key-document
-recommendation above because the two channels serve different operational
-needs: the key document is small, per-key, and cheap to re-fetch on every
-resolution, while the revocation list is a single shared resource an
-origin may prefer not to see re-fetched by every verifier on every page
-load. A publisher for whom 24 hours is an unacceptable compromise sets a
-shorter, explicit <code>Cache-Control</code> directive on the list; a conforming
-verifier <span class="bcp14">MUST</span> honor it rather than reusing a fetch for the full 24 hours
-regardless of what the server said. Separately, a <code>revocation-unknown</code>
-outcome (a fetch failure, an invalid signature, and so on) is capped at a
-short retry interval on the order of one minute, not the 24-hour ceiling
-that applies to a successful fetch, so a transient failure cannot suppress
-revocation reporting for anywhere near as long as a legitimate cache
-entry would have been trusted.<a href="#section-13.4-2" class="pilcrow">¶</a></p>
+honor a shorter freshness lifetime computed from <code>Cache-Control</code>
+(<code>s-maxage</code>, then <code>max-age</code>) or, absent either, <code>Expires</code>, with <code>Age</code>
+subtracted and an unparseable value treated as zero. The 24-hour ceiling is
+longer than the key-document recommendation above because the two channels
+serve different operational needs: the key document is small, per-key, and
+cheap to re-fetch on every resolution, while the revocation list is a
+single shared resource an origin may prefer not to see re-fetched by every
+verifier on every page load. A publisher for whom 24 hours is an
+unacceptable compromise sets a shorter, explicit <code>Cache-Control</code> directive
+on the list; a conforming verifier <span class="bcp14">MUST</span> honor it rather than reusing a
+fetch for the full 24 hours regardless of what the server said. An HTTP 404
+response is capped separately, at the lesser of its own freshness lifetime
+and one hour (one hour flat when the response carries no freshness
+information), so a publisher cannot use a long-lived 404 to hide a newly
+published list. Separately, a <code>revocation-unknown</code> outcome (a fetch
+failure, an invalid signature, and so on) is capped at 60 seconds at most,
+not the 24-hour ceiling that applies to a successful fetch, so a transient
+failure cannot suppress revocation reporting for anywhere near as long as a
+legitimate cache entry would have been trusted.<a href="#section-13.4-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="algorithm-agility-risks">
@@ -5719,30 +5772,23 @@ reports <code>not-revoked</code>.<a href="#appendix-B.6-9" class="pilcrow">¶</a
         <h3 id="name-revocation-list-keyid-alias">
 <a href="#appendix-B.7" class="section-number selfRef">B.7. </a><a href="#name-revocation-list-keyid-alias" class="section-name selfRef">Revocation list keyid-alias immunity</a>
         </h3>
-<p id="appendix-B.7-1">This vector demonstrates why The two states requires matching a <code>revoked</code>
-entry by <code>publicKeyHash</code> rather than by <code>keyid</code> string, for every alias
-form that resolves WITHIN the origin <code>keyid</code>'s own resolution method
-already names. It does not introduce new key material; it works entirely
-from ordinary URL and <code>did:web</code> identifier equivalences that Section
-8.5's canonical form, and the Section 5.1 syntax restriction, are built
-on. It does not by itself close a CROSS-HOST alias -- a key document
-reachable under a second hostname the verifier was never told is the
-same identity, such as <code>www</code> versus apex, a CDN hostname, or an IP
-literal presenting a matching certificate -- because such a hostname
-derives a genuinely different origin, and therefore a genuinely
-different revocation-list location, under Section 9.5. That closure is
-Section 8.1's DID-document <code>id</code> equality and Section 8.2's <span class="bcp14">REQUIRED</span>
-          <code>kid</code> equality, not this match rule; see Section 9.5's discussion of why
-a server answering under several hostnames is several origins, and
-Revocation list host-alias identifier binding, below, for a worked
-vector of that closure specifically.<a href="#appendix-B.7-1" class="pilcrow">¶</a></p>
+<p id="appendix-B.7-1">This vector demonstrates a consequence of Section 8.2's <span class="bcp14">REQUIRED</span> <code>kid</code>
+equality that is easy to miss: it closes not only the CROSS-HOST alias
+case (Revocation list host-alias identifier binding, below) but also,
+as a side effect, every WITHIN-origin literal-text variation of an https
+<code>keyid</code> that the URL Standard would otherwise treat as equivalent to the
+canonical spelling. <code>kid</code> <span class="bcp14">MUST</span> equal the literal <code>keyid</code> text used to
+resolve it, byte for byte (Section 8.2); it is compared against that
+text directly, not against a canonicalized or re-serialized form of it.
+A key document's <code>kid</code> can equal only one spelling, so resolving any other
+spelling fails outright, before a revocation list is ever consulted for
+it.<a href="#appendix-B.7-1" class="pilcrow">¶</a></p>
 <p id="appendix-B.7-2">Take the revoked <code>keyid</code> from the vector above,
 <code>https://keys.example/alice-2024.json</code>. The following <code>keyid</code> strings are
-different from it and from each other as literal text, yet the URL
-Standard resolves every one of them to the identical origin and path,
-because dot-segment removal, host lowercasing, default-port omission, and
-leading-zero IPv4 octet normalization are all part of ordinary URL
-parsing, not an extra step a verifier must remember to apply:<a href="#appendix-B.7-2" class="pilcrow">¶</a></p>
+different from it as literal text, yet the URL Standard would resolve
+every one of them to the identical origin and path if <code>keyid</code> were merely
+used to construct a fetch, because dot-segment removal, host lowercasing,
+and default-port omission are all part of ordinary URL parsing:<a href="#appendix-B.7-2" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="appendix-B.7-3">
 <pre>
 https://keys.example/./alice-2024.json
@@ -5751,16 +5797,24 @@ https://KEYS.EXAMPLE/alice-2024.json
 https://keys.example:443/alice-2024.json
 </pre><a href="#appendix-B.7-3" class="pilcrow">¶</a>
 </div>
-<p id="appendix-B.7-4">A signer who resolves any of these fetches the identical key document as
-<code>https://keys.example/alice-2024.json</code>, obtains the identical public key,
-and therefore produces the identical <code>publicKeyHash</code>,
-<code>IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0</code>, regardless of which of the
-four strings above -- or the original -- appears in a signed section's
-<code>keyid</code> attribute. A verifier applying the primary <code>publicKeyHash</code> match
-correctly returns <code>key-revoked</code> for a signature carrying any of them. A
-verifier that instead compared only the literal <code>keyid</code> string against the
-revocation entry's <code>keyid</code> field would incorrectly return <code>not-revoked</code>
-for all four: this is the vulnerability the primary match closes.<a href="#appendix-B.7-4" class="pilcrow">¶</a></p>
+<p id="appendix-B.7-4">A signer resolving any of these fetches the identical key document as
+<code>https://keys.example/alice-2024.json</code> and obtains the identical public
+key -- but that key document's <code>kid</code> names only the canonical spelling,
+<code>https://keys.example/alice-2024.json</code>. Section 8.2 compares <code>kid</code> against
+each literal string above, not against a URL-Standard-normalized form of
+it, and every one of them fails that comparison. Resolution therefore <span class="bcp14">MUST</span>
+fail with <code>malformed-key-document</code> for each of the four strings, at
+Section 12 Step 5, before a revocation list is ever fetched for any of
+them: there is no partial state where the key resolves and only the
+revocation-list lookup goes wrong. This is a stronger closure than a
+<code>publicKeyHash</code>-based revocation match would have provided for these four
+spellings specifically -- it removes the alias from consideration
+entirely, rather than letting it resolve and catching it downstream -- but
+it is not a substitute for the <code>publicKeyHash</code> primary match <code>revoked</code>
+still requires (Section 9.6; The two states, below): the same key material
+can be reachable under two or more identities that each correctly name
+themselves, and only a match on the key material itself, not on any one
+identity's <code>keyid</code> text, catches that case.<a href="#appendix-B.7-4" class="pilcrow">¶</a></p>
 <p id="appendix-B.7-5">The following two strings are also different from the original, but <span class="bcp14">MUST NOT</span> reach key resolution at all, because Section 5.1 forbids a query or
 fragment component in a URL <code>keyid</code>:<a href="#appendix-B.7-5" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="appendix-B.7-6">
@@ -5772,12 +5826,16 @@ https://keys.example/alice-2024.json#x
 <p id="appendix-B.7-7">A verifier rejects each with <code>key-resolution-failed</code> at Step 1 of Section
 12, before any resolution or revocation-list consultation is attempted.<a href="#appendix-B.7-7" class="pilcrow">¶</a></p>
 <p id="appendix-B.7-8">The equivalent case for a <code>did:web</code> <code>keyid</code> is host case: <code>did:web:
-example.com</code> and <code>did:web:EXAMPLE.com</code> are different literal strings that
-resolve to the identical DID document, because Section 8.1 resolution and
-Section 8.5's canonical form both lowercase the ASCII host. A <code>publicKeyHash</code>
-match is unaffected by this either way, since it does not depend on the
-<code>keyid</code> string at all; the canonical form matters for the <code>superseded</code>
-secondary match and for any future comparison that does depend on <code>keyid</code>.<a href="#appendix-B.7-8" class="pilcrow">¶</a></p>
+example.com</code> and <code>did:web:EXAMPLE.com</code> are different literal strings.
+Section 8.1 resolution constructs the DID document URL for either one by
+lowercasing the host, so both fetch the identical DID document -- but
+that document's own top-level <code>id</code> can equal only one spelling, and
+Section 8.1 requires <code>id</code> to equal the DID portion of <code>keyid</code> byte for
+byte. Resolving <code>did:web:EXAMPLE.com</code> against a DID document whose <code>id</code>
+is <code>did:web:example.com</code> therefore fails with <code>key-resolution-failed</code>,
+for the same reason the URL aliases above fail: an identifier that
+differs from the document's own declared identity does not resolve, even
+when the fetch it drives lands on the right document.<a href="#appendix-B.7-8" class="pilcrow">¶</a></p>
 <p id="appendix-B.7-9">The machine-readable form of this vector, including the URL-equivalence
 assertions above, is maintained as <code>ietf-draft/vectors/revocation-02.json</code>
 in this repository.<a href="#appendix-B.7-9" class="pilcrow">¶</a></p>

@@ -1194,6 +1194,17 @@ the second URI scheme component. The DID document MUST be retrieved,
 and the public key MUST be selected from its `verificationMethod`
 array.
 
+For the `did:web` method specifically, resolution constructs the DID
+document URL from the method-specific identifier per the did:web method
+specification: the host component is lowercased, and a `%3A`-encoded
+colon (in any letter case) used to separate a non-default port is decoded
+back to `:` before the port is appended to the authority. This is
+resolution's own URL-construction step, distinct from the `keyid`
+comparison form Section 8.5 defines for other purposes; Section 8.5's
+`did:web` canonical form applies the same host-lowercasing and
+`%3A`-decoding rule rather than a different one, so the two agree on what
+a given `did:web` identifier names.
+
 The verifier MUST select a verification method whose `type` is
 compatible with the `algorithm` attribute of the signed section. If
 multiple verification methods are present, the verifier MUST prefer a
@@ -1245,18 +1256,27 @@ The retrieved document MUST be one of:
 `kid`, `algorithm`, `publicKeyEncoding`, and `publicKey` are REQUIRED. The
 other members shown above are OPTIONAL. Unknown members MUST be ignored
 for key resolution and MAY be retained by caches or directories.
+Publishers MUST NOT emit duplicate member names in either response shape
+(RFC 8259 Section 4); a verifier that detects a duplicate member name MUST
+treat the document as malformed.
+
+Regardless of which of the two response shapes above is retrieved, its
+`kid` member MUST be present and MUST equal the serialized URL used as
+`keyid` byte for byte. This applies equally to a bare `application/jwk+json`
+response: [RFC7517] itself defines `kid` as OPTIONAL, but this
+specification requires it, for both response shapes, as a condition of a
+successful Section 8.2 resolution. A missing or mismatched `kid`, in either
+shape, is a "malformed-key-document" result, not merely a discouraged
+omission. Section 9.5 explains why this equality check is required rather
+than optional: it is what prevents this key from being addressed under a
+host alias that was never told to be the same identity.
 
 `publicKey` is the canonical unpadded standard Base64 encoding from
 Section 6.1 of the DER-encoded SubjectPublicKeyInfo structure defined by
 [RFC5280]. `publicKeyEncoding` MUST be exactly `spki-der`. A verifier MUST
 reject any other encoding in a conforming HTMLTrust key document with a
-"malformed-key-document" result. `kid` MUST equal the serialized URL used
-as `keyid` byte for byte; a missing or mismatched `kid` is a
-"malformed-key-document" result, not merely a discouraged omission.
-Section 9.5 explains why this equality check is required rather than
-optional: it is what prevents this key from being addressed under a host
-alias that was never told to be the same identity. The `algorithm` value
-and the decoded key type and parameters MUST match Section 7.1.
+"malformed-key-document" result. The `algorithm` value and the decoded key
+type and parameters MUST match Section 7.1.
 
 For an `application/jwk+json` response, the JWK `kty`, `crv`, and `alg`
 members, when applicable, MUST select the same key type, parameters, and
@@ -1513,7 +1533,7 @@ Each entry of `revocations` is itself a JSON object:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `keyid` | string | yes | The key identifier this entry applies to, for human readability and for the `superseded` case. Not the primary match for `revoked` (below). |
+| `keyid` | string | yes | The key identifier this entry applies to, for human readability and for the `superseded` case. Not a match criterion for `revoked` (below). |
 | `publicKeyHash` | string | conditional | SHA-256 hash of the resolved key's SubjectPublicKeyInfo DER encoding (Section 8.2), as canonical unpadded standard Base64 (Section 6.1). REQUIRED when `status` is `revoked`; OPTIONAL when `status` is `superseded`. |
 | `status` | string | yes | Exactly `revoked` or `superseded`. |
 | `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
@@ -1525,15 +1545,12 @@ would be, and a malformed entry anywhere in `revocations` MUST invalidate
 the entire document: a verifier MUST treat the whole revocation list as
 unparseable (Revocation list fetch semantics, below) rather than silently
 skipping only the malformed entry, or falling back to any weaker match
-for it. Earlier drafting of this section treated a `revoked` entry
-missing `publicKeyHash` as merely degraded, matchable by a
-`keyid`-based fallback; that fallback is removed. It was itself the
-alias hole this document closes: a signer who wants a `revoked` entry to
-miss could omit `publicKeyHash` on purpose, precisely because a
-`keyid`-text fallback is exactly as bypassable as `keyid`-text matching
-always is (The two states, below). There is no compatibility reason to
-keep it -- no revocation list has ever been published under this
-specification -- so it is deleted outright rather than deprecated.
+for it. There is no `keyid`-based fallback match for a `revoked` entry
+missing `publicKeyHash`: a signer who wanted a `revoked` entry to miss
+could omit `publicKeyHash` on purpose, precisely because a `keyid`-text
+match is exactly as bypassable as `keyid`-text matching always is (The two
+states, below), which is why its absence on a `revoked` entry is malformed
+rather than merely degraded.
 
 An entry that fails to conform to this table in any other way -- `keyid`
 or `status` missing or of the wrong type, a `status` value other than the
@@ -1568,10 +1585,12 @@ MUST NOT implement this by keeping only the most recently seen entry for a
 given `keyid` and discarding earlier ones with the same `keyid`; that
 discards information the matching rule above depends on.
 
-The signer key MUST be neither `revoked` nor `superseded`. It MUST NOT
-appear, matched by `publicKeyHash` or by the Section 8.5 canonical `keyid`
-form exactly as The two states describes for any other key, as a
-`revoked` or `superseded` entry within the same revision of the list it
+The signer key MUST be neither `revoked` nor `superseded`, matched exactly
+as The two states, below, defines for any other key: a `revoked` entry
+matches the signer's key by `publicKeyHash` alone, and a `superseded`
+entry matches by `publicKeyHash` when the entry carries one, otherwise by
+the Section 8.5 canonical `keyid` form. The signer key MUST NOT appear as
+either kind of matching entry within the same revision of the list it
 signs; a verifier that already knows the signer is revoked, from an
 earlier revision it holds or from any other source, MUST also reject the
 list. This check runs once the signer is resolved (Revocation list
@@ -1584,6 +1603,12 @@ rule follows directly from Section 9.1: a superseded key MUST NOT sign new
 content, and this list is new content the same as any other. Because
 revocation is absolute (below), neither half of this check depends on
 comparing timestamps between revisions.
+
+`publicKeyHash`, wherever it appears in a `revocations` entry, MUST decode
+(Section 6.1) to exactly 32 bytes, the SHA-256 output length. A value that
+fails to decode, or that decodes to any other length, makes that entry --
+and therefore the whole document, for the same reason given above -- malformed,
+and the fetch outcome is `revocation-unknown`.
 
 The revocation list SHOULD be served with the media type
 `application/htmltrust-revocation+json` (Section 15.1). A verifier MUST
@@ -1673,12 +1698,21 @@ always means fetching its key document, is exactly the kind of action a
 hostile signer value could otherwise use as a probe.
 
 Only once the signer's origin is confirmed does a verifier resolve
-`signer` per Section 8, confirm the signer is neither revoked nor
-superseded per Section 9.6 (both by the signer's own key document per
-Section 8.2 and by the list's own content per Section 9.6), and validate
-every entry in `revocations` against the Section 9.6 shape, rejecting the
-whole document as `revocation-unknown` if any entry is malformed. Only
-then does a verifier compute the signing payload -- the JSON
+`signer` per Section 8, in full: this includes the Section 8.1 DID-document
+`id` equality or the Section 8.2 `kid` equality, exactly as resolving any
+other `keyid` would. A `signer` value that fails that identifier-binding
+check produces `key-resolution-failed` or `malformed-key-document` as
+Section 8.1 or Section 8.2 requires, and the list is `revocation-unknown`
+for the same reason any other resolution failure makes it so; a verifier
+MUST NOT skip this check for `signer` on the theory that the list's own
+signature will catch a substituted identity, since Revocation list
+cross-origin signer rejection, below, is exactly the case where it would
+not. Once `signer` resolves, a verifier confirms the signer is neither
+revoked nor superseded per Section 9.6 (both by the signer's own key
+document per Section 8.2 and by the list's own content per Section 9.6),
+and validates every entry in `revocations` against the Section 9.6 shape,
+rejecting the whole document as `revocation-unknown` if any entry is
+malformed. Only then does a verifier compute the signing payload -- the JSON
 Canonicalization Scheme [RFC8785] serialization of the document with the
 `signature` field omitted, exactly as specified for endorsements in
 Section 11.2, including its requirements on JCS conformance, member
@@ -1743,21 +1777,35 @@ long-lived cache entry set before the compromise occurred. The recommended
 default is 24 hours; an implementation MAY use a shorter value and MUST
 document any value longer than 24 hours. This value is a CEILING, not a
 fixed cache lifetime: a verifier MUST honor a shorter freshness lifetime
-from the response's `Cache-Control` (`max-age`, or `s-maxage` when
-present) and `Age` headers when the server supplies one, and MUST treat
-`Cache-Control: no-cache` or `no-store` as requiring revalidation on the
-very next consultation rather than reuse for any interval. Absent any
-freshness information in the response, a verifier applies the 24-hour
-default as the effective freshness lifetime, not an unconditional 24-hour
-reuse regardless of what the server said.
+computed from the response's `Cache-Control` and `Expires` headers
+[RFC9111] when the server supplies one. Freshness lifetime is computed
+with the following precedence: `s-maxage`, if present; otherwise
+`max-age`, if present; otherwise `Expires` minus the response `Date`
+header (Section 5.3 of [RFC9111]); otherwise the 24-hour default. Once a
+lifetime is selected this way, the response's `Age` header, when present,
+is subtracted from it to obtain the remaining freshness. A `Cache-Control`
+or `Expires` value that is present but does not parse counts as a
+freshness lifetime of zero -- immediate revalidation -- rather than as
+absent, so a malformed header cannot extend a cache entry's life. A
+verifier MUST treat `Cache-Control: no-cache` or `no-store` as requiring
+revalidation on the very next consultation rather than reuse for any
+interval. Absent any freshness information in the response, a verifier
+applies the 24-hour default as the effective freshness lifetime, not an
+unconditional 24-hour reuse regardless of what the server said.
+
+An HTTP 404 response (`not-revoked`, above) is cached the same way, subject
+to a lower ceiling: for the lesser of its computed freshness lifetime and
+one hour, or for at most one hour when the response carries no freshness
+information. A publisher's 404 response claiming a long `max-age` MUST NOT
+let a newly published revocation list stay invisible to a verifier for
+longer than one hour.
 
 A `revocation-unknown` outcome MUST NOT be cached for anywhere near the
 24-hour ceiling above; doing so would let a single transient failure
 suppress revocation for as long as a legitimately fresh list would have
-been trusted. A verifier MUST retry a `revocation-unknown` outcome after a
-short backoff interval, on the order of one minute, rather than treating
-it as settled for the remainder of the caching window that would have
-applied to a successful fetch.
+been trusted. A verifier MUST retry a `revocation-unknown` outcome after at
+most 60 seconds, rather than treating it as settled for the remainder of
+the caching window that would have applied to a successful fetch.
 
 When a verifier consults both this list and the key document's own
 `revoked` field (Section 8.2) for the same `keyid`, the two sources are
@@ -2120,13 +2168,18 @@ signed section. If any required attribute is missing or empty, or if a
 protocol attribute has leading or trailing ASCII whitespace, the verifier
 MUST return `incomplete` and stop.
 
+Validate `keyid` syntax next, before either check in the following
+paragraph: per Section 5.1, `keyid` MUST be an absolute URL with scheme
+`https` and no query or fragment component, or a `did:` URI. Any other
+value -- a relative reference, an unsupported scheme, an opaque non-URL
+string, or an `https` URL carrying a query or fragment -- returns
+`key-resolution-failed` and stops here, before `profile-unsupported` or
+`scope-unsupported` is considered.
+
 Require `profile` to equal `htmltrust-signature-v1`; otherwise return
 `profile-unsupported`. Require `signature-scope` to equal `url` or `origin`;
 otherwise return `scope-unsupported`. Select the profile before performing
 canonicalization and do not try a different profile after a later failure.
-
-Apply the Section 5.1 `keyid` query/fragment restriction here, before Step 5
-attempts resolution; a violation returns `key-resolution-failed`.
 
 Validate the `content-hash` and `signature` encodings against Section 6.
 A non-canonical Base64 value, an invalid hash shape, or a decoded hash with
@@ -2452,21 +2505,25 @@ the key-document server.
 The Section 9.5 revocation list has the same category of dependency, with
 its own recommended 24-hour maximum staleness (Section 9.9) as a CEILING
 rather than a fixed cache lifetime: Section 9.9 requires a verifier to
-honor a shorter `Cache-Control` freshness lifetime when the server
-supplies one. The 24-hour ceiling is longer than the key-document
-recommendation above because the two channels serve different operational
-needs: the key document is small, per-key, and cheap to re-fetch on every
-resolution, while the revocation list is a single shared resource an
-origin may prefer not to see re-fetched by every verifier on every page
-load. A publisher for whom 24 hours is an unacceptable compromise sets a
-shorter, explicit `Cache-Control` directive on the list; a conforming
-verifier MUST honor it rather than reusing a fetch for the full 24 hours
-regardless of what the server said. Separately, a `revocation-unknown`
-outcome (a fetch failure, an invalid signature, and so on) is capped at a
-short retry interval on the order of one minute, not the 24-hour ceiling
-that applies to a successful fetch, so a transient failure cannot suppress
-revocation reporting for anywhere near as long as a legitimate cache
-entry would have been trusted.
+honor a shorter freshness lifetime computed from `Cache-Control`
+(`s-maxage`, then `max-age`) or, absent either, `Expires`, with `Age`
+subtracted and an unparseable value treated as zero. The 24-hour ceiling is
+longer than the key-document recommendation above because the two channels
+serve different operational needs: the key document is small, per-key, and
+cheap to re-fetch on every resolution, while the revocation list is a
+single shared resource an origin may prefer not to see re-fetched by every
+verifier on every page load. A publisher for whom 24 hours is an
+unacceptable compromise sets a shorter, explicit `Cache-Control` directive
+on the list; a conforming verifier MUST honor it rather than reusing a
+fetch for the full 24 hours regardless of what the server said. An HTTP 404
+response is capped separately, at the lesser of its own freshness lifetime
+and one hour (one hour flat when the response carries no freshness
+information), so a publisher cannot use a long-lived 404 to hide a newly
+published list. Separately, a `revocation-unknown` outcome (a fetch
+failure, an invalid signature, and so on) is capped at 60 seconds at most,
+not the 24-hour ceiling that applies to a successful fetch, so a transient
+failure cannot suppress revocation reporting for anywhere near as long as a
+legitimate cache entry would have been trusted.
 
 ## Algorithm agility risks
 
@@ -2941,31 +2998,24 @@ The machine-readable form of this vector is maintained as
 
 ## Revocation list keyid-alias immunity
 
-This vector demonstrates why The two states requires matching a `revoked`
-entry by `publicKeyHash` rather than by `keyid` string, for every alias
-form that resolves WITHIN the origin `keyid`'s own resolution method
-already names. It does not introduce new key material; it works entirely
-from ordinary URL and `did:web` identifier equivalences that Section
-8.5's canonical form, and the Section 5.1 syntax restriction, are built
-on. It does not by itself close a CROSS-HOST alias -- a key document
-reachable under a second hostname the verifier was never told is the
-same identity, such as `www` versus apex, a CDN hostname, or an IP
-literal presenting a matching certificate -- because such a hostname
-derives a genuinely different origin, and therefore a genuinely
-different revocation-list location, under Section 9.5. That closure is
-Section 8.1's DID-document `id` equality and Section 8.2's REQUIRED
-`kid` equality, not this match rule; see Section 9.5's discussion of why
-a server answering under several hostnames is several origins, and
-Revocation list host-alias identifier binding, below, for a worked
-vector of that closure specifically.
+This vector demonstrates a consequence of Section 8.2's REQUIRED `kid`
+equality that is easy to miss: it closes not only the CROSS-HOST alias
+case (Revocation list host-alias identifier binding, below) but also,
+as a side effect, every WITHIN-origin literal-text variation of an https
+`keyid` that the URL Standard would otherwise treat as equivalent to the
+canonical spelling. `kid` MUST equal the literal `keyid` text used to
+resolve it, byte for byte (Section 8.2); it is compared against that
+text directly, not against a canonicalized or re-serialized form of it.
+A key document's `kid` can equal only one spelling, so resolving any other
+spelling fails outright, before a revocation list is ever consulted for
+it.
 
 Take the revoked `keyid` from the vector above,
 `https://keys.example/alice-2024.json`. The following `keyid` strings are
-different from it and from each other as literal text, yet the URL
-Standard resolves every one of them to the identical origin and path,
-because dot-segment removal, host lowercasing, default-port omission, and
-leading-zero IPv4 octet normalization are all part of ordinary URL
-parsing, not an extra step a verifier must remember to apply:
+different from it as literal text, yet the URL Standard would resolve
+every one of them to the identical origin and path if `keyid` were merely
+used to construct a fetch, because dot-segment removal, host lowercasing,
+and default-port omission are all part of ordinary URL parsing:
 
 ~~~
 https://keys.example/./alice-2024.json
@@ -2974,16 +3024,24 @@ https://KEYS.EXAMPLE/alice-2024.json
 https://keys.example:443/alice-2024.json
 ~~~
 
-A signer who resolves any of these fetches the identical key document as
-`https://keys.example/alice-2024.json`, obtains the identical public key,
-and therefore produces the identical `publicKeyHash`,
-`IK9vUboIWmbGdNKzXFLS5HVlTMkaHwYbm4v4jUasHT0`, regardless of which of the
-four strings above -- or the original -- appears in a signed section's
-`keyid` attribute. A verifier applying the primary `publicKeyHash` match
-correctly returns `key-revoked` for a signature carrying any of them. A
-verifier that instead compared only the literal `keyid` string against the
-revocation entry's `keyid` field would incorrectly return `not-revoked`
-for all four: this is the vulnerability the primary match closes.
+A signer resolving any of these fetches the identical key document as
+`https://keys.example/alice-2024.json` and obtains the identical public
+key -- but that key document's `kid` names only the canonical spelling,
+`https://keys.example/alice-2024.json`. Section 8.2 compares `kid` against
+each literal string above, not against a URL-Standard-normalized form of
+it, and every one of them fails that comparison. Resolution therefore MUST
+fail with `malformed-key-document` for each of the four strings, at
+Section 12 Step 5, before a revocation list is ever fetched for any of
+them: there is no partial state where the key resolves and only the
+revocation-list lookup goes wrong. This is a stronger closure than a
+`publicKeyHash`-based revocation match would have provided for these four
+spellings specifically -- it removes the alias from consideration
+entirely, rather than letting it resolve and catching it downstream -- but
+it is not a substitute for the `publicKeyHash` primary match `revoked`
+still requires (Section 9.6; The two states, below): the same key material
+can be reachable under two or more identities that each correctly name
+themselves, and only a match on the key material itself, not on any one
+identity's `keyid` text, catches that case.
 
 The following two strings are also different from the original, but MUST
 NOT reach key resolution at all, because Section 5.1 forbids a query or
@@ -2998,12 +3056,16 @@ A verifier rejects each with `key-resolution-failed` at Step 1 of Section
 12, before any resolution or revocation-list consultation is attempted.
 
 The equivalent case for a `did:web` `keyid` is host case: `did:web:
-example.com` and `did:web:EXAMPLE.com` are different literal strings that
-resolve to the identical DID document, because Section 8.1 resolution and
-Section 8.5's canonical form both lowercase the ASCII host. A `publicKeyHash`
-match is unaffected by this either way, since it does not depend on the
-`keyid` string at all; the canonical form matters for the `superseded`
-secondary match and for any future comparison that does depend on `keyid`.
+example.com` and `did:web:EXAMPLE.com` are different literal strings.
+Section 8.1 resolution constructs the DID document URL for either one by
+lowercasing the host, so both fetch the identical DID document -- but
+that document's own top-level `id` can equal only one spelling, and
+Section 8.1 requires `id` to equal the DID portion of `keyid` byte for
+byte. Resolving `did:web:EXAMPLE.com` against a DID document whose `id`
+is `did:web:example.com` therefore fails with `key-resolution-failed`,
+for the same reason the URL aliases above fail: an identifier that
+differs from the document's own declared identity does not resolve, even
+when the fetch it drives lands on the right document.
 
 The machine-readable form of this vector, including the URL-equivalence
 assertions above, is maintained as `ietf-draft/vectors/revocation-02.json`

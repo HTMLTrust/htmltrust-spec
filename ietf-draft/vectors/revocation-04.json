@@ -19,5 +19,5 @@
     "canonical": "did:web:keys.example",
     "alias": "did:web:KEYS.example"
   },
-  "note_didWebHostVariant": "did:web resolution (Section 8.1) lowercases the host when constructing the DID document URL, so both strings fetch the identical DID document -- but that document's own top-level id can only equal one spelling. Section 8.1 now requires id to equal the DID portion of keyid byte for byte, so resolving the alias fails with key-resolution-failed."
+  "note_didWebHostVariant": "did:web resolution (Section 8.1) lowercases the host when constructing the DID document URL, so both strings fetch the identical DID document -- but that document's own top-level id can only equal one spelling. Section 8.1 requires id to equal the DID portion of keyid byte for byte, so resolving the alias fails with key-resolution-failed."
 }
