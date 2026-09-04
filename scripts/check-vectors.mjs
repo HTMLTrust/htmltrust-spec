@@ -185,32 +185,116 @@ if (!revokedEntry || revokedEntry.publicKeyHash !== revocation.revokedKey.public
   throw new Error("revocation-01 revoked entry's publicKeyHash does not match revokedKey");
 }
 
-// Spec §9.7: `revoked` is matched by publicKeyHash against the resolved
-// key's own SPKI hash, not by the keyid string. `superseded` is matched by
-// keyid (no alternate key material exists for the fictional identities in
-// this vector, so the keyid form is exercised here; alias immunity for the
-// hash-based match is exercised in revocation-02.json instead).
-const revocationByKeyid = new Map(
-  revocation.document.revocations.map((entry) => [entry.keyid, entry]),
-);
-const revocationByHash = new Map(
-  revocation.document.revocations
-    .filter((e) => e.status === "revoked" && e.publicKeyHash)
-    .map((e) => [e.publicKeyHash, e]),
-);
+// Spec §9.7/§9.6: `revoked` is matched by publicKeyHash against the
+// resolved key's own SPKI hash, not by the keyid string, and a `revoked`
+// match anywhere in the array wins over a `superseded` match for the same
+// key regardless of order (§9.6's duplicate-entry precedence rule). This
+// scans every entry rather than deduping into a Map keyed by `keyid`: a
+// Map would silently let a later duplicate-keyid entry overwrite an
+// earlier one, which is exactly the fail-open bug §9.6 now forbids.
+function resolveRevocationEntries(entries, resolvedPublicKeyHash) {
+  for (const entry of entries) {
+    if (entry.status === "revoked" && entry.publicKeyHash && entry.publicKeyHash === resolvedPublicKeyHash) {
+      return { status: "revoked", entry };
+    }
+  }
+  return { status: "not-revoked", entry: undefined };
+}
+
+const revocationByHash = new Map();
+for (const entry of revocation.document.revocations) {
+  if (entry.status === "revoked" && entry.publicKeyHash) {
+    if (!revocationByHash.has(entry.publicKeyHash)) revocationByHash.set(entry.publicKeyHash, []);
+    revocationByHash.get(entry.publicKeyHash).push(entry);
+  }
+}
 for (const check of revocation.revocationChecks) {
-  const hashMatch = check.resolvedPublicKeyHash ? revocationByHash.get(check.resolvedPublicKeyHash) : undefined;
-  const keyidMatch = revocationByKeyid.get(check.keyid);
-  const status = hashMatch ? "revoked" : "not-revoked";
+  const hashMatches = check.resolvedPublicKeyHash ? revocationByHash.get(check.resolvedPublicKeyHash) : undefined;
+  const status = hashMatches && hashMatches.length > 0 ? "revoked" : "not-revoked";
   if (status !== check.expected) {
     throw new Error(`revocation-01 status mismatch for ${check.keyid}`);
   }
-  const superseded = !hashMatch && keyidMatch?.status === "superseded";
+  // superseded lookup: keyid-based, since no matching-key entry exists for
+  // these fictional identities' superseded case.
+  const keyidMatches = revocation.document.revocations.filter((e) => e.keyid === check.keyid);
+  const supersededEntry = status === "not-revoked" ? keyidMatches.find((e) => e.status === "superseded") : undefined;
+  const superseded = Boolean(supersededEntry);
   if (Boolean(check.superseded) !== superseded) {
     throw new Error(`revocation-01 superseded mismatch for ${check.keyid}`);
   }
-  if (superseded && keyidMatch.supersededBy !== check.supersededBy) {
+  if (superseded && supersededEntry.supersededBy !== check.supersededBy) {
     throw new Error(`revocation-01 supersededBy mismatch for ${check.keyid}`);
+  }
+}
+
+// Spec §9.6: a "revoked" entry MUST win over a "superseded" entry for the
+// same key, regardless of array order -- checked here with a synthetic
+// pair of entries sharing the target's publicKeyHash, superseded listed
+// first, to prove the checker (and by extension the matching rule it
+// mirrors) does not depend on array order.
+{
+  const targetHash = revocation.revokedKey.publicKeyHash;
+  const synthetic = [
+    { keyid: "https://keys.example/order-test.json", status: "superseded", supersededBy: "https://keys.example/newer.json", publicKeyHash: targetHash },
+    { keyid: "https://keys.example/order-test.json", status: "revoked", publicKeyHash: targetHash },
+  ];
+  const result = resolveRevocationEntries(synthetic, targetHash);
+  if (result.status !== "revoked") {
+    throw new Error("duplicate-entry precedence: a revoked entry must win regardless of array order");
+  }
+}
+
+// revocation-03.json: cross-origin signer rejection.
+const revocationCrossOrigin = load("revocation-03.json");
+{
+  const { signature: crossOriginSignature, ...unsignedCrossOrigin } = revocationCrossOrigin.document;
+  const crossOriginJcs = canonicalizeJcs(unsignedCrossOrigin);
+  if (crossOriginJcs !== revocationCrossOrigin.jcsWithoutSignature) {
+    throw new Error("revocation-03 JCS serialization does not match");
+  }
+  const hostilePrivateKey = privateKeyFromSeed(revocationCrossOrigin.key.seedHex);
+  const hostilePublicKey = createPublicKey(hostilePrivateKey);
+  if (hostilePublicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("hex") !== revocationCrossOrigin.key.publicKeyRawHex) {
+    throw new Error("revocation-03 key does not match its seed");
+  }
+  // The signature genuinely verifies -- that is the point of this vector:
+  // a valid signature is not sufficient when the signer is hosted at a
+  // different origin than the list itself.
+  if (!verify(null, Buffer.from(crossOriginJcs, "utf8"), hostilePublicKey, Buffer.from(crossOriginSignature, "base64"))) {
+    throw new Error("revocation-03 signature does not verify (it must, to demonstrate origin rejection catches what signature checking alone would not)");
+  }
+  const signerOrigin = new URL(revocationCrossOrigin.document.signer).origin;
+  if (signerOrigin === revocationCrossOrigin.listServedFromOrigin) {
+    throw new Error("revocation-03 signer origin must differ from the list's serving origin to demonstrate the rejection");
+  }
+}
+
+// Malformed-entry and extensibility synthetic checks (§9.6): a document
+// containing one malformed entry alongside otherwise well-formed ones must
+// be rejected as a whole, while an entry carrying only an unrecognized
+// extra field remains well-formed.
+function isWellFormedRevocationEntry(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  if (typeof entry.keyid !== "string" || entry.keyid === "") return false;
+  if (entry.status !== "revoked" && entry.status !== "superseded") return false;
+  if (entry.publicKeyHash !== undefined && typeof entry.publicKeyHash !== "string") return false;
+  if (entry.revokedAt !== undefined && typeof entry.revokedAt !== "string") return false;
+  if (entry.supersededBy !== undefined && typeof entry.supersededBy !== "string") return false;
+  return true;
+}
+{
+  const withMalformedEntry = [
+    { keyid: "https://keys.example/ok.json", status: "revoked" },
+    { keyid: "https://keys.example/bad.json", status: "not-a-real-status" },
+  ];
+  if (withMalformedEntry.every(isWellFormedRevocationEntry)) {
+    throw new Error("malformed-entry check: the synthetic bad entry should not have validated as well-formed");
+  }
+  const withUnknownField = [
+    { keyid: "https://keys.example/ok.json", status: "revoked", fromPeriod: 3 },
+  ];
+  if (!withUnknownField.every(isWellFormedRevocationEntry)) {
+    throw new Error("extensibility check: an entry with only an unrecognized extra field must remain well-formed");
   }
 }
 

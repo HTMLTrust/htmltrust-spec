@@ -609,7 +609,13 @@ dictionary SignedSectionTrustOutcome {
     <code>"revoked"</code>, or <code>"revocation-unknown"</code>. A user
     agent that does not implement revocation-list consultation
     <em class="rfc2119">MUST</em> leave this member <code>null</code>
-    rather than guessing a value. When present, <code>"revoked"</code>
+    rather than guessing a value. A user agent that does implement it
+    <em class="rfc2119">MUST</em> also leave it <code>null</code>, rather
+    than <code>"revocation-unknown"</code>, for a <code>keyid</code> with
+    no revocation-list location derivable under
+    [[I-D.grey-htmltrust]] (a DID method other than <code>did:web</code>):
+    no fetch was attempted, which is a different case from one that was
+    attempted and failed. When present, <code>"revoked"</code>
     <em class="rfc2119">MUST</em> coincide with
     {{SignedSectionCryptoOutcome/valid}} = <code>false</code> and
     {{SignedSectionCryptoOutcome/reason}} = <code>"key-revoked"</code>;

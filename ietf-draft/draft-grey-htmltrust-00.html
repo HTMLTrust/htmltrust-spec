@@ -1715,6 +1715,9 @@ referenced here as <span>[<a href="#HTMLTRUST-W3C" class="cite xref">HTMLTRUST-W
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.7">
                 <p id="section-toc.1-1.18.2.7.1"><a href="#appendix-B.7" class="auto internal xref">B.7</a>.  <a href="#name-revocation-list-keyid-alias" class="internal xref">Revocation list keyid-alias immunity</a></p>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.18.2.8">
+                <p id="section-toc.1-1.18.2.8.1"><a href="#appendix-B.8" class="auto internal xref">B.8</a>.  <a href="#name-revocation-list-cross-origi" class="internal xref">Revocation list cross-origin signer rejection</a></p>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.19">
@@ -3294,12 +3297,15 @@ expiry.<a href="#section-9.1-2.2.1" class="pilcrow">¶</a></p>
           <li class="normal" id="section-9.1-2.3">
             <p id="section-9.1-2.3.1"><strong>revoked</strong> -- the key document carries <code>revoked: true</code>. Revocation
 signals suspected or confirmed key compromise. See Revocation,
-compromise, and <code>signed-at</code> freshness, below.<a href="#section-9.1-2.3.1" class="pilcrow">¶</a></p>
+compromise, and <code>signed-at</code> freshness, below. Section 9.5's revocation
+list is a second, independent channel for asserting this same state.<a href="#section-9.1-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.1-2.4">
             <p id="section-9.1-2.4.1"><strong>superseded</strong> -- the key is expired and the publisher has designated
 a successor (see Rotation and supersession, below). This is the
-normal rotation end-state.<a href="#section-9.1-2.4.1" class="pilcrow">¶</a></p>
+normal rotation end-state. Section 9.5's revocation list is a second,
+independent channel for asserting this same state, usable even when
+the key document itself carries no <code>expires</code>.<a href="#section-9.1-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -3400,7 +3406,10 @@ identity independently of any single key document, at a location under the
 identity's own origin rather than under the location of any one key. This
 gives an identity a channel to revoke or supersede one of its keys even
 when that key's own document is hosted elsewhere, is unreachable, or is
-compromised alongside the key material itself.<a href="#section-9.5-1" class="pilcrow">¶</a></p>
+compromised alongside the key material itself. A verifier <span class="bcp14">SHOULD</span> consult
+this list when resolving a <code>keyid</code>; consultation is a verifier policy
+choice layered on top of the mandatory Section 12 cryptographic procedure,
+not a new requirement on every conforming verifier.<a href="#section-9.5-1" class="pilcrow">¶</a></p>
 <p id="section-9.5-2">The revocation list is a JSON document at a fixed path relative to the
 identity's origin:<a href="#section-9.5-2" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-9.5-3">
@@ -3419,17 +3428,27 @@ ignored for this purpose; the revocation list always lives at the origin
 root, consistent with the well-known URI convention <span>[<a href="#RFC8615" class="cite xref">RFC8615</a>]</span>.<a href="#section-9.5-5.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.5-5.2">
-            <p id="section-9.5-5.2.1">For a direct HTTPS URL <code>keyid</code> (Section 8.2), <code>&lt;origin&gt;</code> is the origin
-(scheme, host, and port) of that URL.<a href="#section-9.5-5.2.1" class="pilcrow">¶</a></p>
+            <p id="section-9.5-5.2.1">For a direct HTTPS URL <code>keyid</code> (Section 8.2) or a <code>keyid</code> resolved
+through a trust directory (Section 8.3), <code>&lt;origin&gt;</code> is the origin
+(scheme, host, and port) of that URL, with no distinction between the
+two: a directory-hosted key's revocation list lives at the directory's
+own origin, not at some separately identified identity origin. This is
+deliberate rather than a simplification of convenience. Resolving a
+directory-hosted <code>keyid</code> already discloses the key to that origin, via
+<code>GET /keys/{id}</code> (Section 10.7); the directory already controls that
+key's own <code>revoked</code> field (Section 8.2) unilaterally. A revocation list
+at the same origin therefore carries no authority the directory did not
+already have, and the privacy and centralization concerns Section 13.7
+raises against directory-served revocation do not apply to a directory
+merely hosting the same key's own revocation list at its own origin.<a href="#section-9.5-5.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.5-5.3">
-            <p id="section-9.5-5.3.1">For a <code>keyid</code> resolved through a trust directory (Section 8.3), the
-directory is NOT the revocation source. This resolution method defines
-no origin independent of the directory itself, so a verifier <span class="bcp14">MUST</span> treat
-revocation-list consultation as not applicable to such a <code>keyid</code> and <span class="bcp14">MUST</span>
-rely instead on the key document's own <code>revoked</code> field (Section 8.2),
-which the directory can update directly. A future revision may define an
-explicit identity-origin field for directory-hosted keys.<a href="#section-9.5-5.3.1" class="pilcrow">¶</a></p>
+            <p id="section-9.5-5.3.1">A <code>keyid</code> with no derivable HTTPS origin under either rule above (a DID
+method other than <code>did:web</code>) has no revocation list to consult. A
+verifier <span class="bcp14">MUST NOT</span> attempt a fetch for such a <code>keyid</code> and <span class="bcp14">MUST NOT</span> report
+<code>revocation-unknown</code> for it; there is no revocation status to report,
+because nothing was attempted, which is a different case from a fetch
+that was attempted and failed.<a href="#section-9.5-5.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-9.5-6">A publisher with nothing to revoke need not publish this resource at all;
@@ -3549,11 +3568,24 @@ see Revocation list fetch semantics, below.<a href="#section-9.5-6" class="pilcr
             </tr>
           </tbody>
         </table>
-<p id="section-9.6-5">A <code>revoked</code> entry missing <code>publicKeyHash</code> is malformed for the purpose of
-the primary match (The two states, below); a verifier <span class="bcp14">MUST NOT</span> treat such
-an entry as satisfying the primary match, though it <span class="bcp14">MAY</span> still honor the
-weaker <code>keyid</code>-based secondary match described there.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
-<p id="section-9.6-6">Additional fields <span class="bcp14">MAY</span> be present in either object. A verifier <span class="bcp14">MUST</span> ignore
+<p id="section-9.6-5">A <code>revoked</code> entry missing <code>publicKeyHash</code> is schema-valid, not malformed:
+<code>publicKeyHash</code> is listed "conditional" above precisely so an entry
+lacking it is still well-formed. It does not satisfy the primary match
+(The two states, below); a verifier <span class="bcp14">MUST NOT</span> treat such an entry as
+satisfying the primary match, though it <span class="bcp14">MAY</span> still honor the weaker
+<code>keyid</code>-based secondary match described there. This is the one case in
+which an entry may deviate from the table above without being malformed.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
+<p id="section-9.6-6">An entry that instead fails to conform to this table in any other way --
+<code>keyid</code> or <code>status</code> missing or of the wrong type, a <code>status</code> value other
+than the two listed, or a present-but-wrongly-typed <code>publicKeyHash</code>,
+<code>revokedAt</code>, or <code>supersededBy</code> -- is malformed, and a malformed entry
+anywhere in <code>revocations</code> <span class="bcp14">MUST</span> invalidate the entire document: a verifier
+<span class="bcp14">MUST</span> treat the whole revocation list as unparseable (Revocation list
+fetch semantics, below) rather than silently skipping only the malformed
+entry. Skipping is fail-open, because it lets exactly the entry an
+attacker most wants ignored -- one crafted to fail parsing -- vanish
+instead of blocking the list that would otherwise apply it.<a href="#section-9.6-6" class="pilcrow">¶</a></p>
+<p id="section-9.6-7">Additional fields <span class="bcp14">MAY</span> be present in either object. A verifier <span class="bcp14">MUST</span> ignore
 fields it does not recognize for purposes of the status decision in The two
 states, below, exactly as Section 11.1 already requires for an unrecognized
 endorsement field, but <span class="bcp14">MUST</span> still include every field, recognized or not,
@@ -3563,15 +3595,35 @@ example, to a range of prior keys or signing periods for an identity) without
 changing the meaning of <code>status</code> for a verifier that does not yet understand
 the added field: an unrecognized qualifier <span class="bcp14">MUST NOT</span> be treated as narrowing
 or widening the entry's effect. This revision defines only the two
-unqualified entry-wide states above.<a href="#section-9.6-6" class="pilcrow">¶</a></p>
-<p id="section-9.6-7">The signer key <span class="bcp14">MUST NOT</span> itself carry <code>status: "revoked"</code> in the same
-revision of the list it signs, and a verifier that already knows the
-signer is revoked, from any earlier revision it holds or from any other
-source, <span class="bcp14">MUST</span> reject the list. Because revocation is absolute (below), this
-check does not depend on comparing timestamps between revisions.<a href="#section-9.6-7" class="pilcrow">¶</a></p>
-<p id="section-9.6-8">The revocation list <span class="bcp14">SHOULD</span> be served with the media type
+unqualified entry-wide states above. An unrecognized field on an entry that
+is otherwise well-formed under the table above does not itself make the
+entry malformed.<a href="#section-9.6-7" class="pilcrow">¶</a></p>
+<p id="section-9.6-8">If more than one entry matches the same key, whether by <code>publicKeyHash</code> or
+by the Section 8.5 canonical <code>keyid</code> form, and any of the matching entries
+has <code>status: "revoked"</code>, the key is <code>revoked</code>: a <code>superseded</code> entry for the
+same key <span class="bcp14">MUST NOT</span> suppress a <code>revoked</code> one, in any array order. A verifier
+<span class="bcp14">MUST NOT</span> implement this by keeping only the most recently seen entry for a
+given <code>keyid</code> and discarding earlier ones with the same <code>keyid</code>; that
+discards information the matching rule above depends on.<a href="#section-9.6-8" class="pilcrow">¶</a></p>
+<p id="section-9.6-9">The signer key <span class="bcp14">MUST</span> be neither <code>revoked</code> nor <code>superseded</code>. It <span class="bcp14">MUST NOT</span>
+appear, matched by <code>publicKeyHash</code> or by the Section 8.5 canonical <code>keyid</code>
+form exactly as The two states describes for any other key, as a
+<code>revoked</code> or <code>superseded</code> entry within the same revision of the list it
+signs; a verifier that already knows the signer is revoked, from an
+earlier revision it holds or from any other source, <span class="bcp14">MUST</span> also reject the
+list. This check runs once the signer is resolved (Revocation list
+verification, below defines the full order: origin check, then
+resolution, then this check, then signature verification) and does not
+depend on the list's signature having been verified yet, because a
+document that fails this check is rejected regardless of whether it is
+validly signed. The <code>superseded</code> half of this
+rule follows directly from Section 9.1: a superseded key <span class="bcp14">MUST NOT</span> sign new
+content, and this list is new content the same as any other. Because
+revocation is absolute (below), neither half of this check depends on
+comparing timestamps between revisions.<a href="#section-9.6-9" class="pilcrow">¶</a></p>
+<p id="section-9.6-10">The revocation list <span class="bcp14">SHOULD</span> be served with the media type
 <code>application/htmltrust-revocation+json</code> (Section 15.1). A verifier <span class="bcp14">MUST NOT</span> reject an otherwise valid document solely on <code>Content-Type</code>; this is a
-static file, and many hosting environments serve it as generic JSON.<a href="#section-9.6-8" class="pilcrow">¶</a></p>
+static file, and many hosting environments serve it as generic JSON.<a href="#section-9.6-10" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="the-two-states-and-why-no-trusted-time-is-required">
@@ -3606,37 +3658,37 @@ present. <code>keyid</code> is opaque and signer-chosen (Section 8); a compariso
 keyed only to one spelling of it is not a safe way to detect
 compromised key material that a signer -- honest or, in the case an
 entry exists to address, actively adversarial -- can resolve under more
-than one <code>keyid</code> string. Once <code>revoked</code> is established, a verifier <span class="bcp14">MUST</span>
-apply the <code>key-revoked</code> failure outcome and <span class="bcp14">MUST NOT</span> weigh the
-signature's claimed timing before doing so, for the same reason Section
-9.3 already gives for the key document's own <code>revoked</code> field: a
-<code>signed-at</code> value is signer-asserted, and a holder of a stolen key can
-backdate it to precede the compromise.<a href="#section-9.7-2.2.1" class="pilcrow">¶</a></p>
+than one <code>keyid</code> string. <code>revoked</code> is stated exactly once, here, with no
+time condition anywhere in it: once <code>revoked</code> is established by either
+match, a verifier <span class="bcp14">MUST</span> apply the <code>key-revoked</code> failure outcome for every
+signature the key produced, unconditionally. There is no exception
+clause, corroborated-timing or otherwise, for a key revoked through this
+list. Section 9.3's corroborated-timing exception exists only for the
+key document's own <code>revoked</code> field and is not incorporated here by
+reference or otherwise; a signer-asserted <code>signed-at</code> <span class="bcp14">MUST NOT</span> be
+weighed before applying <code>key-revoked</code> under this list, full stop.<a href="#section-9.7-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-9.7-2.3"></dt>
-          <dd style="margin-left: 1.5em" id="section-9.7-2.4">
-            <p id="section-9.7-2.4.1">A verifier <span class="bcp14">MAY</span> additionally apply the Section 9.3 corroborated-timing
-exception (an RFC 3161 time-stamp token, transparency-log inclusion, or a
-directory's first-seen record) to a signature from a key revoked through
-this list, under the same conditions Section 9.3 states.<a href="#section-9.7-2.4.1" class="pilcrow">¶</a></p>
-</dd>
-          <dd class="break"></dd>
-<dt id="section-9.7-2.5">
+<dt id="section-9.7-2.3">
 <code>superseded</code>:</dt>
-          <dd style="margin-left: 1.5em" id="section-9.7-2.6">
-            <p id="section-9.7-2.6.1">Orderly rotation, asserted independently of the key document's own
-<code>expires</code>/<code>supersededBy</code> fields (Section 9.2). Signatures already made
-with the listed <code>keyid</code> remain valid. The listed key <span class="bcp14">MUST NOT</span> be used to
-sign new content going forward. A verifier looks up a <code>superseded</code> entry
-by <code>publicKeyHash</code> when the entry carries one, and otherwise by the
-Section 8.5 canonical form of <code>keyid</code>; unlike <code>revoked</code>, a
+          <dd style="margin-left: 1.5em" id="section-9.7-2.4">
+            <p id="section-9.7-2.4.1">The same state Section 9.1 already defines -- the key is retired on
+schedule, not compromised, and a successor has been designated -- now
+assertable through this second, independent channel in addition to a
+key document's own <code>expires</code>/<code>supersededBy</code> fields (Section 9.2). It is
+not a distinct concept with separately invented semantics; a key is
+<code>superseded</code>, full stop, whichever channel says so. Signatures already
+made with the listed <code>keyid</code> remain valid. The listed key <span class="bcp14">MUST NOT</span> be
+used to sign new content going forward, exactly as Section 9.1 already
+requires of a key in this state. A verifier looks up a <code>superseded</code>
+entry by <code>publicKeyHash</code> when the entry carries one, and otherwise by
+the Section 8.5 canonical form of <code>keyid</code>; unlike <code>revoked</code>, a
 keyid-string-based miss here is not a security failure; it only means
 the supersession signal is not surfaced for that particular alias, which
 is an acceptable degradation since existing signatures already remain
 valid either way. A verifier <span class="bcp14">MUST NOT</span> fail Section 12's cryptographic
 verification because of a <code>superseded</code> entry; it <span class="bcp14">MAY</span> surface the entry
-as a Section 12.7 trust-layer input.<a href="#section-9.7-2.6.1" class="pilcrow">¶</a></p>
+as a Section 12.7 trust-layer input.<a href="#section-9.7-2.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3659,14 +3711,30 @@ signing, not a retroactive judgment about past signatures.<a href="#section-9.7-
         <h3 id="name-revocation-list-verificatio">
 <a href="#section-9.8" class="section-number selfRef">9.8. </a><a href="#name-revocation-list-verificatio" class="section-name selfRef">Revocation list verification</a>
         </h3>
-<p id="section-9.8-1">The signing payload for a revocation list is the JSON Canonicalization
-Scheme <span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span> serialization of the document with the <code>signature</code> field
-omitted, exactly as specified for endorsements in Section 11.2, including
-its requirements on JCS conformance, member ordering, and duplicate-member
-rejection. The signer signs that byte string using the algorithm given by
-<code>algorithm</code>. A verifier resolves <code>signer</code> per Section 8, confirms the
-signer is not itself known to be revoked, reproduces the same
-serialization, and verifies the signature using the resolved public key.<a href="#section-9.8-1" class="pilcrow">¶</a></p>
+<p id="section-9.8-1">Section 9.6 requires the signer to be a key "of the same identity" as the
+document. This document defines that requirement precisely: a verifier
+<span class="bcp14">MUST</span> derive the signer's own origin from the <code>signer</code> value using the
+Section 9.5 rules -- the same rules used to derive where the list itself
+was fetched from -- and <span class="bcp14">MUST</span> treat the list as <code>revocation-unknown</code>
+(Revocation list fetch semantics, below) unless that origin is IDENTICAL
+to the origin the list was actually fetched from. A verifier <span class="bcp14">MUST</span> perform
+this derivation and comparison BEFORE resolving <code>signer</code> at all, so that a
+list naming a signer at a different, attacker-chosen origin never causes a
+fetch to that origin in the first place; resolving <code>signer</code>, which almost
+always means fetching its key document, is exactly the kind of action a
+hostile signer value could otherwise use as a probe.<a href="#section-9.8-1" class="pilcrow">¶</a></p>
+<p id="section-9.8-2">Only once the signer's origin is confirmed does a verifier resolve
+<code>signer</code> per Section 8, confirm the signer is neither revoked nor
+superseded per Section 9.6 (both by the signer's own key document per
+Section 8.2 and by the list's own content per Section 9.6), and validate
+every entry in <code>revocations</code> against the Section 9.6 shape, rejecting the
+whole document as <code>revocation-unknown</code> if any entry is malformed. Only
+then does a verifier compute the signing payload -- the JSON
+Canonicalization Scheme <span>[<a href="#RFC8785" class="cite xref">RFC8785</a>]</span> serialization of the document with the
+<code>signature</code> field omitted, exactly as specified for endorsements in
+Section 11.2, including its requirements on JCS conformance, member
+ordering, and duplicate-member rejection -- and verify the <code>signature</code>
+using the resolved public key and the algorithm given by <code>algorithm</code>.<a href="#section-9.8-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="revocation-list-fetch-semantics">
@@ -3674,34 +3742,46 @@ serialization, and verifies the signature using the resolved public key.<a href=
         <h3 id="name-revocation-list-fetch-seman">
 <a href="#section-9.9" class="section-number selfRef">9.9. </a><a href="#name-revocation-list-fetch-seman" class="section-name selfRef">Revocation list fetch semantics</a>
         </h3>
-<p id="section-9.9-1">A verifier that wants revocation state for a <code>keyid</code> fetches the document
-at the location derived above, subject to Section 12.9's network policy:
-HTTPS only, no ambient credentials, no <code>Referer</code>, <code>redirect: error</code>. The
-outcome maps to one of three revocation-status values:<a href="#section-9.9-1" class="pilcrow">¶</a></p>
+<p id="section-9.9-1">A verifier that wants revocation state for a <code>keyid</code> with a derivable
+origin (Section 9.5) fetches the document at the location derived there.
+This fetch <span class="bcp14">MUST</span> use HTTPS, <span class="bcp14">MUST NOT</span> send ambient credentials, <span class="bcp14">MUST NOT</span>
+send a <code>Referer</code> header, and <span class="bcp14">MUST NOT</span> follow a redirect: a response
+carrying a redirect status is a failure toward <code>revocation-unknown</code>, the
+same as any other non-404 error status below. This rule is stated
+completely here and does not depend on Section 12.9, which permits
+HTTPS-to-HTTPS redirects for a different class of fetch; a revocation-list
+fetch does not inherit that permission.<a href="#section-9.9-1" class="pilcrow">¶</a></p>
+<p id="section-9.9-2">The outcome maps to one of three revocation-status values:<a href="#section-9.9-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-9.9-2.1">
-            <p id="section-9.9-2.1.1">HTTP 404: the publisher has published no revocation list. Status is
+<li class="normal" id="section-9.9-3.1">
+            <p id="section-9.9-3.1.1">HTTP 404: the publisher has published no revocation list. Status is
 <code>not-revoked</code>. A publisher with nothing to revoke need not publish this
-resource.<a href="#section-9.9-2.1.1" class="pilcrow">¶</a></p>
+resource.<a href="#section-9.9-3.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.9-2.2">
-            <p id="section-9.9-2.2.1">HTTP 200 with a document that parses and verifies per Revocation list
+          <li class="normal" id="section-9.9-3.2">
+            <p id="section-9.9-3.2.1">HTTP 200 with a document that parses per Section 9.6, whose signer's
+origin matches this fetch's origin, whose signer is neither revoked nor
+superseded, and whose signature verifies, all per Revocation list
 verification, above: the verifier applies its <code>revocations</code> entries
 using the matching rules in The two states, above (primarily
 <code>publicKeyHash</code> for <code>revoked</code>, primarily the Section 8.5 canonical
-<code>keyid</code> form for <code>superseded</code>). Status is <code>revoked</code> if any entry
-matches; otherwise status is <code>not-revoked</code>, and, if some entry matches
-as <code>superseded</code>, the verifier additionally records that fact as
-trust-layer metadata.<a href="#section-9.9-2.2.1" class="pilcrow">¶</a></p>
+<code>keyid</code> form for <code>superseded</code>), with the duplicate-entry precedence
+Section 9.6 defines. Status is <code>revoked</code> if any entry matches; otherwise
+status is <code>not-revoked</code>, and, if some entry matches as <code>superseded</code>, the
+verifier additionally records that fact as trust-layer metadata.<a href="#section-9.9-3.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.9-2.3">
-            <p id="section-9.9-2.3.1">Any other outcome -- a network failure, a non-404 error status, a body
-that is not valid JSON, a document whose signature does not verify, or a
-document signed by a key the verifier already knows to be revoked --
-produces status <code>revocation-unknown</code>.<a href="#section-9.9-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.9-3.3">
+            <p id="section-9.9-3.3.1">Any other outcome -- a network failure, a redirect, a non-404 error
+status, a body that is not valid JSON, a document that does not parse
+per Section 9.6 (including a document containing any malformed entry),
+a document whose signer's origin does not match this fetch's origin, a
+document signed by a key the verifier already knows to be revoked, a
+document whose signer is listed revoked or superseded within the same
+document, or a document whose signature does not verify -- produces
+status <code>revocation-unknown</code>.<a href="#section-9.9-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-9.9-3">A verifier <span class="bcp14">MUST NOT</span> report a signature as fully verified while its
+<p id="section-9.9-4">A verifier <span class="bcp14">MUST NOT</span> report a signature as fully verified while its
 revocation status is <code>revocation-unknown</code>, and <span class="bcp14">MUST</span> surface the status
 distinctly so trust-layer policy (Section 12.7) can act on it. It <span class="bcp14">MUST NOT</span>
 silently fold this state into <code>not-revoked</code>. At the same time,
@@ -3711,21 +3791,34 @@ static file at a well-known location must not make all of a publisher's
 other content appear forged. This mirrors how Section 12.8's
 <code>directory-unavailable</code> outcome is handled: reported alongside a
 cryptographic result, unable to invalidate one. Only a <code>revoked</code> status
-produces the <code>key-revoked</code> failure outcome.<a href="#section-9.9-3" class="pilcrow">¶</a></p>
-<p id="section-9.9-4">A verifier caches a fetched revocation list subject to HTTP cache
+produces the <code>key-revoked</code> failure outcome.<a href="#section-9.9-4" class="pilcrow">¶</a></p>
+<p id="section-9.9-5">A verifier caches a fetched revocation list subject to HTTP cache
 semantics <span>[<a href="#RFC9111" class="cite xref">RFC9111</a>]</span>, but <span class="bcp14">MUST</span> additionally apply a maximum acceptable
 staleness regardless of cache-control directives, because a publisher's
 ability to signal compromise must not be indefinitely deferred by a
 long-lived cache entry set before the compromise occurred. The recommended
 default is 24 hours; an implementation <span class="bcp14">MAY</span> use a shorter value and <span class="bcp14">MUST</span>
-document any value longer than 24 hours. A verifier <span class="bcp14">SHOULD</span> honor
-<code>Cache-Control: no-cache</code> and <code>no-store</code> from the revocation-list server
-even where they would otherwise permit staler reuse.<a href="#section-9.9-4" class="pilcrow">¶</a></p>
-<p id="section-9.9-5">When a verifier consults both this list and the key document's own
+document any value longer than 24 hours. This value is a CEILING, not a
+fixed cache lifetime: a verifier <span class="bcp14">MUST</span> honor a shorter freshness lifetime
+from the response's <code>Cache-Control</code> (<code>max-age</code>, or <code>s-maxage</code> when
+present) and <code>Age</code> headers when the server supplies one, and <span class="bcp14">MUST</span> treat
+<code>Cache-Control: no-cache</code> or <code>no-store</code> as requiring revalidation on the
+very next consultation rather than reuse for any interval. Absent any
+freshness information in the response, a verifier applies the 24-hour
+default as the effective freshness lifetime, not an unconditional 24-hour
+reuse regardless of what the server said.<a href="#section-9.9-5" class="pilcrow">¶</a></p>
+<p id="section-9.9-6">A <code>revocation-unknown</code> outcome <span class="bcp14">MUST NOT</span> be cached for anywhere near the
+24-hour ceiling above; doing so would let a single transient failure
+suppress revocation for as long as a legitimately fresh list would have
+been trusted. A verifier <span class="bcp14">MUST</span> retry a <code>revocation-unknown</code> outcome after a
+short backoff interval, on the order of one minute, rather than treating
+it as settled for the remainder of the caching window that would have
+applied to a successful fetch.<a href="#section-9.9-6" class="pilcrow">¶</a></p>
+<p id="section-9.9-7">When a verifier consults both this list and the key document's own
 <code>revoked</code> field (Section 8.2) for the same <code>keyid</code>, the two sources are
 additive: a <code>revoked</code> result from either one is sufficient to produce the
 <code>key-revoked</code> failure outcome, and neither source's <code>not-revoked</code> or
-absence overrides a <code>revoked</code> result from the other.<a href="#section-9.9-5" class="pilcrow">¶</a></p>
+absence overrides a <code>revoked</code> result from the other.<a href="#section-9.9-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -4635,14 +4728,23 @@ short maximum cache age for HTMLTrust key documents (recommended:
 one hour) and <span class="bcp14">SHOULD</span> honor <code>Cache-Control: no-cache</code> directives from
 the key-document server.<a href="#section-13.4-1" class="pilcrow">¶</a></p>
 <p id="section-13.4-2">The Section 9.5 revocation list has the same category of dependency, with
-its own recommended 24-hour maximum staleness (Section 9.9). That window
-is longer than the key-document recommendation above because the two
-channels serve different operational needs: the key document is small,
-per-key, and cheap to re-fetch on every resolution, while the revocation
-list is a single shared resource an origin may prefer not to see
-re-fetched by every verifier on every page load. A publisher for whom
-24 hours is an unacceptable compromise <span class="bcp14">MAY</span> serve the list with explicit,
-shorter <code>Cache-Control</code> directives, which a conforming verifier honors.<a href="#section-13.4-2" class="pilcrow">¶</a></p>
+its own recommended 24-hour maximum staleness (Section 9.9) as a CEILING
+rather than a fixed cache lifetime: Section 9.9 requires a verifier to
+honor a shorter <code>Cache-Control</code> freshness lifetime when the server
+supplies one. The 24-hour ceiling is longer than the key-document
+recommendation above because the two channels serve different operational
+needs: the key document is small, per-key, and cheap to re-fetch on every
+resolution, while the revocation list is a single shared resource an
+origin may prefer not to see re-fetched by every verifier on every page
+load. A publisher for whom 24 hours is an unacceptable compromise sets a
+shorter, explicit <code>Cache-Control</code> directive on the list; a conforming
+verifier <span class="bcp14">MUST</span> honor it rather than reusing a fetch for the full 24 hours
+regardless of what the server said. Separately, a <code>revocation-unknown</code>
+outcome (a fetch failure, an invalid signature, and so on) is capped at a
+short retry interval on the order of one minute, not the 24-hour ceiling
+that applies to a successful fetch, so a transient failure cannot suppress
+revocation reporting for anywhere near as long as a legitimate cache
+entry would have been trusted.<a href="#section-13.4-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="algorithm-agility-risks">
@@ -4815,16 +4917,21 @@ endorsement mechanism.<a href="#section-14.3-1" class="pilcrow">¶</a></p>
 <a href="#section-14.4" class="section-number selfRef">14.4. </a><a href="#name-revocation-list-query-expos" class="section-name selfRef">Revocation list query exposure</a>
         </h3>
 <p id="section-14.4-1">Fetching the Section 9.5 revocation list discloses to the identity's own
-origin that some verifier is checking that identity's revocation state.
-This is a smaller disclosure than Section 14.2's per-key resolution
-exposure in two respects: the list is one shared resource per origin
-covering every key of that identity, so the fetch does not identify which
-specific key or piece of content is being verified, and the request goes
-to the same origin that already served the content being checked, which
-therefore learns nothing about the verifier's activity that serving the
-page did not already reveal. A verifier that batches or delays revocation
-fetches independently of the specific content that triggered them further
-reduces correlation between a fetch and a specific page visit.<a href="#section-14.4-1" class="pilcrow">¶</a></p>
+origin (the origin the <code>keyid</code> resolves through, not necessarily the
+origin that served the content being checked -- the two are frequently
+different, as in this document's own worked example, where content at
+<code>example.com</code> is signed by a key at <code>keys.example</code>) that some verifier is
+checking that identity's revocation state. This is a smaller disclosure
+than Section 14.2's per-key resolution exposure in two respects: the list
+is one shared resource per origin covering every key of that identity, so
+the fetch does not identify which specific key or piece of content is
+being verified, and the request goes to the same origin the verifier's
+Section 8 key resolution already contacted for this <code>keyid</code>, so the
+revocation-list fetch discloses nothing to that origin beyond what
+resolving the key already did. A verifier that batches or delays
+revocation fetches independently of the specific content that triggered
+them further reduces correlation between a fetch and a specific page
+visit.<a href="#section-14.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -4943,8 +5050,11 @@ registry per <span>[<a href="#RFC8615" class="cite xref">RFC8615</a>]</span>.<a 
             <p id="section-15.2-2.3.1">Specification document: this document, Section 10.2<a href="#section-15.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-15.2-2.4">
-            <p id="section-15.2-2.4.1">Related information: identifies trust directory discovery
-metadata<a href="#section-15.2-2.4.1" class="pilcrow">¶</a></p>
+            <p id="section-15.2-2.4.1">Status: permanent<a href="#section-15.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-15.2-2.5">
+            <p id="section-15.2-2.5.1">Related information: identifies trust directory discovery
+metadata<a href="#section-15.2-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -4967,8 +5077,11 @@ metadata<a href="#section-15.2-2.4.1" class="pilcrow">¶</a></p>
             <p id="section-15.3-2.3.1">Specification document: this document, Section 9.5<a href="#section-15.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-15.3-2.4">
-            <p id="section-15.3-2.4.1">Related information: identifies a publisher's signed key-revocation
-list, scoped to the origin serving it<a href="#section-15.3-2.4.1" class="pilcrow">¶</a></p>
+            <p id="section-15.3-2.4.1">Status: permanent<a href="#section-15.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-15.3-2.5">
+            <p id="section-15.3-2.5.1">Related information: identifies a publisher's signed key-revocation
+list, scoped to the origin serving it<a href="#section-15.3-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -5529,6 +5642,59 @@ assertions above, is maintained as <code>ietf-draft/vectors/revocation-02.json</
 in this repository.<a href="#appendix-B.7-9" class="pilcrow">¶</a></p>
 </section>
 </div>
+<div id="revocation-list-cross-origin-signer-rejection">
+<section id="appendix-B.8">
+        <h3 id="name-revocation-list-cross-origi">
+<a href="#appendix-B.8" class="section-number selfRef">B.8. </a><a href="#name-revocation-list-cross-origi" class="section-name selfRef">Revocation list cross-origin signer rejection</a>
+        </h3>
+<p id="appendix-B.8-1">This vector demonstrates Section 9.8's signer-origin check: a validly
+signed revocation list is rejected because its signer is hosted at a
+different origin than the one the list was fetched from. A verifier is
+consulting <code>https://keys.example</code>'s revocation list, expecting it to
+speak for keys hosted under that origin. The document below is served
+from exactly that location,
+<code>https://keys.example/.well-known/htmltrust-revocations.json</code>, and names
+<code>https://keys.example/bob-2024.json</code> as <code>revoked</code>, but it is signed by a
+key whose own <code>keyid</code> is <code>https://attacker.example/signer.json</code> -- an
+origin the verifier never asked this list to speak for. This is the shape
+an adversary who has gained write access to the <code>.well-known/</code> path at
+<code>keys.example</code>, without possessing Bob's own signing key, would produce:<a href="#appendix-B.8-1" class="pilcrow">¶</a></p>
+<div class="lang-json sourcecode" id="appendix-B.8-2">
+<pre>
+{
+  "signer": "https://attacker.example/signer.json",
+  "algorithm": "ed25519",
+  "timestamp": "2026-06-01T00:00:00Z",
+  "revocations": [
+    {
+      "keyid": "https://keys.example/bob-2024.json",
+      "status": "revoked"
+    }
+  ],
+  "signature": "lfT79FpmMCEzi31/zDE1uu7RGrtH7dag8EV8w3EeXCA+NQ37WmCA4BtgVqw9rarBf9YpLw03TT4bofEaIzSjCA"
+}
+</pre><a href="#appendix-B.8-2" class="pilcrow">¶</a>
+</div>
+<p id="appendix-B.8-3">The signature above genuinely verifies against the signer's own key,
+whose 32-byte private seed is the ASCII string
+<code>htmltrust-cross-origin-vector-01</code>. That is the point of this vector: a
+valid signature is not sufficient. A verifier derives the signer's origin
+from <code>https://attacker.example/signer.json</code> under Section 9.5 --
+<code>https://attacker.example</code> -- and compares it to the origin this document
+was actually fetched from, <code>https://keys.example</code>. They differ, so
+Section 9.8 requires rejecting the document as <code>revocation-unknown</code>
+BEFORE resolving <code>signer</code> at all: the verifier never fetches
+<code>https://attacker.example/signer.json</code>, and never reaches the point of
+checking this signature during real verification. This document computes
+and checks the signature only to demonstrate that origin rejection, not
+signature failure, is what stops this document; a verifier implementation
+<span class="bcp14">MUST NOT</span> rely on signature failure to catch this case; the same document
+signed correctly by a key actually hosted at <code>https://keys.example</code> would
+be accepted.<a href="#appendix-B.8-3" class="pilcrow">¶</a></p>
+<p id="appendix-B.8-4">The machine-readable form of this vector is maintained as
+<code>ietf-draft/vectors/revocation-03.json</code> in this repository.<a href="#appendix-B.8-4" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="example-directory-exchange">
@@ -5649,14 +5815,6 @@ around DID methods.<a href="#appendix-D-2.2.1" class="pilcrow">¶</a></p>
           <p id="appendix-D-2.3.1">Reputation-score interoperability. The <code>/signers/{id}/reputation</code>
 endpoint is intentionally directory-specific. A future revision
 may define a small interoperable subset.<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
-</li>
-        <li id="appendix-D-2.4">
-          <p id="appendix-D-2.4.1">Revocation lists for directory-hosted keys. Section 9.5 excludes
-keys resolved through Section 8.3 from revocation-list consultation
-because that resolution method defines no identity origin
-independent of the directory itself. A future revision may define
-an explicit identity-origin field for directory-hosted keys so this
-gap can be closed.<a href="#appendix-D-2.4.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>
