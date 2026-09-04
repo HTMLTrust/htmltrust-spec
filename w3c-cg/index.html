@@ -8,11 +8,14 @@
   <script class="remove">
     var respecConfig = {
       specStatus: "unofficial",
-      // xref resolves cross-spec definitions against a live W3C service. That
-      // fetch is the last thing preventing this draft from rendering offline,
-      // and a draft that only builds when a third-party API is up is not one
-      // anyone can rely on. References are defined in localBiblio below.
-      xref: false,
+      // xref must stay on. Disabling it removes the definitions the WebIDL
+      // block links against (DOMString, HTMLElement, DOMException and the
+      // rest), which ReSpec reports as linkless-anchor warnings, and this
+      // build treats warnings as fatal. So the render still needs the W3C
+      // xref service reachable, even though every bibliography reference is
+      // now defined locally below. Making this fully offline would mean
+      // vendoring the xref data, not a config change.
+      xref: { profile: "web-platform", specs: ["hr-time"] },
       additionalCopyrightHolders: "Jason Grey. Licensed under CC BY-NC-ND 4.0.",
       editors: [{
         name: "Jason Grey",
