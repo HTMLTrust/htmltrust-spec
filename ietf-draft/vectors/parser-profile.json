@@ -1,59 +1,211 @@
 {
-  "description": "Portable parser profile acceptance and rejection cases",
+  "description": "Portable parser profile acceptance and rejection cases, generated from conformance/fixtures/extract/parser-*.json. Regenerate from that fixture set rather than editing this file directly; see draft section 4.1.1.",
   "profile": "portable-1",
   "cases": [
     {
-      "name": "well-formed-utf8",
-      "html": "<signed-section><p>Simple text</p></signed-section>",
-      "result": "accept"
-    },
-    {
-      "name": "duplicate-attribute",
-      "html": "<signed-section><p title=one title=two>Text</p></signed-section>",
-      "result": "reject",
-      "reason": "parser-profile-unsupported"
-    },
-    {
-      "name": "misnested-formatting",
-      "html": "<signed-section><p><b>Text</p></b></signed-section>",
-      "result": "reject",
-      "reason": "parser-profile-unsupported"
-    },
-    {
-      "name": "table-foster-parenting",
-      "html": "<signed-section><table>Text<tr><td>Cell</td></tr></table></signed-section>",
-      "result": "reject",
-      "reason": "parser-profile-unsupported"
-    },
-    {
-      "name": "foreign-content",
-      "html": "<signed-section><svg><foreignObject><p>Text</p></foreignObject></svg></signed-section>",
-      "result": "reject",
-      "reason": "parser-profile-unsupported"
-    },
-    {
-      "name": "ambiguous-character-reference",
+      "name": "parser-ambiguous-reference",
       "html": "<signed-section><p>&notit;</p></signed-section>",
       "result": "reject",
       "reason": "parser-profile-unsupported"
     },
     {
-      "name": "unclosed-comment",
-      "html": "<signed-section><p>Before</p><!-- unclosed",
+      "name": "parser-attribute-historical-reference-literal",
+      "html": "<p><a href=\"https://example.org/?a=1&copy=2\">l</a></p>",
+      "result": "accept"
+    },
+    {
+      "name": "parser-attribute-unterminated-reference",
+      "html": "<p><img src=\"https://example.org/i.png\" alt=\"&copy 2024\"></p>",
       "result": "reject",
       "reason": "parser-profile-unsupported"
     },
     {
-      "name": "comment-double-hyphen",
-      "html": "<signed-section><p>Before</p><!-- a -- b --><p>After</p></signed-section>",
+      "name": "parser-block-inside-paragraph",
+      "html": "<p><div>x</div></p>",
       "result": "reject",
       "reason": "parser-profile-unsupported"
     },
     {
-      "name": "comment-trailing-hyphen",
-      "html": "<signed-section><p>Before</p><!-- trailing ---><p>After</p></signed-section>",
+      "name": "parser-bogus-declaration",
+      "html": "<!foo>x",
       "result": "reject",
       "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-comment-trailing-hyphen",
+      "html": "<p>before</p><!-- trailing ---><p>after</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-control-c0",
+      "html": "<p>A\u0001B</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-control-c1",
+      "html": "<p>AB</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-duplicate-attribute",
+      "html": "<signed-section><p title=one title=two>Text</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-foreign-content",
+      "html": "<signed-section><svg><foreignObject><p>Text</p></foreignObject></svg></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-foreign-object-standalone",
+      "html": "<signed-section><foreignObject><p>Text</p></foreignObject></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-malformed-comment",
+      "html": "<!-- a -- b -->x",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-misnested-formatting",
+      "html": "<signed-section><p><b>Text</p></b></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-nested-anchor",
+      "html": "<p><a href=\"https://a.example/\"><a href=\"https://b.example/\">x</a></a></p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-numeric-reference-c1",
+      "html": "<p>&#x80;</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-numeric-reference-null",
+      "html": "<p>a&#0;b</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-optional-end-tag-omitted",
+      "html": "<ul><li>a<li>b</ul>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-raw-text-is-data",
+      "html": "<p>before</p><script>const x = \"<div data-x='>'>&amp!</div>\";</script><style><!foo><!-- .x::after{content:'<svg>&bad'}</style><iframe>const x = \"<svg>&notit;</svg>\";</iframe><p>after</p>",
+      "result": "accept"
+    },
+    {
+      "name": "parser-rcdata-unterminated-reference",
+      "html": "<textarea>a &amp b</textarea>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-self-closing-nonvoid-boolean-attribute",
+      "html": "<signed-section><p hidden/>Text</signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-self-closing-nonvoid-quoted-attribute",
+      "html": "<signed-section><p data-value=\"x\"/>Text</signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-self-closing-nonvoid-whitespace",
+      "html": "<signed-section><div \t/ >Text</signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-self-closing-nonvoid",
+      "html": "<signed-section><p/>Text</signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-table-foster-parented-element",
+      "html": "<table><p>x</p><tr><td>a</td></tr></table>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-table-foster-parenting",
+      "html": "<signed-section><table>Text<tr><td>Cell</td></tr></table></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-table-trailing-foster-text",
+      "html": "<table><tr><td>x</td></tr>tail</table>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-unclosed-comment",
+      "html": "<!-- unclosed x",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-unclosed-element",
+      "html": "<signed-section><p>Text</signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-unclosed-simple-element",
+      "html": "<p>x",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-uncommon-element-name",
+      "html": "<svg_x>custom</svg_x>",
+      "result": "accept"
+    },
+    {
+      "name": "parser-unknown-named-reference",
+      "html": "<signed-section><p>&foo;</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-unquoted-slash-attribute-value",
+      "html": "<signed-section><p data=/ >Text</p></signed-section>",
+      "result": "accept"
+    },
+    {
+      "name": "parser-unterminated-numeric-reference",
+      "html": "<p>&#65</p>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-unterminated-reference",
+      "html": "<signed-section><p>A &amp B</p></signed-section>",
+      "result": "reject",
+      "reason": "parser-profile-unsupported"
+    },
+    {
+      "name": "parser-well-formed",
+      "html": "<signed-section><p>Simple text</p></signed-section>",
+      "result": "accept"
     }
   ]
 }
