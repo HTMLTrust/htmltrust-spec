@@ -32,3 +32,7 @@ Thumbs.db
 
 # Local browser-review artifacts
 .playwright-cli/
+
+# paperreview.ai lookup tokens. Losing one loses the review; committing one
+# publishes it. Keep them local.
+paper/reviews/*.token
