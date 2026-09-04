@@ -145,6 +145,215 @@ if (!verify(
   throw new Error("endorsement-01 signature does not verify");
 }
 
+const revocation = load("revocation-01.json");
+const { signature: revocationSignature, ...unsignedRevocation } = revocation.document;
+const revocationJcs = canonicalizeJcs(unsignedRevocation);
+if (revocationJcs !== revocation.jcsWithoutSignature) {
+  throw new Error("revocation-01 JCS serialization does not match");
+}
+const revocationSignerPrivateKey = privateKeyFromSeed(revocation.signerKey.seedHex);
+const revocationSignerPublicKey = createPublicKey(revocationSignerPrivateKey);
+const revocationSignerPublicKeyRaw = revocationSignerPublicKey.export({ format: "der", type: "spki" }).subarray(-32);
+if (revocationSignerPublicKeyRaw.toString("hex") !== revocation.signerKey.publicKeyRawHex) {
+  throw new Error("revocation-01 signer public key does not match the seed");
+}
+if (!verify(
+  null,
+  Buffer.from(revocationJcs, "utf8"),
+  revocationSignerPublicKey,
+  Buffer.from(revocationSignature, "base64"),
+)) {
+  throw new Error("revocation-01 signature does not verify");
+}
+
+// The revoked entry's publicKeyHash must actually be the SHA-256 SPKI-DER
+// hash of the real compromised key material, not an arbitrary string --
+// otherwise this vector would not demonstrate anything about hash-based
+// matching.
+const revokedPrivateKey = privateKeyFromSeed(revocation.revokedKey.seedHex);
+const revokedPublicKey = createPublicKey(revokedPrivateKey);
+const revokedSpkiDer = revokedPublicKey.export({ format: "der", type: "spki" });
+if (revokedSpkiDer.subarray(-32).toString("hex") !== revocation.revokedKey.publicKeyRawHex) {
+  throw new Error("revocation-01 revoked key does not match its seed");
+}
+const revokedPublicKeyHash = unpaddedBase64(createHash("sha256").update(revokedSpkiDer).digest());
+if (revokedPublicKeyHash !== revocation.revokedKey.publicKeyHash) {
+  throw new Error("revocation-01 revokedKey.publicKeyHash does not match its own seed");
+}
+const revokedEntry = revocation.document.revocations.find((e) => e.status === "revoked");
+if (!revokedEntry || revokedEntry.publicKeyHash !== revocation.revokedKey.publicKeyHash) {
+  throw new Error("revocation-01 revoked entry's publicKeyHash does not match revokedKey");
+}
+
+// Spec §9.7/§9.6: `revoked` is matched by publicKeyHash against the
+// resolved key's own SPKI hash, not by the keyid string, and a `revoked`
+// match anywhere in the array wins over a `superseded` match for the same
+// key regardless of order (§9.6's duplicate-entry precedence rule). This
+// scans every entry rather than deduping into a Map keyed by `keyid`: a
+// Map would silently let a later duplicate-keyid entry overwrite an
+// earlier one, which is exactly the fail-open bug §9.6 now forbids.
+function resolveRevocationEntries(entries, resolvedPublicKeyHash) {
+  for (const entry of entries) {
+    if (entry.status === "revoked" && entry.publicKeyHash && entry.publicKeyHash === resolvedPublicKeyHash) {
+      return { status: "revoked", entry };
+    }
+  }
+  return { status: "not-revoked", entry: undefined };
+}
+
+const revocationByHash = new Map();
+for (const entry of revocation.document.revocations) {
+  if (entry.status === "revoked" && entry.publicKeyHash) {
+    if (!revocationByHash.has(entry.publicKeyHash)) revocationByHash.set(entry.publicKeyHash, []);
+    revocationByHash.get(entry.publicKeyHash).push(entry);
+  }
+}
+for (const check of revocation.revocationChecks) {
+  const hashMatches = check.resolvedPublicKeyHash ? revocationByHash.get(check.resolvedPublicKeyHash) : undefined;
+  const status = hashMatches && hashMatches.length > 0 ? "revoked" : "not-revoked";
+  if (status !== check.expected) {
+    throw new Error(`revocation-01 status mismatch for ${check.keyid}`);
+  }
+  // superseded lookup: keyid-based, since no matching-key entry exists for
+  // these fictional identities' superseded case.
+  const keyidMatches = revocation.document.revocations.filter((e) => e.keyid === check.keyid);
+  const supersededEntry = status === "not-revoked" ? keyidMatches.find((e) => e.status === "superseded") : undefined;
+  const superseded = Boolean(supersededEntry);
+  if (Boolean(check.superseded) !== superseded) {
+    throw new Error(`revocation-01 superseded mismatch for ${check.keyid}`);
+  }
+  if (superseded && supersededEntry.supersededBy !== check.supersededBy) {
+    throw new Error(`revocation-01 supersededBy mismatch for ${check.keyid}`);
+  }
+}
+
+// Spec §9.6: a "revoked" entry MUST win over a "superseded" entry for the
+// same key, regardless of array order -- checked here with a synthetic
+// pair of entries sharing the target's publicKeyHash, superseded listed
+// first, to prove the checker (and by extension the matching rule it
+// mirrors) does not depend on array order.
+{
+  const targetHash = revocation.revokedKey.publicKeyHash;
+  const synthetic = [
+    { keyid: "https://keys.example/order-test.json", status: "superseded", supersededBy: "https://keys.example/newer.json", publicKeyHash: targetHash },
+    { keyid: "https://keys.example/order-test.json", status: "revoked", publicKeyHash: targetHash },
+  ];
+  const result = resolveRevocationEntries(synthetic, targetHash);
+  if (result.status !== "revoked") {
+    throw new Error("duplicate-entry precedence: a revoked entry must win regardless of array order");
+  }
+}
+
+// revocation-03.json: cross-origin signer rejection.
+const revocationCrossOrigin = load("revocation-03.json");
+{
+  const { signature: crossOriginSignature, ...unsignedCrossOrigin } = revocationCrossOrigin.document;
+  const crossOriginJcs = canonicalizeJcs(unsignedCrossOrigin);
+  if (crossOriginJcs !== revocationCrossOrigin.jcsWithoutSignature) {
+    throw new Error("revocation-03 JCS serialization does not match");
+  }
+  const hostilePrivateKey = privateKeyFromSeed(revocationCrossOrigin.key.seedHex);
+  const hostilePublicKey = createPublicKey(hostilePrivateKey);
+  if (hostilePublicKey.export({ format: "der", type: "spki" }).subarray(-32).toString("hex") !== revocationCrossOrigin.key.publicKeyRawHex) {
+    throw new Error("revocation-03 key does not match its seed");
+  }
+  // The signature genuinely verifies -- that is the point of this vector:
+  // a valid signature is not sufficient when the signer is hosted at a
+  // different origin than the list itself.
+  if (!verify(null, Buffer.from(crossOriginJcs, "utf8"), hostilePublicKey, Buffer.from(crossOriginSignature, "base64"))) {
+    throw new Error("revocation-03 signature does not verify (it must, to demonstrate origin rejection catches what signature checking alone would not)");
+  }
+  const signerOrigin = new URL(revocationCrossOrigin.document.signer).origin;
+  if (signerOrigin === revocationCrossOrigin.listServedFromOrigin) {
+    throw new Error("revocation-03 signer origin must differ from the list's serving origin to demonstrate the rejection");
+  }
+}
+
+// revocation-04.json: cross-host identifier binding (kid/id equality).
+const revocationHostAlias = load("revocation-04.json");
+{
+  if (revocationHostAlias.keyDocument.kid !== revocationHostAlias.canonicalKeyid) {
+    throw new Error("revocation-04 keyDocument.kid must equal canonicalKeyid");
+  }
+  const canonicalOrigin = new URL(revocationHostAlias.canonicalKeyid).origin;
+  for (const alias of revocationHostAlias.crossHostAliasKeyids) {
+    if (alias === revocationHostAlias.canonicalKeyid) {
+      throw new Error(`revocation-04 alias ${alias} must differ textually from canonicalKeyid`);
+    }
+    const aliasOrigin = new URL(alias).origin;
+    if (aliasOrigin === canonicalOrigin) {
+      throw new Error(`revocation-04 alias ${alias} must be a genuinely different origin, not a within-origin alias (that case is revocation-02)`);
+    }
+    // The alias keyid must not equal the key document's own kid: this is
+    // exactly the mismatch that makes resolution fail.
+    if (alias === revocationHostAlias.keyDocument.kid) {
+      throw new Error(`revocation-04 alias ${alias} must not equal the key document's kid`);
+    }
+  }
+  const { canonical: didCanonical, alias: didAlias } = revocationHostAlias.didWebHostVariant;
+  if (didCanonical === didAlias) {
+    throw new Error("revocation-04 did:web host variant must differ textually from the canonical form");
+  }
+  if (didCanonical.toLowerCase() !== didAlias.toLowerCase()) {
+    throw new Error("revocation-04 did:web host variant does not collapse under lowercasing (so would not even share a DID document)");
+  }
+}
+
+// Malformed-entry and extensibility synthetic checks (§9.6): a document
+// containing one malformed entry alongside otherwise well-formed ones must
+// be rejected as a whole, while an entry carrying only an unrecognized
+// extra field remains well-formed.
+function isWellFormedRevocationEntry(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  if (typeof entry.keyid !== "string" || entry.keyid === "") return false;
+  if (entry.status !== "revoked" && entry.status !== "superseded") return false;
+  if (entry.publicKeyHash !== undefined && typeof entry.publicKeyHash !== "string") return false;
+  if (entry.revokedAt !== undefined && typeof entry.revokedAt !== "string") return false;
+  if (entry.supersededBy !== undefined && typeof entry.supersededBy !== "string") return false;
+  return true;
+}
+{
+  const withMalformedEntry = [
+    { keyid: "https://keys.example/ok.json", status: "revoked" },
+    { keyid: "https://keys.example/bad.json", status: "not-a-real-status" },
+  ];
+  if (withMalformedEntry.every(isWellFormedRevocationEntry)) {
+    throw new Error("malformed-entry check: the synthetic bad entry should not have validated as well-formed");
+  }
+  const withUnknownField = [
+    { keyid: "https://keys.example/ok.json", status: "revoked", fromPeriod: 3 },
+  ];
+  if (!withUnknownField.every(isWellFormedRevocationEntry)) {
+    throw new Error("extensibility check: an entry with only an unrecognized extra field must remain well-formed");
+  }
+}
+
+// revocation-02.json: alias immunity. These assertions are the machine-
+// checked form of the worked example in the IETF draft's "Revocation list
+// keyid-alias immunity" appendix.
+const revocationAlias = load("revocation-02.json");
+const canonicalUrl = new URL(revocationAlias.canonicalKeyid);
+for (const alias of revocationAlias.urlAliasesResolvingToSameOrigin) {
+  if (alias === revocationAlias.canonicalKeyid) {
+    throw new Error(`revocation-02 alias ${alias} must differ textually from canonicalKeyid`);
+  }
+  if (new URL(alias).href !== canonicalUrl.href) {
+    throw new Error(`revocation-02 alias ${alias} does not resolve to the canonical keyid's origin`);
+  }
+}
+for (const forbidden of revocationAlias.keyidFormsForbiddenBySection5_1) {
+  if (!/[?#]/.test(forbidden)) {
+    throw new Error(`revocation-02 forbidden form ${forbidden} does not contain a query or fragment`);
+  }
+}
+const { canonical: didCanonical, alias: didAlias } = revocationAlias.didWebCaseVariant;
+if (didCanonical === didAlias) {
+  throw new Error("revocation-02 did:web case variant must differ textually from the canonical form");
+}
+if (didCanonical.toLowerCase() !== didAlias.toLowerCase()) {
+  throw new Error("revocation-02 did:web case variant does not collapse under lowercasing");
+}
+
 const escapeClaimToken = (value) => value
   .replaceAll("\\", "\\\\")
   .replaceAll(":", "\\:")

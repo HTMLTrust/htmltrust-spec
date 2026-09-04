@@ -1,0 +1,23 @@
+{
+  "description": "HTMLTrust cross-host alias identifier-binding vector 04: a key document naming its own canonical kid MUST fail resolution under any other spelling, including a genuinely different hostname the same key material happens to be reachable under. This is what makes revocation-list discovery alias-proof across hosts, not just within one origin (see revocation-02.json for the within-origin case).",
+  "canonicalKeyid": "https://keys.example/alice-2024.json",
+  "keyDocument": {
+    "kid": "https://keys.example/alice-2024.json",
+    "algorithm": "ed25519",
+    "publicKeyEncoding": "spki-der",
+    "publicKey": "MCowBQYDK2VwAyEA/+NCmGTnjGQD7aRRgEMj2QZyPGESF77/tV2F4Rs8aMw"
+  },
+  "note_keyDocument": "The same publicKey as revocation-01.json's revokedKey (seed htmltrust-alias-victim-vector-01), reused here to show the SAME key material under a second hostname, not merely a similarly-shaped one.",
+  "crossHostAliasKeyids": [
+    "https://www.keys.example/alice-2024.json",
+    "https://cdn.keys.example/alice-2024.json",
+    "https://93.184.216.34/alice-2024.json",
+    "https://keys.example./alice-2024.json"
+  ],
+  "note_crossHostAliases": "Each string above names a genuinely different origin from canonicalKeyid under Section 9.5's origin derivation (www subdomain, CDN hostname, IP literal, trailing-dot FQDN), yet a hosting setup could plausibly serve the identical keyDocument at any of them. A verifier resolving any alias fetches this same document, whose kid still names only the canonical spelling. Section 8.2 requires kid to equal the keyid used to resolve it byte for byte; every alias here fails that check with malformed-key-document, so resolution never succeeds under a false identity and the revocation list is never consulted under one either.",
+  "didWebHostVariant": {
+    "canonical": "did:web:keys.example",
+    "alias": "did:web:KEYS.example"
+  },
+  "note_didWebHostVariant": "did:web resolution (Section 8.1) lowercases the host when constructing the DID document URL, so both strings fetch the identical DID document -- but that document's own top-level id can only equal one spelling. Section 8.1 requires id to equal the DID portion of keyid byte for byte, so resolving the alias fails with key-resolution-failed."
+}

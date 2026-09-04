@@ -1,0 +1,23 @@
+{
+  "description": "HTMLTrust revocation-list cross-origin signer rejection vector 03: a validly-signed document is still rejected because the signer's own origin does not match the origin the list was served from (spec Section 9.8).",
+  "key": {
+    "description": "The hostile signer's own key material; the signature below is genuinely valid, which is the point -- a valid signature is not sufficient.",
+    "seedHex": "68746d6c74727573742d63726f73732d6f726967696e2d766563746f722d3031",
+    "publicKeyRawHex": "4c9e249868a06682eb9a9bd0162ff839a1691c6e79b84a708d815165a6aa8c9b"
+  },
+  "listServedFromOrigin": "https://keys.example",
+  "document": {
+    "signer": "https://attacker.example/signer.json",
+    "algorithm": "ed25519",
+    "timestamp": "2026-06-01T00:00:00Z",
+    "revocations": [
+      {
+        "keyid": "https://keys.example/bob-2024.json",
+        "status": "revoked"
+      }
+    ],
+    "signature": "lfT79FpmMCEzi31/zDE1uu7RGrtH7dag8EV8w3EeXCA+NQ37WmCA4BtgVqw9rarBf9YpLw03TT4bofEaIzSjCA"
+  },
+  "jcsWithoutSignature": "{\"algorithm\":\"ed25519\",\"revocations\":[{\"keyid\":\"https://keys.example/bob-2024.json\",\"status\":\"revoked\"}],\"signer\":\"https://attacker.example/signer.json\",\"timestamp\":\"2026-06-01T00:00:00Z\"}",
+  "note": "The verifier derives the signer's origin from the `signer` value (https://attacker.example) per Section 9.5, and MUST compare it to listServedFromOrigin (https://keys.example) BEFORE resolving the signer at all. They differ, so the document is revocation-unknown regardless of whether its signature verifies -- and it does verify, which is exactly the case this check exists to catch."
+}
