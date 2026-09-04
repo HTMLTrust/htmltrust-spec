@@ -640,12 +640,15 @@ dictionary SignedSectionTrustOutcome {
     as <code>did:web:author.example#p3</code> selects exactly the
     verification method with that <code>id</code>, and a user agent
     <em class="rfc2119">MUST NOT</em> fall through to another method. A user
-    agent that does not implement period-scoped selection
-    <em class="rfc2119">MUST</em> leave this member <code>null</code>; such
-    an agent resolves a bare <code>keyid</code> to the identity's first
-    verification method, which the scheme's ordering rule guarantees is an
-    anchor key, so it fails closed on period signatures and never reports a
-    false <code>valid</code>.
+    agent that selects by exact <code>id</code> but does not implement
+    period-scoped range revocation <em class="rfc2119">MUST</em> leave this
+    member <code>null</code>; it still verifies period signatures and loses
+    only range revocation. A user agent built against the selection rule of
+    earlier revisions, the first usable verification method in array order,
+    resolves every <code>keyid</code> of the identity to an anchor key,
+    which the scheme's ordering rule guarantees comes first, so it fails
+    closed on period signatures and never reports a false
+    <code>valid</code>.
   </p>
   <p>
     {{SignedSectionCryptoOutcome/keySuperseded}} is <code>true</code> when

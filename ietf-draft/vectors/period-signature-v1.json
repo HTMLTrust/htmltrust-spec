@@ -1,5 +1,5 @@
 {
-  "description": "Period-scoped signature under did:web:example.com#p3 with a range revocation striking period 2, signed by the anchor #key-1 (the Appendix A test key).",
+  "description": "Period-scoped signatures under did:web:example.com with a range revocation striking period 2, signed by the anchor #key-1 (the signing-profile test key); nine cases across three selection rules.",
   "identity": "did:web:example.com",
   "didDocumentUrl": "https://example.com/.well-known/did.json",
   "didDocument": {
@@ -97,9 +97,18 @@
     "p3": "D2o9ZeRXmNG6sjRC3pfyY6wzLeZr7JxyR6nodpepmp4",
     "key-1": "rv1dxinrhF8n4qfUfGS2+twfTPvwN+hVCnjaWf6XUh8"
   },
-  "expected": [
+  "signaturesByKeyid": {
+    "did:web:example.com#p1": "UU0qnb+IVvX220Giq/clPepecr5N6VkG0NpuMxZQQOwXm2cjaeR56A6MUyrkUHBJboZ3pp7xhL/oEbi3uOlBDw",
+    "did:web:example.com#p2": "TIH6kX6UBGCwqVp2U5flDy2JaJc9dZHUaWERcH/8SsxX3Atd7qY1tO87hzt86OeuwIJKw1dXwH787NvacE+KCQ",
+    "did:web:example.com#p3": "5rr3D6QoQ/KC2gL1HKgCSWdB3yF8Uh44zZvr0rgb7CXre3x9szzeYegtiaJGwvjADA8vnrg9zyRVDhcjwJV2BQ",
+    "did:web:example.com#p4": "wfO333XBisKXxWGUC3J4ZbzdzqRzMvvVCBjeKNTMfOkpoc3xmqQCNFYRXpSfvGwsObEjVHjVvJ0mZ8zykQ8LAA",
+    "did:web:example.com": "s1IImULvg9hf10KNKkJhxh+5EoaEXVeTK+B8Dl1vUWB0kVyTOwPTP/fkyfR33MZqth46O/jOaSIp/zPpr7ztDQ"
+  },
+  "signingObjectNote": "Every case signs the signing object with keyid replaced by the case's keyid; jcsPayload is the #p3 instance. Period 4's key is derived from the vector master but is not published in the DID document.",
+  "cases": [
     {
       "case": "period-3-signature",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com#p3",
       "signature": "5rr3D6QoQ/KC2gL1HKgCSWdB3yF8Uh44zZvr0rgb7CXre3x9szzeYegtiaJGwvjADA8vnrg9zyRVDhcjwJV2BQ",
       "result": "valid",
@@ -108,38 +117,68 @@
     },
     {
       "case": "mislabelled-period-2-key",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com#p3",
       "signature": "EA+0rhk5ij10s/I1YHiGSmcJk+7hHCWh+TGegp76IyG0fwQKW+mLHOhf62oyV1LBuzNkF+wweAVu41uS2NPuAQ",
       "result": "signature-invalid"
     },
     {
       "case": "period-2-struck-by-range",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com#p2",
+      "signature": "TIH6kX6UBGCwqVp2U5flDy2JaJc9dZHUaWERcH/8SsxX3Atd7qY1tO87hzt86OeuwIJKw1dXwH787NvacE+KCQ",
       "result": "key-revoked",
-      "note": "applies by material (publicKeyHash of #p2) and by range (from-period 2 <= 2 < to-period 3)"
+      "revocationStatus": "revoked",
+      "note": "applies by material (publicKeyHash of #p2) and independently by range (from-period 2 <= 2 < to-period 3)"
     },
     {
       "case": "period-1-outside-range",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com#p1",
-      "result": "not-revoked-continue",
-      "keyPeriod": 1
+      "signature": "UU0qnb+IVvX220Giq/clPepecr5N6VkG0NpuMxZQQOwXm2cjaeR56A6MUyrkUHBJboZ3pp7xhL/oEbi3uOlBDw",
+      "result": "valid",
+      "keyPeriod": 1,
+      "revocationStatus": "not-revoked"
     },
     {
       "case": "unpublished-period",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com#p4",
+      "signature": "wfO333XBisKXxWGUC3J4ZbzdzqRzMvvVCBjeKNTMfOkpoc3xmqQCNFYRXpSfvGwsObEjVHjVvJ0mZ8zykQ8LAA",
       "result": "key-resolution-failed"
     },
     {
       "case": "bare-identity-anchor",
+      "selection": "section-9.10",
       "keyid": "did:web:example.com",
-      "result": "resolves-to-#key-1",
-      "keyPeriod": 0
+      "signature": "s1IImULvg9hf10KNKkJhxh+5EoaEXVeTK+B8Dl1vUWB0kVyTOwPTP/fkyfR33MZqth46O/jOaSIp/zPpr7ztDQ",
+      "result": "valid",
+      "keyPeriod": 0,
+      "revocationStatus": "not-revoked"
     },
     {
-      "case": "pre-period-verifier",
+      "case": "section-8.1-without-9.10",
+      "selection": "section-8.1-exact",
       "keyid": "did:web:example.com#p3",
+      "signature": "5rr3D6QoQ/KC2gL1HKgCSWdB3yF8Uh44zZvr0rgb7CXre3x9szzeYegtiaJGwvjADA8vnrg9zyRVDhcjwJV2BQ",
+      "result": "valid",
+      "note": "exact-id selection without Section 9.10: verifies, no keyPeriod, range revocation not evaluated"
+    },
+    {
+      "case": "legacy-selection-period-signature",
+      "selection": "legacy-first-usable",
+      "keyid": "did:web:example.com#p3",
+      "signature": "5rr3D6QoQ/KC2gL1HKgCSWdB3yF8Uh44zZvr0rgb7CXre3x9szzeYegtiaJGwvjADA8vnrg9zyRVDhcjwJV2BQ",
       "result": "signature-invalid",
-      "note": "first-usable-method selection picks #key-1"
+      "note": "selection rule of earlier revisions (first usable entry in array order) picks #key-1"
+    },
+    {
+      "case": "legacy-selection-bare-identity",
+      "selection": "legacy-first-usable",
+      "keyid": "did:web:example.com",
+      "signature": "s1IImULvg9hf10KNKkJhxh+5EoaEXVeTK+B8Dl1vUWB0kVyTOwPTP/fkyfR33MZqth46O/jOaSIp/zPpr7ztDQ",
+      "result": "valid",
+      "note": "the legacy anchor verifies under either selection rule"
     }
   ]
 }

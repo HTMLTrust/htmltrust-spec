@@ -1212,20 +1212,26 @@ When `keyid` carries a fragment, the verifier MUST select the single
 `#fragment` id against the document's `id`) equals `keyid` byte for
 byte, and MUST NOT select any other entry. When `keyid` carries no
 fragment, the verifier MUST select the first entry in array order whose
-fragment is not a period fragment (Section 9.10); a verifier that does
+fragment is not a period fragment (Section 9.10). A verifier that does
 not implement Section 9.10 selects the first entry that carries usable
-key material, which Section 9.10's ordering rule makes the same entry.
+key material; Section 9.10's ordering rule makes that the same entry.
 In either case the selected method's `type` or `algorithm` MUST be
 compatible with the `algorithm` attribute, else the result is
 "algorithm-mismatch". The verifier MUST NOT consult `assertionMethod` to
 choose among entries, and MUST NOT fall through to another entry when
 the selected one is revoked, expired, or unusable. Two entries that
-share an expanded `id` are a "malformed-key-document" result.
+share an expanded `id` are a "malformed-key-document" result. This
+revision accepts DID verification-method key material in `publicKeyPem`,
+a SubjectPublicKeyInfo PEM; an entry without it carries no usable
+material, and other encodings, including `publicKeyJwk` and
+`publicKeyMultibase`, are not usable material in this revision (Appendix
+D).
 
 DID resolution failures (DID document not found, signature on DID
-document invalid where the method demands one, expired or revoked
-verification method) MUST be reported as "key-resolution-failed"
-verification failures. A DID document whose `deactivated` member is
+document invalid where the method demands one, no method selected) MUST
+be reported as "key-resolution-failed" verification failures. A selected
+method that is revoked or expired is reported as Section 9 requires:
+"key-revoked" when Section 9 does not permit the key for this signature. A DID document whose `deactivated` member is
 `true` is a "key-resolution-failed" result for every `keyid` of that
 identity.
 
@@ -1359,8 +1365,9 @@ URL `keyid`'s fragment is forbidden outright, so it is not stripped.
 This canonical form is REQUIRED for the Section 9.9 revocation-list
 `superseded` lookup when an entry omits `publicKeyHash`. It is not used
 for a `revoked` entry: Section 9.6 requires `publicKeyHash` on every
-`revoked` entry, and Section 9.7 defines no `keyid`-based match for
-`revoked` at all, primary or secondary. It does not change signature
+`revoked` entry, and Section 9.7 defines no `keyid`-text match for
+`revoked`; the Section 9.10 range match compares identities in this
+canonical form, not `keyid` text. It does not change signature
 verification itself: the signing payload (Section 5.5) still binds the
 exact `keyid` attribute value as written, and a verifier MUST NOT
 normalize `keyid` before reproducing that payload.
@@ -1564,9 +1571,9 @@ Each entry of `revocations` is itself a JSON object:
 | `publicKeyHash` | string | conditional | SHA-256 hash of the resolved key's SubjectPublicKeyInfo DER encoding (Section 8.2), as canonical unpadded standard Base64 (Section 6.1). REQUIRED when `status` is `revoked`; OPTIONAL when `status` is `superseded`. |
 | `status` | string | yes | Exactly `revoked` or `superseded`. |
 | `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
-| `from-period` | integer | no | Inclusive lower bound of a struck range of periods, 1 or greater; meaningful only when `status` is `revoked`. Defined by Section 9.10. |
-| `to-period` | integer | no | Exclusive upper bound of that range, greater than `from-period`; absent means unbounded. Defined by Section 9.10. |
-| `identity` | string | conditional | The identity URL a range applies to. REQUIRED when `keyid` is an HTTPS URL and `from-period` is present; ignored on a `did:` entry. Defined by Section 9.10. |
+| `from-period` | integer | no | Inclusive lower bound of a struck range of periods, 1 or greater. MUST NOT be present when `status` is `superseded`; its presence there is malformed. Defined by Section 9.10. |
+| `to-period` | integer | no | Exclusive upper bound of that range, greater than `from-period`; absent means unbounded. MUST NOT be present without `from-period`, nor when `status` is `superseded`. Defined by Section 9.10. |
+| `identity` | string | conditional | The identity URL a range applies to. REQUIRED when `keyid` is an HTTPS URL and `from-period` is present, and then an absolute HTTPS URL; ignored on a `did:` entry; MUST NOT be present when `status` is `superseded`. Defined by Section 9.10. |
 | `supersededBy` | string | no | Successor `keyid`; meaningful only when `status` is `superseded`. Same semantics as the `supersededBy` field of Section 8.2. |
 
 `publicKeyHash` is REQUIRED when `status` is `revoked`. A `revoked` entry
@@ -1585,7 +1592,9 @@ rather than merely degraded.
 An entry that fails to conform to this table in any other way -- `keyid`
 or `status` missing or of the wrong type, a `status` value other than the
 two listed, or a present-but-wrongly-typed `publicKeyHash`, `revokedAt`,
-or `supersededBy` -- is malformed for the same reason and with the same
+`supersededBy`, `identity`, `from-period`, or `to-period` (Section 9.10
+defines the integer and range rules) -- is malformed for the same reason
+and with the same
 effect: the whole document is invalidated, not just that entry. Skipping
 only the malformed entry is fail-open, because it lets exactly the entry
 an attacker most wants ignored -- one crafted to fail parsing -- vanish
@@ -1663,8 +1672,9 @@ list, and this distinction is the entire point of separating them:
   of whether the entry's own `keyid` string equals the `keyid` attribute
   under check. A verifier MUST perform this comparison for every `revoked`
   entry, not only the entry whose `keyid` happens to match textually.
-  There is no `keyid`-based match for `revoked`, primary or secondary, in
-  this revision: `keyid` is opaque and signer-chosen (Section 8), and a
+  There is no `keyid`-text match for `revoked`, primary or secondary, in
+  this revision (the Section 9.10 range match is by identity and period,
+  not by `keyid` text): `keyid` is opaque and signer-chosen (Section 8), and a
   comparison keyed to it, even as a fallback, is not a safe way to detect
   compromised key material that a signer -- honest or, in the case an
   entry exists to address, actively adversarial -- can resolve under more
@@ -1776,7 +1786,8 @@ The outcome maps to one of three revocation-status values:
   superseded, and whose signature verifies, all per Revocation list
   verification, above: the verifier applies its `revocations` entries
   using the matching rules in The two states, above -- `publicKeyHash`
-  alone for `revoked`; a verifier matches a `superseded` entry by
+  alone for `revoked`, plus, under Section 9.10, the identity-and-period
+  range match; a verifier matches a `superseded` entry by
   `publicKeyHash` when the entry carries one, and otherwise by the
   Section 8.5 canonical form of `keyid` -- with the duplicate-entry
   precedence Section 9.6 defines. Status is `revoked` if any entry
@@ -1887,7 +1898,8 @@ Period method:
 
 Anchor method:
 : A `verificationMethod` entry whose `id` has no fragment, or a fragment
-  that is not a period fragment (`#key-1`, `#rev`). An anchor method is
+  that is not a period fragment (`#key-1`, `#rev`). An anchor fragment
+  MUST NOT begin with `p` followed by a decimal digit. An anchor method is
   the legacy content key of a migrated identity, or the key that signs the
   identity's revocation list, or both.
 
@@ -1913,10 +1925,14 @@ document as follows.
    method, and period methods in ascending index order. A rollover appends
    one entry. Nothing is reordered.
 4. The first anchor method is the key that a bare-identity `keyid`
-   resolves to, and the key that a verifier which does not implement this
-   section selects for every `keyid` of the identity. For a migrated
+   resolves to, and the key that a verifier built against the selection
+   rule of earlier revisions of this document selects for every `keyid`
+   of the identity. For a migrated
    identity it is the legacy key. For an identity created under this
-   scheme it is the revocation anchor.
+   scheme it is the revocation anchor. At least one anchor method that is
+   neither revoked nor expired MUST precede every period method at all
+   times: a publisher retiring an anchor inserts its successor, ahead of
+   every period method, before marking the old anchor revoked.
 5. No method of a period-scoped identity carries `expires`. `revoked:
    true` MAY be set on any method; on a period method it strikes that
    period through the key-document channel, which a revocation list
@@ -1936,14 +1952,38 @@ document as follows.
    processor drops the unknown term and loses nothing verification needs.
 9. Two entries MUST NOT share an `id` after relative ids are expanded. A
    verifier that finds a duplicate MUST report "malformed-key-document".
+10. A period's public key MUST be published under exactly one identity
+    string. A key that is reachable under two identities, a DID document
+    and an HTTPS key document, or two DIDs, is two identities for range
+    purposes, and a range entry written for one leaves the other untouched
+    (Section 13.7).
 
-Rule 3 is what protects verifiers that predate this section. Such a
-verifier selects the first usable method, so under rule 3 it selects an
-anchor: it verifies every legacy signature, verifies the revocation list,
-and fails closed with "signature-invalid" on period signatures, because
-the period key is never the first entry. There is no path to a false
-`valid` while the ordering holds. The failure is availability only and
-ends when the verifier updates.
+Three kinds of verifier meet a period signature.
+
+A verifier that implements Section 8.1 of this revision but not this
+section selects `#p3` by exact `id`, verifies the signature under the
+period 3 key, and reports `valid`. It loses only range revocation, as a
+verifier that ignores the `period` member of a key document does
+(Section 9.10.3).
+
+A verifier built against the selection rule of earlier revisions, which
+took the first entry in array order carrying usable key material and
+skipped revoked or expired entries, selects an anchor while rules 3 and 4
+hold. It verifies every legacy signature, verifies the revocation list,
+and fails closed with "signature-invalid" on period signatures, because a
+period key is never the first usable entry. The resolvers that shipped
+before this revision select that way. For them the failure is
+availability only and ends when the verifier updates. Rules 3 and 4
+exist for them.
+
+A verifier that tries several `assertionMethod` keys until one verifies,
+as some DID libraries do, accepts a signature made with one period key
+and labelled with another, because that strategy lets any key of the
+identity verify. Earlier revisions permitted it for a bare `keyid`. Such
+a verifier does not have the property this section claims and MUST NOT
+accept period signatures until it selects by exact `id`. Rule 2 keeps
+period keys listed in `assertionMethod` because they are assertion keys;
+it does not license that strategy.
 
 The document below is `did:web:example.com`, migrated from the single
 Ed25519 key of the test vectors in Appendix B (that key is now the anchor
@@ -2029,14 +2069,18 @@ plus two members, both REQUIRED on a period key document:
 }
 ~~~
 
-`period` is a JSON integer, 1 through 2147483647. `identity` is an
-absolute HTTPS URL with the same origin as `kid`. Any other `identity`
+`period` is an integer, 1 through 2147483647. In this section an integer
+member is a JSON number whose text has no fraction part and no exponent
+part; any other number is malformed. `identity` is an absolute HTTPS URL
+with the same origin as `kid`. Any other `identity`
 value, a `period` that is not an integer or is outside the range, or a
 `period` without an `identity`, is a "malformed-key-document" result.
 `kid` is REQUIRED by Section 8.2 and MUST equal `keyid` byte for byte.
 `revoked: true` MAY appear; `expires` MUST NOT. A verifier that does not
 implement this section ignores the two members and verifies these
-signatures correctly; it loses only range revocation.
+signatures correctly; it loses only range revocation. A period key
+document MUST NOT publish a key that is also published as a period method
+of a DID identity or under another `identity` (rule 10 above).
 
 For a directory-hosted identity, `identity` names the directory's
 `/keys/{id}` URL for the identity's base key. The Section 9.5 revocation
@@ -2173,17 +2217,20 @@ them. An entry E applies to S when any of the following holds:
 - (material) E is `revoked` and its `publicKeyHash` equals the SHA-256 of
   M's SubjectPublicKeyInfo DER. This is the Section 9.7 rule, unchanged.
 - (range) E is `revoked`, its `from-period` is a positive integer,
-  identity(E) equals I byte for byte, `from-period` <= P, and either
-  `to-period` is absent or P < `to-period`.
+  identity(E) equals I in the Section 8.5 canonical form, `from-period`
+  <= P, and either `to-period` is absent or P < `to-period`.
 - (superseded) as Section 9.7 defines, unchanged.
 
 identity(E) is E's `keyid` with its fragment removed when that `keyid`
 begins with `did:`, and E's `identity` member when that `keyid` is an
-HTTPS URL. An entry whose `identity` is absent when required, whose
-range members are not integers, not positive, or not ordered, or which
-carries a range member while its `status` is `superseded`, is malformed,
-and Section 9.6 then makes the whole document malformed
-(`revocation-unknown`). Because P is 0 for every anchor and legacy key
+HTTPS URL. An entry whose `identity` is absent when required, or present
+but not a string, or not an absolute HTTPS URL on an HTTPS-keyid entry;
+whose `to-period` is present without `from-period`; whose range members
+are not integers as Section 9.10.3 defines them, not positive, not
+ordered, or above 2147483647 for `from-period` or 2147483648 for
+`to-period`; or which carries `identity`, `from-period`, or `to-period`
+while its `status` is `superseded`, is malformed, and Section 9.6 then
+makes the whole document malformed (`revocation-unknown`). Because P is 0 for every anchor and legacy key
 and `from-period` is at least 1, a range entry never applies to a
 signature made under an anchor.
 
@@ -2225,37 +2272,47 @@ A verifier that implements this section performs Step 5 of Section 12 as
 follows. Steps 1 through 4 and Steps 6 and 7 are unchanged.
 
 1. Parse `keyid`. If it begins with `did:`, split it at the first `#`
-   into D (before) and F (after; empty when there is no `#`). If F
-   contains `#`, `/`, or `?`, return "key-resolution-failed". If F
-   matches the period fragment grammar, the kind is period and P is its
-   value. If F is empty, the kind is bare and P = 0. Otherwise the kind is
-   anchor and P = 0. I = D. If `keyid` is an absolute HTTPS URL (Sections
+   into D (before) and F (after). Return "key-resolution-failed" if D
+   contains `/` or `?`, if `keyid` contains `#` but F is empty, if F
+   contains `#`, `/`, or `?`, or if F begins with `p` followed by a
+   decimal digit but is not a period fragment (a leading zero, or a value
+   above 2147483647). If F is a period fragment, the kind is period and P
+   is its value. If `keyid` contains no `#`, the kind is bare and P = 0.
+   Otherwise the kind is anchor and P = 0. I = D. If `keyid` is an absolute HTTPS URL (Sections
    8.2 and 8.3), the kind is url, and I and P are set in step 5. Any other
    form is "key-resolution-failed", as Section 12.1 requires.
 2. Fetch the DID document for D as Section 8.1 and the fetch policy of
    Section 12.9 require, through the cache of step 8. If the document has
    `deactivated: true`, or its `id` is absent or differs from D byte for
    byte, return "key-resolution-failed". Expand relative `#fragment` ids
-   against `id`. If two entries share an `id`, return
-   "malformed-key-document".
+   against `id`. An entry whose `id` is absent, or is neither an absolute
+   DID URL of the form `<id>#<fragment>` nor a `#`-prefixed relative
+   reference, is "malformed-key-document", as are two entries that share
+   an expanded `id`.
 3. Select the method. Kind period or anchor: the single entry whose
    expanded `id` equals `keyid`. Kind bare: the first entry in array order
    whose fragment is not a period fragment. If nothing is selected, apply
    the refetch rule of step 8 once; if still nothing, return
    "key-resolution-failed". The verifier MUST NOT select any other entry
    and MUST NOT consult `assertionMethod` to choose.
-4. Validate the selected entry. `publicKeyPem` MUST be present and parse
-   as an Ed25519 SubjectPublicKeyInfo; otherwise return
+4. Validate the selected entry. It MUST carry key material in an
+   encoding Section 8.1 accepts, and a period method's key MUST be an
+   Ed25519 SubjectPublicKeyInfo in `publicKeyPem`; otherwise return
    "malformed-key-document". Take the algorithm from `algorithm`, or from
-   `type` as Section 8.1 allows. If the entry carries `revoked: true`, or
-   an `expires` value that is malformed or in the past, return
-   "key-revoked". There is no fall-through to another entry.
+   `type` as Section 8.1 allows. Apply `revoked` and `expires` as Section
+   9 requires, except that `revoked: true` on a period method is
+   unconditional (rule 5): the Section 9.3 corroborated-timing exception
+   does not apply to a period key, whose pre-compromise signatures are
+   protected by the range mechanism instead. A malformed `expires` is
+   "malformed-key-document". There is no fall-through to another entry.
 5. Kind url: fetch and validate the key document under Section 8.2. If
    `period` is present, it MUST be a JSON integer in 1 through
    2147483647, and `identity` MUST be present, an absolute HTTPS URL, and
    same-origin with `keyid`; any violation is "malformed-key-document".
    Set P = `period` and I = `identity`. If `period` is absent, P = 0 and
-   I = `keyid`. Apply `revoked` and `expires` as Section 9 requires.
+   I = `keyid`. Apply `revoked` and `expires` as Section 9 requires,
+   except that `revoked: true` on a document carrying `period` is
+   unconditional, as in step 4.
 6. When the verifier consults revocation lists, fetch the list for the
    origin of I under Sections 9.5, 9.8, and 9.9. Resolve `signer` with
    steps 1 through 5; if its kind is period, or it resolves to a period
@@ -2268,8 +2325,8 @@ follows. Steps 1 through 4 and Steps 6 and 7 are unchanged.
 8. Caching. DID documents and key documents follow HTTP cache semantics
    with a floor of 60 seconds and a ceiling of 3600 seconds regardless of
    headers. When step 3 finds no entry and the cached copy is older than
-   60 seconds, refetch once bypassing the cache before failing, and record
-   a negative entry for (document URL, F) for 60 seconds, so that a page
+   60 seconds, refetch once bypassing the cache before failing. Record a
+   negative entry for (document URL, F) for 60 seconds, so that a page
    carrying many unknown fragments cannot force repeated fetches. The
    Section 12.10 limits apply on top. The revocation list caches under
    Section 9.9, unchanged.
@@ -2297,7 +2354,9 @@ period is "key-resolution-failed", a document with duplicate ids is
 A `did:web` identity that publishes one key at array position 0 today
 migrates without invalidating anything. The existing key stays at
 position 0 as the anchor; its private key moves offline and signs the
-revocation list. Period methods are appended, and the online signer
+revocation list. It MUST NOT carry `expires`: rule 5 forbids it, and a
+verifier that skips expired entries would otherwise select a period key
+for the bare `keyid`. Period methods are appended, and the online signer
 receives the private key of period 1. Legacy signatures with the bare
 `keyid` continue to resolve to the anchor on every verifier. An HTTPS
 identity keeps its key document at the identity URL and adds period key
@@ -2918,9 +2977,12 @@ Key compromise:
   publisher strikes with one range entry, and nothing earlier. The
   offline tier holds the master seed and the anchor key; compromise of
   the master costs every period signed under it, and the identity
-  continues under a new master from the next unpublished index. The
-  origin tier serves the DID document and the list; its compromise is
-  the origin compromise above. The revocation list is the more robust of
+  continues under a new master from the next unpublished index. Theft
+  of the anchor alone is a different loss rather than a smaller one: the
+  publisher marks it revoked in the DID document, every legacy signature
+  made under it (period 0) fails from then on, and period signatures are
+  untouched. The origin tier serves the DID document and the list; its
+  compromise is the origin compromise above. The revocation list is the more robust of
   the two revocation channels when the key document itself is hosted
   somewhere the compromise also reaches.
 
@@ -3031,8 +3093,10 @@ legitimate cache entry would have been trusted.
 
 Verification time for crawlers and archives. A verifier that stores
 results (a search crawler, an archive, a directory) SHOULD verify at fetch
-time, against the key state it can observe then, and MUST record the time
-of verification with the result. A stored result is a statement about the
+time, against the key state it can observe then, and MUST record with
+the result the time of verification, the resolved key's
+SubjectPublicKeyInfo hash, and, under Section 9.10, the identity and
+period. A stored result is a statement about the
 key state observed at that time. A later expiry does not retroactively
 alter it; a later revocation MAY be applied to stored results by
 re-evaluating them against the newer list, and under Section 9.10 that
@@ -3091,6 +3155,17 @@ could do, into a detectable conflict on any verifier that has seen the
 identity before. It is the only defence this document offers against
 origin compromise at the key layer, and it is available only to stateful
 verifiers.
+
+A range entry is keyed to one identity string. A period public key that
+is reachable under two identity strings, a DID document and an HTTPS key
+document, or two DIDs, is two identities for range purposes, and a range
+entry written for one leaves the other untouched; only the material match
+of the first struck period reaches it. Section 9.10.2 therefore requires
+that a period key be published under exactly one identity. Whoever signs
+an origin's revocation list can strike any identity at that origin with
+one range entry and one 32-byte hash. Section 9.5 already grants that
+party material-entry authority over every identity at the origin, so
+nothing new is granted, but publishers sharing an origin should know it.
 
 ## Revocation mechanism alternatives
 
@@ -3842,7 +3917,11 @@ omitted), on one line:
 The SHA-256 SPKI-DER hash of the period 3 key is
 `D2o9ZeRXmNG6sjRC3pfyY6wzLeZr7JxyR6nodpepmp4`; it appears in no entry.
 
-A verifier that implements Section 9.10 produces these outcomes:
+A verifier that implements Section 9.10 and consults the revocation list
+produces these outcomes. The machine-readable vector carries a signature
+for every row, each over the signing object with `keyid` replaced by the
+row's `keyid`, including a period 4 key derived from the vector master
+but never published:
 
 | Signature | Outcome |
 | --- | --- |
@@ -3853,8 +3932,11 @@ A verifier that implements Section 9.10 produces these outcomes:
 | Any signature naming `#p4` | `key-resolution-failed`: no method is published for index 4 |
 | The bare `keyid` `did:web:example.com` | resolves to `#key-1` with `keyPeriod` 0 |
 
-A verifier that predates Section 9.10 selects `#key-1` for every `keyid`
-of this identity: the bare `keyid` verifies, `#p3` is `signature-invalid`,
+A verifier that implements this revision's Section 8.1 without Section
+9.10 verifies `#p3` and reports `valid` without `keyPeriod`. A verifier
+built against the selection rule of earlier revisions, which takes the
+first usable entry in array order, selects `#key-1` for every `keyid` of
+this identity: the bare `keyid` verifies, `#p3` is `signature-invalid`,
 and the list entry strikes the period 2 key by material alone.
 
 The machine-readable form of this vector, including the DID document and
@@ -3972,3 +4054,9 @@ Community Group Report.
    present establish that a signature existed before a revocation or
    before another publication, without a trusted clock. Its format and
    stapling rules are deferred.
+7. DID key encodings. This revision accepts verification-method key
+   material only in `publicKeyPem`, and Section 9.10 pairs the
+   `Ed25519VerificationKey2020` type with it, which follows the shipped
+   resolvers rather than the DID key-type registry, where that type
+   carries `publicKeyMultibase`. A future revision may accept
+   `publicKeyMultibase` and `publicKeyJwk`.

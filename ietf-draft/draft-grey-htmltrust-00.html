@@ -3269,19 +3269,25 @@ When <code>keyid</code> carries a fragment, the verifier <span class="bcp14">MUS
 <code>#fragment</code> id against the document's <code>id</code>) equals <code>keyid</code> byte for
 byte, and <span class="bcp14">MUST NOT</span> select any other entry. When <code>keyid</code> carries no
 fragment, the verifier <span class="bcp14">MUST</span> select the first entry in array order whose
-fragment is not a period fragment (Section 9.10); a verifier that does
+fragment is not a period fragment (Section 9.10). A verifier that does
 not implement Section 9.10 selects the first entry that carries usable
-key material, which Section 9.10's ordering rule makes the same entry.
+key material; Section 9.10's ordering rule makes that the same entry.
 In either case the selected method's <code>type</code> or <code>algorithm</code> <span class="bcp14">MUST</span> be
 compatible with the <code>algorithm</code> attribute, else the result is
 "algorithm-mismatch". The verifier <span class="bcp14">MUST NOT</span> consult <code>assertionMethod</code> to
 choose among entries, and <span class="bcp14">MUST NOT</span> fall through to another entry when
 the selected one is revoked, expired, or unusable. Two entries that
-share an expanded <code>id</code> are a "malformed-key-document" result.<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+share an expanded <code>id</code> are a "malformed-key-document" result. This
+revision accepts DID verification-method key material in <code>publicKeyPem</code>,
+a SubjectPublicKeyInfo PEM; an entry without it carries no usable
+material, and other encodings, including <code>publicKeyJwk</code> and
+<code>publicKeyMultibase</code>, are not usable material in this revision (Appendix
+D).<a href="#section-8.1-3" class="pilcrow">¶</a></p>
 <p id="section-8.1-4">DID resolution failures (DID document not found, signature on DID
-document invalid where the method demands one, expired or revoked
-verification method) <span class="bcp14">MUST</span> be reported as "key-resolution-failed"
-verification failures. A DID document whose <code>deactivated</code> member is
+document invalid where the method demands one, no method selected) <span class="bcp14">MUST</span>
+be reported as "key-resolution-failed" verification failures. A selected
+method that is revoked or expired is reported as Section 9 requires:
+"key-revoked" when Section 9 does not permit the key for this signature. A DID document whose <code>deactivated</code> member is
 <code>true</code> is a "key-resolution-failed" result for every <code>keyid</code> of that
 identity.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
 <p id="section-8.1-5">The DID document's top-level <code>id</code> member <span class="bcp14">MUST</span> equal the DID portion of
@@ -3426,8 +3432,9 @@ URL <code>keyid</code>'s fragment is forbidden outright, so it is not stripped.<
 <p id="section-8.5-4">This canonical form is <span class="bcp14">REQUIRED</span> for the Section 9.9 revocation-list
 <code>superseded</code> lookup when an entry omits <code>publicKeyHash</code>. It is not used
 for a <code>revoked</code> entry: Section 9.6 requires <code>publicKeyHash</code> on every
-<code>revoked</code> entry, and Section 9.7 defines no <code>keyid</code>-based match for
-<code>revoked</code> at all, primary or secondary. It does not change signature
+<code>revoked</code> entry, and Section 9.7 defines no <code>keyid</code>-text match for
+<code>revoked</code>; the Section 9.10 range match compares identities in this
+canonical form, not <code>keyid</code> text. It does not change signature
 verification itself: the signing payload (Section 5.5) still binds the
 exact <code>keyid</code> attribute value as written, and a verifier <span class="bcp14">MUST NOT</span>
 normalize <code>keyid</code> before reproducing that payload.<a href="#section-8.5-4" class="pilcrow">¶</a></p>
@@ -3768,7 +3775,7 @@ doing so establishes that they are the same identity at all.<a href="#section-9.
 </td>
               <td class="text-left" rowspan="1" colspan="1">integer</td>
               <td class="text-left" rowspan="1" colspan="1">no</td>
-              <td class="text-left" rowspan="1" colspan="1">Inclusive lower bound of a struck range of periods, 1 or greater; meaningful only when <code>status</code> is <code>revoked</code>. Defined by Section 9.10.</td>
+              <td class="text-left" rowspan="1" colspan="1">Inclusive lower bound of a struck range of periods, 1 or greater. <span class="bcp14">MUST NOT</span> be present when <code>status</code> is <code>superseded</code>; its presence there is malformed. Defined by Section 9.10.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -3776,7 +3783,7 @@ doing so establishes that they are the same identity at all.<a href="#section-9.
 </td>
               <td class="text-left" rowspan="1" colspan="1">integer</td>
               <td class="text-left" rowspan="1" colspan="1">no</td>
-              <td class="text-left" rowspan="1" colspan="1">Exclusive upper bound of that range, greater than <code>from-period</code>; absent means unbounded. Defined by Section 9.10.</td>
+              <td class="text-left" rowspan="1" colspan="1">Exclusive upper bound of that range, greater than <code>from-period</code>; absent means unbounded. <span class="bcp14">MUST NOT</span> be present without <code>from-period</code>, nor when <code>status</code> is <code>superseded</code>. Defined by Section 9.10.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -3784,7 +3791,7 @@ doing so establishes that they are the same identity at all.<a href="#section-9.
 </td>
               <td class="text-left" rowspan="1" colspan="1">string</td>
               <td class="text-left" rowspan="1" colspan="1">conditional</td>
-              <td class="text-left" rowspan="1" colspan="1">The identity URL a range applies to. <span class="bcp14">REQUIRED</span> when <code>keyid</code> is an HTTPS URL and <code>from-period</code> is present; ignored on a <code>did:</code> entry. Defined by Section 9.10.</td>
+              <td class="text-left" rowspan="1" colspan="1">The identity URL a range applies to. <span class="bcp14">REQUIRED</span> when <code>keyid</code> is an HTTPS URL and <code>from-period</code> is present, and then an absolute HTTPS URL; ignored on a <code>did:</code> entry; <span class="bcp14">MUST NOT</span> be present when <code>status</code> is <code>superseded</code>. Defined by Section 9.10.</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -3811,7 +3818,9 @@ rather than merely degraded.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
 <p id="section-9.6-6">An entry that fails to conform to this table in any other way -- <code>keyid</code>
 or <code>status</code> missing or of the wrong type, a <code>status</code> value other than the
 two listed, or a present-but-wrongly-typed <code>publicKeyHash</code>, <code>revokedAt</code>,
-or <code>supersededBy</code> -- is malformed for the same reason and with the same
+<code>supersededBy</code>, <code>identity</code>, <code>from-period</code>, or <code>to-period</code> (Section 9.10
+defines the integer and range rules) -- is malformed for the same reason
+and with the same
 effect: the whole document is invalidated, not just that entry. Skipping
 only the malformed entry is fail-open, because it lets exactly the entry
 an attacker most wants ignored -- one crafted to fail parsing -- vanish
@@ -3888,8 +3897,9 @@ signature verification (Section 12.6); a match is <code>revoked</code> regardles
 of whether the entry's own <code>keyid</code> string equals the <code>keyid</code> attribute
 under check. A verifier <span class="bcp14">MUST</span> perform this comparison for every <code>revoked</code>
 entry, not only the entry whose <code>keyid</code> happens to match textually.
-There is no <code>keyid</code>-based match for <code>revoked</code>, primary or secondary, in
-this revision: <code>keyid</code> is opaque and signer-chosen (Section 8), and a
+There is no <code>keyid</code>-text match for <code>revoked</code>, primary or secondary, in
+this revision (the Section 9.10 range match is by identity and period,
+not by <code>keyid</code> text): <code>keyid</code> is opaque and signer-chosen (Section 8), and a
 comparison keyed to it, even as a fallback, is not a safe way to detect
 compromised key material that a signer -- honest or, in the case an
 entry exists to address, actively adversarial -- can resolve under more
@@ -4015,7 +4025,8 @@ origin matches this fetch's origin, whose signer is neither revoked nor
 superseded, and whose signature verifies, all per Revocation list
 verification, above: the verifier applies its <code>revocations</code> entries
 using the matching rules in The two states, above -- <code>publicKeyHash</code>
-alone for <code>revoked</code>; a verifier matches a <code>superseded</code> entry by
+alone for <code>revoked</code>, plus, under Section 9.10, the identity-and-period
+range match; a verifier matches a <code>superseded</code> entry by
 <code>publicKeyHash</code> when the entry carries one, and otherwise by the
 Section 8.5 canonical form of <code>keyid</code> -- with the duplicate-entry
 precedence Section 9.6 defines. Status is <code>revoked</code> if any entry
@@ -4138,7 +4149,8 @@ appears in a fragment.<a href="#section-9.10.1-1.4.1" class="pilcrow">¶</a></p>
 <dt id="section-9.10.1-1.7">Anchor method:</dt>
             <dd style="margin-left: 1.5em" id="section-9.10.1-1.8">
               <p id="section-9.10.1-1.8.1">A <code>verificationMethod</code> entry whose <code>id</code> has no fragment, or a fragment
-that is not a period fragment (<code>#key-1</code>, <code>#rev</code>). An anchor method is
+that is not a period fragment (<code>#key-1</code>, <code>#rev</code>). An anchor fragment
+<span class="bcp14">MUST NOT</span> begin with <code>p</code> followed by a decimal digit. An anchor method is
 the legacy content key of a migrated identity, or the key that signs the
 identity's revocation list, or both.<a href="#section-9.10.1-1.8.1" class="pilcrow">¶</a></p>
 </dd>
@@ -4180,10 +4192,14 @@ one entry. Nothing is reordered.<a href="#section-9.10.2-2.3.1" class="pilcrow">
 </li>
             <li id="section-9.10.2-2.4">
               <p id="section-9.10.2-2.4.1">The first anchor method is the key that a bare-identity <code>keyid</code>
-resolves to, and the key that a verifier which does not implement this
-section selects for every <code>keyid</code> of the identity. For a migrated
+resolves to, and the key that a verifier built against the selection
+rule of earlier revisions of this document selects for every <code>keyid</code>
+of the identity. For a migrated
 identity it is the legacy key. For an identity created under this
-scheme it is the revocation anchor.<a href="#section-9.10.2-2.4.1" class="pilcrow">¶</a></p>
+scheme it is the revocation anchor. At least one anchor method that is
+neither revoked nor expired <span class="bcp14">MUST</span> precede every period method at all
+times: a publisher retiring an anchor inserts its successor, ahead of
+every period method, before marking the old anchor revoked.<a href="#section-9.10.2-2.4.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.2-2.5">
               <p id="section-9.10.2-2.5.1">No method of a period-scoped identity carries <code>expires</code>. <code>revoked:
@@ -4214,21 +4230,44 @@ processor drops the unknown term and loses nothing verification needs.<a href="#
               <p id="section-9.10.2-2.9.1">Two entries <span class="bcp14">MUST NOT</span> share an <code>id</code> after relative ids are expanded. A
 verifier that finds a duplicate <span class="bcp14">MUST</span> report "malformed-key-document".<a href="#section-9.10.2-2.9.1" class="pilcrow">¶</a></p>
 </li>
+            <li id="section-9.10.2-2.10">
+              <p id="section-9.10.2-2.10.1">A period's public key <span class="bcp14">MUST</span> be published under exactly one identity
+string. A key that is reachable under two identities, a DID document
+and an HTTPS key document, or two DIDs, is two identities for range
+purposes, and a range entry written for one leaves the other untouched
+(Section 13.7).<a href="#section-9.10.2-2.10.1" class="pilcrow">¶</a></p>
+</li>
           </ol>
-<p id="section-9.10.2-3">Rule 3 is what protects verifiers that predate this section. Such a
-verifier selects the first usable method, so under rule 3 it selects an
-anchor: it verifies every legacy signature, verifies the revocation list,
-and fails closed with "signature-invalid" on period signatures, because
-the period key is never the first entry. There is no path to a false
-<code>valid</code> while the ordering holds. The failure is availability only and
-ends when the verifier updates.<a href="#section-9.10.2-3" class="pilcrow">¶</a></p>
-<p id="section-9.10.2-4">The document below is <code>did:web:example.com</code>, migrated from the single
+<p id="section-9.10.2-3">Three kinds of verifier meet a period signature.<a href="#section-9.10.2-3" class="pilcrow">¶</a></p>
+<p id="section-9.10.2-4">A verifier that implements Section 8.1 of this revision but not this
+section selects <code>#p3</code> by exact <code>id</code>, verifies the signature under the
+period 3 key, and reports <code>valid</code>. It loses only range revocation, as a
+verifier that ignores the <code>period</code> member of a key document does
+(Section 9.10.3).<a href="#section-9.10.2-4" class="pilcrow">¶</a></p>
+<p id="section-9.10.2-5">A verifier built against the selection rule of earlier revisions, which
+took the first entry in array order carrying usable key material and
+skipped revoked or expired entries, selects an anchor while rules 3 and 4
+hold. It verifies every legacy signature, verifies the revocation list,
+and fails closed with "signature-invalid" on period signatures, because a
+period key is never the first usable entry. The resolvers that shipped
+before this revision select that way. For them the failure is
+availability only and ends when the verifier updates. Rules 3 and 4
+exist for them.<a href="#section-9.10.2-5" class="pilcrow">¶</a></p>
+<p id="section-9.10.2-6">A verifier that tries several <code>assertionMethod</code> keys until one verifies,
+as some DID libraries do, accepts a signature made with one period key
+and labelled with another, because that strategy lets any key of the
+identity verify. Earlier revisions permitted it for a bare <code>keyid</code>. Such
+a verifier does not have the property this section claims and <span class="bcp14">MUST NOT</span>
+accept period signatures until it selects by exact <code>id</code>. Rule 2 keeps
+period keys listed in <code>assertionMethod</code> because they are assertion keys;
+it does not license that strategy.<a href="#section-9.10.2-6" class="pilcrow">¶</a></p>
+<p id="section-9.10.2-7">The document below is <code>did:web:example.com</code>, migrated from the single
 Ed25519 key of the test vectors in Appendix B (that key is now the anchor
 <code>#key-1</code>), with public keys published for periods 1, 2, 3, and 12. The
 period keys are those of the derivation vector in Appendix B; the gap
 between 3 and 12 is deliberate, so that <code>#p4</code> exercises the unpublished
-index rule.<a href="#section-9.10.2-4" class="pilcrow">¶</a></p>
-<div class="breakable lang-json sourcecode" id="section-9.10.2-5">
+index rule.<a href="#section-9.10.2-7" class="pilcrow">¶</a></p>
+<div class="breakable lang-json sourcecode" id="section-9.10.2-8">
 <pre>
 {
   "@context": ["https://www.w3.org/ns/did/v1"],
@@ -4279,13 +4318,13 @@ index rule.<a href="#section-9.10.2-4" class="pilcrow">¶</a></p>
     "periodLength": "P1M"
   }
 }
-</pre><a href="#section-9.10.2-5" class="pilcrow">¶</a>
+</pre><a href="#section-9.10.2-8" class="pilcrow">¶</a>
 </div>
-<p id="section-9.10.2-6">One period entry with its <code>assertionMethod</code> line is about 330 bytes.
+<p id="section-9.10.2-9">One period entry with its <code>assertionMethod</code> line is about 330 bytes.
 Under the 64 KiB remote key document limit of Section 12.10 a document
 holds about 190 periods; monthly periods cover fifteen years. Publishers
 <span class="bcp14">SHOULD NOT</span> choose a period shorter than one month. Paging a longer
-history is an open issue (Appendix D).<a href="#section-9.10.2-6" class="pilcrow">¶</a></p>
+history is an open issue (Appendix D).<a href="#section-9.10.2-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="period-key-documents-for-https-and-directory-identities">
@@ -4310,14 +4349,18 @@ plus two members, both <span class="bcp14">REQUIRED</span> on a period key docum
 }
 </pre><a href="#section-9.10.3-2" class="pilcrow">¶</a>
 </div>
-<p id="section-9.10.3-3"><code>period</code> is a JSON integer, 1 through 2147483647. <code>identity</code> is an
-absolute HTTPS URL with the same origin as <code>kid</code>. Any other <code>identity</code>
+<p id="section-9.10.3-3"><code>period</code> is an integer, 1 through 2147483647. In this section an integer
+member is a JSON number whose text has no fraction part and no exponent
+part; any other number is malformed. <code>identity</code> is an absolute HTTPS URL
+with the same origin as <code>kid</code>. Any other <code>identity</code>
 value, a <code>period</code> that is not an integer or is outside the range, or a
 <code>period</code> without an <code>identity</code>, is a "malformed-key-document" result.
 <code>kid</code> is <span class="bcp14">REQUIRED</span> by Section 8.2 and <span class="bcp14">MUST</span> equal <code>keyid</code> byte for byte.
 <code>revoked: true</code> <span class="bcp14">MAY</span> appear; <code>expires</code> <span class="bcp14">MUST NOT</span>. A verifier that does not
 implement this section ignores the two members and verifies these
-signatures correctly; it loses only range revocation.<a href="#section-9.10.3-3" class="pilcrow">¶</a></p>
+signatures correctly; it loses only range revocation. A period key
+document <span class="bcp14">MUST NOT</span> publish a key that is also published as a period method
+of a DID identity or under another <code>identity</code> (rule 10 above).<a href="#section-9.10.3-3" class="pilcrow">¶</a></p>
 <p id="section-9.10.3-4">For a directory-hosted identity, <code>identity</code> names the directory's
 <code>/keys/{id}</code> URL for the identity's base key. The Section 9.5 revocation
 list origin for a period key document is derived from <code>identity</code> exactly
@@ -4514,8 +4557,8 @@ M's SubjectPublicKeyInfo DER. This is the Section 9.7 rule, unchanged.<a href="#
 </li>
             <li class="normal" id="section-9.10.7-5.2">
               <p id="section-9.10.7-5.2.1">(range) E is <code>revoked</code>, its <code>from-period</code> is a positive integer,
-identity(E) equals I byte for byte, <code>from-period</code> &lt;= P, and either
-<code>to-period</code> is absent or P &lt; <code>to-period</code>.<a href="#section-9.10.7-5.2.1" class="pilcrow">¶</a></p>
+identity(E) equals I in the Section 8.5 canonical form, <code>from-period</code>
+&lt;= P, and either <code>to-period</code> is absent or P &lt; <code>to-period</code>.<a href="#section-9.10.7-5.2.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-9.10.7-5.3">
               <p id="section-9.10.7-5.3.1">(superseded) as Section 9.7 defines, unchanged.<a href="#section-9.10.7-5.3.1" class="pilcrow">¶</a></p>
@@ -4523,11 +4566,14 @@ identity(E) equals I byte for byte, <code>from-period</code> &lt;= P, and either
           </ul>
 <p id="section-9.10.7-6">identity(E) is E's <code>keyid</code> with its fragment removed when that <code>keyid</code>
 begins with <code>did:</code>, and E's <code>identity</code> member when that <code>keyid</code> is an
-HTTPS URL. An entry whose <code>identity</code> is absent when required, whose
-range members are not integers, not positive, or not ordered, or which
-carries a range member while its <code>status</code> is <code>superseded</code>, is malformed,
-and Section 9.6 then makes the whole document malformed
-(<code>revocation-unknown</code>). Because P is 0 for every anchor and legacy key
+HTTPS URL. An entry whose <code>identity</code> is absent when required, or present
+but not a string, or not an absolute HTTPS URL on an HTTPS-keyid entry;
+whose <code>to-period</code> is present without <code>from-period</code>; whose range members
+are not integers as Section 9.10.3 defines them, not positive, not
+ordered, or above 2147483647 for <code>from-period</code> or 2147483648 for
+<code>to-period</code>; or which carries <code>identity</code>, <code>from-period</code>, or <code>to-period</code>
+while its <code>status</code> is <code>superseded</code>, is malformed, and Section 9.6 then
+makes the whole document malformed (<code>revocation-unknown</code>). Because P is 0 for every anchor and legacy key
 and <code>from-period</code> is at least 1, a range entry never applies to a
 signature made under an anchor.<a href="#section-9.10.7-6" class="pilcrow">¶</a></p>
 <p id="section-9.10.7-7">Signer. The list's <code>signer</code> <span class="bcp14">MUST</span> resolve to an anchor method, or to a key
@@ -4599,11 +4645,13 @@ follows. Steps 1 through 4 and Steps 6 and 7 are unchanged.<a href="#section-9.1
 <ol start="1" type="1" class="normal type-1" id="section-9.10.8-2">
 <li id="section-9.10.8-2.1">
               <p id="section-9.10.8-2.1.1">Parse <code>keyid</code>. If it begins with <code>did:</code>, split it at the first <code>#</code>
-into D (before) and F (after; empty when there is no <code>#</code>). If F
-contains <code>#</code>, <code>/</code>, or <code>?</code>, return "key-resolution-failed". If F
-matches the period fragment grammar, the kind is period and P is its
-value. If F is empty, the kind is bare and P = 0. Otherwise the kind is
-anchor and P = 0. I = D. If <code>keyid</code> is an absolute HTTPS URL (Sections
+into D (before) and F (after). Return "key-resolution-failed" if D
+contains <code>/</code> or <code>?</code>, if <code>keyid</code> contains <code>#</code> but F is empty, if F
+contains <code>#</code>, <code>/</code>, or <code>?</code>, or if F begins with <code>p</code> followed by a
+decimal digit but is not a period fragment (a leading zero, or a value
+above 2147483647). If F is a period fragment, the kind is period and P
+is its value. If <code>keyid</code> contains no <code>#</code>, the kind is bare and P = 0.
+Otherwise the kind is anchor and P = 0. I = D. If <code>keyid</code> is an absolute HTTPS URL (Sections
 8.2 and 8.3), the kind is url, and I and P are set in step 5. Any other
 form is "key-resolution-failed", as Section 12.1 requires.<a href="#section-9.10.8-2.1.1" class="pilcrow">¶</a></p>
 </li>
@@ -4612,8 +4660,10 @@ form is "key-resolution-failed", as Section 12.1 requires.<a href="#section-9.10
 Section 12.9 require, through the cache of step 8. If the document has
 <code>deactivated: true</code>, or its <code>id</code> is absent or differs from D byte for
 byte, return "key-resolution-failed". Expand relative <code>#fragment</code> ids
-against <code>id</code>. If two entries share an <code>id</code>, return
-"malformed-key-document".<a href="#section-9.10.8-2.2.1" class="pilcrow">¶</a></p>
+against <code>id</code>. An entry whose <code>id</code> is absent, or is neither an absolute
+DID URL of the form <code>&lt;id&gt;#&lt;fragment&gt;</code> nor a <code>#</code>-prefixed relative
+reference, is "malformed-key-document", as are two entries that share
+an expanded <code>id</code>.<a href="#section-9.10.8-2.2.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.8-2.3">
               <p id="section-9.10.8-2.3.1">Select the method. Kind period or anchor: the single entry whose
@@ -4624,12 +4674,16 @@ the refetch rule of step 8 once; if still nothing, return
 and <span class="bcp14">MUST NOT</span> consult <code>assertionMethod</code> to choose.<a href="#section-9.10.8-2.3.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.8-2.4">
-              <p id="section-9.10.8-2.4.1">Validate the selected entry. <code>publicKeyPem</code> <span class="bcp14">MUST</span> be present and parse
-as an Ed25519 SubjectPublicKeyInfo; otherwise return
+              <p id="section-9.10.8-2.4.1">Validate the selected entry. It <span class="bcp14">MUST</span> carry key material in an
+encoding Section 8.1 accepts, and a period method's key <span class="bcp14">MUST</span> be an
+Ed25519 SubjectPublicKeyInfo in <code>publicKeyPem</code>; otherwise return
 "malformed-key-document". Take the algorithm from <code>algorithm</code>, or from
-<code>type</code> as Section 8.1 allows. If the entry carries <code>revoked: true</code>, or
-an <code>expires</code> value that is malformed or in the past, return
-"key-revoked". There is no fall-through to another entry.<a href="#section-9.10.8-2.4.1" class="pilcrow">¶</a></p>
+<code>type</code> as Section 8.1 allows. Apply <code>revoked</code> and <code>expires</code> as Section
+9 requires, except that <code>revoked: true</code> on a period method is
+unconditional (rule 5): the Section 9.3 corroborated-timing exception
+does not apply to a period key, whose pre-compromise signatures are
+protected by the range mechanism instead. A malformed <code>expires</code> is
+"malformed-key-document". There is no fall-through to another entry.<a href="#section-9.10.8-2.4.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.8-2.5">
               <p id="section-9.10.8-2.5.1">Kind url: fetch and validate the key document under Section 8.2. If
@@ -4637,7 +4691,9 @@ an <code>expires</code> value that is malformed or in the past, return
 2147483647, and <code>identity</code> <span class="bcp14">MUST</span> be present, an absolute HTTPS URL, and
 same-origin with <code>keyid</code>; any violation is "malformed-key-document".
 Set P = <code>period</code> and I = <code>identity</code>. If <code>period</code> is absent, P = 0 and
-I = <code>keyid</code>. Apply <code>revoked</code> and <code>expires</code> as Section 9 requires.<a href="#section-9.10.8-2.5.1" class="pilcrow">¶</a></p>
+I = <code>keyid</code>. Apply <code>revoked</code> and <code>expires</code> as Section 9 requires,
+except that <code>revoked: true</code> on a document carrying <code>period</code> is
+unconditional, as in step 4.<a href="#section-9.10.8-2.5.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.8-2.6">
               <p id="section-9.10.8-2.6.1">When the verifier consults revocation lists, fetch the list for the
@@ -4656,8 +4712,8 @@ attribute, return "algorithm-mismatch".<a href="#section-9.10.8-2.7.1" class="pi
               <p id="section-9.10.8-2.8.1">Caching. DID documents and key documents follow HTTP cache semantics
 with a floor of 60 seconds and a ceiling of 3600 seconds regardless of
 headers. When step 3 finds no entry and the cached copy is older than
-60 seconds, refetch once bypassing the cache before failing, and record
-a negative entry for (document URL, F) for 60 seconds, so that a page
+60 seconds, refetch once bypassing the cache before failing. Record a
+negative entry for (document URL, F) for 60 seconds, so that a page
 carrying many unknown fragments cannot force repeated fetches. The
 Section 12.10 limits apply on top. The revocation list caches under
 Section 9.9, unchanged.<a href="#section-9.10.8-2.8.1" class="pilcrow">¶</a></p>
@@ -4692,7 +4748,9 @@ period is "key-resolution-failed", a document with duplicate ids is
 <p id="section-9.10.9-1">A <code>did:web</code> identity that publishes one key at array position 0 today
 migrates without invalidating anything. The existing key stays at
 position 0 as the anchor; its private key moves offline and signs the
-revocation list. Period methods are appended, and the online signer
+revocation list. It <span class="bcp14">MUST NOT</span> carry <code>expires</code>: rule 5 forbids it, and a
+verifier that skips expired entries would otherwise select a period key
+for the bare <code>keyid</code>. Period methods are appended, and the online signer
 receives the private key of period 1. Legacy signatures with the bare
 <code>keyid</code> continue to resolve to the anchor on every verifier. An HTTPS
 identity keeps its key document at the identity URL and adds period key
@@ -5510,9 +5568,12 @@ key; its compromise costs the content of that period, which the
 publisher strikes with one range entry, and nothing earlier. The
 offline tier holds the master seed and the anchor key; compromise of
 the master costs every period signed under it, and the identity
-continues under a new master from the next unpublished index. The
-origin tier serves the DID document and the list; its compromise is
-the origin compromise above. The revocation list is the more robust of
+continues under a new master from the next unpublished index. Theft
+of the anchor alone is a different loss rather than a smaller one: the
+publisher marks it revoked in the DID document, every legacy signature
+made under it (period 0) fails from then on, and period signatures are
+untouched. The origin tier serves the DID document and the list; its
+compromise is the origin compromise above. The revocation list is the more robust of
 the two revocation channels when the key document itself is hosted
 somewhere the compromise also reaches.<a href="#section-13.1-2.8.1" class="pilcrow">¶</a></p>
 </dd>
@@ -5650,8 +5711,10 @@ failure cannot suppress revocation reporting for anywhere near as long as a
 legitimate cache entry would have been trusted.<a href="#section-13.4-2" class="pilcrow">¶</a></p>
 <p id="section-13.4-3">Verification time for crawlers and archives. A verifier that stores
 results (a search crawler, an archive, a directory) <span class="bcp14">SHOULD</span> verify at fetch
-time, against the key state it can observe then, and <span class="bcp14">MUST</span> record the time
-of verification with the result. A stored result is a statement about the
+time, against the key state it can observe then, and <span class="bcp14">MUST</span> record with
+the result the time of verification, the resolved key's
+SubjectPublicKeyInfo hash, and, under Section 9.10, the identity and
+period. A stored result is a statement about the
 key state observed at that time. A later expiry does not retroactively
 alter it; a later revocation <span class="bcp14">MAY</span> be applied to stored results by
 re-evaluating them against the newer list, and under Section 9.10 that
@@ -5719,6 +5782,16 @@ could do, into a detectable conflict on any verifier that has seen the
 identity before. It is the only defence this document offers against
 origin compromise at the key layer, and it is available only to stateful
 verifiers.<a href="#section-13.7-4" class="pilcrow">¶</a></p>
+<p id="section-13.7-5">A range entry is keyed to one identity string. A period public key that
+is reachable under two identity strings, a DID document and an HTTPS key
+document, or two DIDs, is two identities for range purposes, and a range
+entry written for one leaves the other untouched; only the material match
+of the first struck period reaches it. Section 9.10.2 therefore requires
+that a period key be published under exactly one identity. Whoever signs
+an origin's revocation list can strike any identity at that origin with
+one range entry and one 32-byte hash. Section 9.5 already grants that
+party material-entry authority over every identity at the origin, so
+nothing new is granted, but publishers sharing an origin should know it.<a href="#section-13.7-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="revocation-mechanism-alternatives">
@@ -6843,7 +6916,11 @@ omitted), on one line:<a href="#appendix-B.11-9" class="pilcrow">¶</a></p>
 </div>
 <p id="appendix-B.11-11">The SHA-256 SPKI-DER hash of the period 3 key is
 <code>D2o9ZeRXmNG6sjRC3pfyY6wzLeZr7JxyR6nodpepmp4</code>; it appears in no entry.<a href="#appendix-B.11-11" class="pilcrow">¶</a></p>
-<p id="appendix-B.11-12">A verifier that implements Section 9.10 produces these outcomes:<a href="#appendix-B.11-12" class="pilcrow">¶</a></p>
+<p id="appendix-B.11-12">A verifier that implements Section 9.10 and consults the revocation list
+produces these outcomes. The machine-readable vector carries a signature
+for every row, each over the signing object with <code>keyid</code> replaced by the
+row's <code>keyid</code>, including a period 4 key derived from the vector master
+but never published:<a href="#appendix-B.11-12" class="pilcrow">¶</a></p>
 <table class="center" id="table-10">
           <caption><a href="#table-10" class="selfRef">Table 10</a></caption>
 <thead>
@@ -6891,8 +6968,11 @@ omitted), on one line:<a href="#appendix-B.11-9" class="pilcrow">¶</a></p>
             </tr>
           </tbody>
         </table>
-<p id="appendix-B.11-14">A verifier that predates Section 9.10 selects <code>#key-1</code> for every <code>keyid</code>
-of this identity: the bare <code>keyid</code> verifies, <code>#p3</code> is <code>signature-invalid</code>,
+<p id="appendix-B.11-14">A verifier that implements this revision's Section 8.1 without Section
+9.10 verifies <code>#p3</code> and reports <code>valid</code> without <code>keyPeriod</code>. A verifier
+built against the selection rule of earlier revisions, which takes the
+first usable entry in array order, selects <code>#key-1</code> for every <code>keyid</code> of
+this identity: the bare <code>keyid</code> verifies, <code>#p3</code> is <code>signature-invalid</code>,
 and the list entry strikes the period 2 key by material alone.<a href="#appendix-B.11-14" class="pilcrow">¶</a></p>
 <p id="appendix-B.11-15">The machine-readable form of this vector, including the DID document and
 the source HTML, is maintained as <code>ietf-draft/vectors/period-signature-v1.json</code>
@@ -7040,6 +7120,14 @@ the endorsement envelope of Section 11, would let a reader who was not
 present establish that a signature existed before a revocation or
 before another publication, without a trusted clock. Its format and
 stapling rules are deferred.<a href="#appendix-D-2.6.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="appendix-D-2.7">
+          <p id="appendix-D-2.7.1">DID key encodings. This revision accepts verification-method key
+material only in <code>publicKeyPem</code>, and Section 9.10 pairs the
+<code>Ed25519VerificationKey2020</code> type with it, which follows the shipped
+resolvers rather than the DID key-type registry, where that type
+carries <code>publicKeyMultibase</code>. A future revision may accept
+<code>publicKeyMultibase</code> and <code>publicKeyJwk</code>.<a href="#appendix-D-2.7.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>
