@@ -48,3 +48,62 @@ to debate the answers, that's a different project.
 ## Code of Conduct
 
 Be technical. Be precise. Don't waste people's time.
+
+## Licensing your contribution
+
+This project uses the [Developer Certificate of Origin](DCO), not a contributor
+licence agreement. There is nothing to sign and nobody to email. You keep the
+copyright in what you write.
+
+Sign off each commit, which certifies you have the right to submit it under the
+project's licence:
+
+```sh
+git commit -s -m "your message"
+```
+
+That adds a `Signed-off-by: Your Name <you@example.com>` trailer. Use a real
+name and a real address. The full text of what you are certifying is in
+[DCO](DCO); it is four short clauses and worth reading once.
+
+Your contribution is licensed to the project on the same terms the project uses,
+which is CC BY 4.0 in `LICENSE`. Contributions to the
+specification drafts additionally follow the process notes below. No additional rights are transferred, and there is no
+copyright assignment.
+
+One consequence worth stating plainly: because contributors keep their
+copyright, changing the project's licence later would need the agreement of
+everyone who has contributed. That is the deliberate trade for having no CLA to
+sign, and it is why the licence was settled before inviting contributions.
+
+### Contributing to the standards drafts
+
+The IETF Internet-Draft and the W3C Community Group Report are headed for
+standards bodies, and those bodies have their own rules that override anything
+here once a document is submitted.
+
+- **IETF.** Contributions to `draft-grey-htmltrust` are subject to BCP 78 and
+  BCP 79, the IETF Trust's legal provisions and IPR policy. In short: you grant
+  the IETF Trust the right to publish and to make derivative works, which is
+  what allows a working group to edit a draft at all, and you must disclose any
+  patent claims you know of that would read on the contribution. Read the Note
+  Well before contributing text you intend for the draft.
+- **W3C.** The CG Report is governed by the Community Contributor Licence
+  Agreement of whichever Community Group adopts it. That is not yet decided.
+- **The paper.** Substantive contributions to the paper are co-authorship
+  rather than a pull request. Raise it as an issue first. The paper and its
+  evidence are published under CC BY 4.0 with a Zenodo DOI, which is compatible
+  with subsequent submission to most open-access venues; a venue wanting an
+  exclusive rights transfer is a decision to take before submitting, not after.
+
+## Verifying sign-off locally
+
+```sh
+git log --format='%h %s%n    %(trailers:key=Signed-off-by)' origin/main..HEAD
+```
+
+Every commit in the range should show a trailer. To add one to the last commit:
+
+```sh
+git commit --amend -s --no-edit
+```
