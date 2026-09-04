@@ -8,7 +8,11 @@
   <script class="remove">
     var respecConfig = {
       specStatus: "unofficial",
-      xref: { profile: "web-platform", specs: ["hr-time"] },
+      // xref resolves cross-spec definitions against a live W3C service. That
+      // fetch is the last thing preventing this draft from rendering offline,
+      // and a draft that only builds when a third-party API is up is not one
+      // anyone can rely on. References are defined in localBiblio below.
+      xref: false,
       additionalCopyrightHolders: "Jason Grey. Licensed under CC BY-NC-ND 4.0.",
       editors: [{
         name: "Jason Grey",
