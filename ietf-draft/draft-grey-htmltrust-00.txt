@@ -1634,8 +1634,9 @@ Internet-Draft                  HTMLTrust                    August 2026
    when the selected one is revoked, expired, or unusable.  Two entries
    that share an expanded id are a "malformed-key-document" result.
    This revision accepts DID verification-method key material in
-   publicKeyPem, a SubjectPublicKeyInfo PEM; an entry without it carries
-   no usable material, and other encodings, including publicKeyJwk and
+   publicKeyPem, a SubjectPublicKeyInfo PEM.  An entry without it
+   carries no usable material and is a "malformed-key-document" result
+   when selected; other encodings, including publicKeyJwk and
    publicKeyMultibase, are not usable material in this revision
    (Appendix D).
 
@@ -1669,7 +1670,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    *  A JSON Web Key per [RFC7517], or
 
    *  An HTMLTrust key document with the following shape:
-
 
 
 
@@ -2621,11 +2621,11 @@ Internet-Draft                  HTMLTrust                    August 2026
         selection rule of earlier revisions of this document selects for
         every keyid of the identity.  For a migrated identity it is the
         legacy key.  For an identity created under this scheme it is the
-        revocation anchor.  At least one anchor method that is neither
-        revoked nor expired MUST precede every period method at all
-        times: a publisher retiring an anchor inserts its successor,
-        ahead of every period method, before marking the old anchor
-        revoked.
+        revocation anchor.  At least one anchor method that carries
+        publicKeyPem and is neither revoked nor expired MUST precede
+        every period method at all times: a publisher retiring an anchor
+        inserts its successor, ahead of every period method, before
+        marking the old anchor revoked.
 
 
 

@@ -1222,10 +1222,10 @@ choose among entries, and MUST NOT fall through to another entry when
 the selected one is revoked, expired, or unusable. Two entries that
 share an expanded `id` are a "malformed-key-document" result. This
 revision accepts DID verification-method key material in `publicKeyPem`,
-a SubjectPublicKeyInfo PEM; an entry without it carries no usable
-material, and other encodings, including `publicKeyJwk` and
-`publicKeyMultibase`, are not usable material in this revision (Appendix
-D).
+a SubjectPublicKeyInfo PEM. An entry without it carries no usable
+material and is a "malformed-key-document" result when selected; other
+encodings, including `publicKeyJwk` and `publicKeyMultibase`, are not
+usable material in this revision (Appendix D).
 
 DID resolution failures (DID document not found, signature on DID
 document invalid where the method demands one, no method selected) MUST
@@ -1929,10 +1929,11 @@ document as follows.
    rule of earlier revisions of this document selects for every `keyid`
    of the identity. For a migrated
    identity it is the legacy key. For an identity created under this
-   scheme it is the revocation anchor. At least one anchor method that is
-   neither revoked nor expired MUST precede every period method at all
-   times: a publisher retiring an anchor inserts its successor, ahead of
-   every period method, before marking the old anchor revoked.
+   scheme it is the revocation anchor. At least one anchor method that
+   carries `publicKeyPem` and is neither revoked nor expired MUST precede
+   every period method at all times: a publisher retiring an anchor
+   inserts its successor, ahead of every period method, before marking
+   the old anchor revoked.
 5. No method of a period-scoped identity carries `expires`. `revoked:
    true` MAY be set on any method; on a period method it strikes that
    period through the key-document channel, which a revocation list

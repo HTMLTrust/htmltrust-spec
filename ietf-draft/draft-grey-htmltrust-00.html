@@ -3279,10 +3279,10 @@ choose among entries, and <span class="bcp14">MUST NOT</span> fall through to an
 the selected one is revoked, expired, or unusable. Two entries that
 share an expanded <code>id</code> are a "malformed-key-document" result. This
 revision accepts DID verification-method key material in <code>publicKeyPem</code>,
-a SubjectPublicKeyInfo PEM; an entry without it carries no usable
-material, and other encodings, including <code>publicKeyJwk</code> and
-<code>publicKeyMultibase</code>, are not usable material in this revision (Appendix
-D).<a href="#section-8.1-3" class="pilcrow">¶</a></p>
+a SubjectPublicKeyInfo PEM. An entry without it carries no usable
+material and is a "malformed-key-document" result when selected; other
+encodings, including <code>publicKeyJwk</code> and <code>publicKeyMultibase</code>, are not
+usable material in this revision (Appendix D).<a href="#section-8.1-3" class="pilcrow">¶</a></p>
 <p id="section-8.1-4">DID resolution failures (DID document not found, signature on DID
 document invalid where the method demands one, no method selected) <span class="bcp14">MUST</span>
 be reported as "key-resolution-failed" verification failures. A selected
@@ -4196,10 +4196,11 @@ resolves to, and the key that a verifier built against the selection
 rule of earlier revisions of this document selects for every <code>keyid</code>
 of the identity. For a migrated
 identity it is the legacy key. For an identity created under this
-scheme it is the revocation anchor. At least one anchor method that is
-neither revoked nor expired <span class="bcp14">MUST</span> precede every period method at all
-times: a publisher retiring an anchor inserts its successor, ahead of
-every period method, before marking the old anchor revoked.<a href="#section-9.10.2-2.4.1" class="pilcrow">¶</a></p>
+scheme it is the revocation anchor. At least one anchor method that
+carries <code>publicKeyPem</code> and is neither revoked nor expired <span class="bcp14">MUST</span> precede
+every period method at all times: a publisher retiring an anchor
+inserts its successor, ahead of every period method, before marking
+the old anchor revoked.<a href="#section-9.10.2-2.4.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-9.10.2-2.5">
               <p id="section-9.10.2-2.5.1">No method of a period-scoped identity carries <code>expires</code>. <code>revoked:
