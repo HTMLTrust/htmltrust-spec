@@ -1946,9 +1946,9 @@ the period key is never the first entry. There is no path to a false
 ends when the verifier updates.
 
 The document below is `did:web:example.com`, migrated from the single
-Ed25519 key of the test vectors in Appendix A (that key is now the anchor
+Ed25519 key of the test vectors in Appendix B (that key is now the anchor
 `#key-1`), with public keys published for periods 1, 2, 3, and 12. The
-period keys are those of the derivation vector in Appendix A; the gap
+period keys are those of the derivation vector in Appendix B; the gap
 between 3 and 12 is deliberate, so that `#p4` exercises the unpublished
 index rule.
 
@@ -2008,7 +2008,7 @@ One period entry with its `assertionMethod` line is about 330 bytes.
 Under the 64 KiB remote key document limit of Section 12.10 a document
 holds about 190 periods; monthly periods cover fifteen years. Publishers
 SHOULD NOT choose a period shorter than one month. Paging a longer
-history is an open issue (Appendix C).
+history is an open issue (Appendix D).
 
 ### Period key documents for HTTPS and directory identities
 
@@ -2116,7 +2116,7 @@ function, HKDF-Expand outputs for distinct `info` values are independent,
 and an Ed25519 public key reveals nothing about its seed. Publishing the
 public keys of periods that have not begun therefore costs nothing.
 
-Appendix A gives a derivation vector with intermediate values.
+Appendix B gives a derivation vector with intermediate values.
 
 ### Period semantics
 

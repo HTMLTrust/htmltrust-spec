@@ -4223,9 +4223,9 @@ the period key is never the first entry. There is no path to a false
 <code>valid</code> while the ordering holds. The failure is availability only and
 ends when the verifier updates.<a href="#section-9.10.2-3" class="pilcrow">¶</a></p>
 <p id="section-9.10.2-4">The document below is <code>did:web:example.com</code>, migrated from the single
-Ed25519 key of the test vectors in Appendix A (that key is now the anchor
+Ed25519 key of the test vectors in Appendix B (that key is now the anchor
 <code>#key-1</code>), with public keys published for periods 1, 2, 3, and 12. The
-period keys are those of the derivation vector in Appendix A; the gap
+period keys are those of the derivation vector in Appendix B; the gap
 between 3 and 12 is deliberate, so that <code>#p4</code> exercises the unpublished
 index rule.<a href="#section-9.10.2-4" class="pilcrow">¶</a></p>
 <div class="breakable lang-json sourcecode" id="section-9.10.2-5">
@@ -4285,7 +4285,7 @@ index rule.<a href="#section-9.10.2-4" class="pilcrow">¶</a></p>
 Under the 64 KiB remote key document limit of Section 12.10 a document
 holds about 190 periods; monthly periods cover fifteen years. Publishers
 <span class="bcp14">SHOULD NOT</span> choose a period shorter than one month. Paging a longer
-history is an open issue (Appendix C).<a href="#section-9.10.2-6" class="pilcrow">¶</a></p>
+history is an open issue (Appendix D).<a href="#section-9.10.2-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="period-key-documents-for-https-and-directory-identities">
@@ -4406,7 +4406,7 @@ would let theft of the master take the revocation list as well.<a href="#section
 function, HKDF-Expand outputs for distinct <code>info</code> values are independent,
 and an Ed25519 public key reveals nothing about its seed. Publishing the
 public keys of periods that have not begun therefore costs nothing.<a href="#section-9.10.5-6" class="pilcrow">¶</a></p>
-<p id="section-9.10.5-7">Appendix A gives a derivation vector with intermediate values.<a href="#section-9.10.5-7" class="pilcrow">¶</a></p>
+<p id="section-9.10.5-7">Appendix B gives a derivation vector with intermediate values.<a href="#section-9.10.5-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="period-semantics">
