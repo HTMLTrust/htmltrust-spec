@@ -562,6 +562,9 @@ dictionary SignedSectionCryptoOutcome {
   DOMString? scope;
   USVString? location;
   DOMString inputState;    // "source-only" | "stale" | "rendered-match"
+  DOMString? revocationStatus;   // "not-revoked" | "revoked" | "revocation-unknown"
+  boolean keySuperseded;
+  USVString? supersededBy;
 };
 
 dictionary SignedSectionTrustOutcome {
@@ -598,6 +601,38 @@ dictionary SignedSectionTrustOutcome {
     the applicable {{SignedSectionFailureReason}} value.
     <code>directory-unavailable</code> applies only to the trust outcome and
     cannot change a valid cryptographic outcome.
+  </p>
+  <p>
+    {{SignedSectionCryptoOutcome/revocationStatus}} carries the outcome of
+    consulting the publisher-served revocation list defined in
+    [[I-D.grey-htmltrust]]: <code>"not-revoked"</code>,
+    <code>"revoked"</code>, or <code>"revocation-unknown"</code>. A user
+    agent that does not implement revocation-list consultation
+    <em class="rfc2119">MUST</em> leave this member <code>null</code>
+    rather than guessing a value. When present, <code>"revoked"</code>
+    <em class="rfc2119">MUST</em> coincide with
+    {{SignedSectionCryptoOutcome/valid}} = <code>false</code> and
+    {{SignedSectionCryptoOutcome/reason}} = <code>"key-revoked"</code>;
+    <code>"revocation-unknown"</code>
+    <em class="rfc2119">MUST NOT</em> by itself change
+    {{SignedSectionCryptoOutcome/valid}}, for the same reason
+    <code>directory-unavailable</code> cannot: a transient failure to fetch
+    a static file must not make otherwise-valid content appear forged. A
+    page that treats a <code>revocation-unknown</code> outcome as
+    indistinguishable from a clean <code>not-revoked</code> result is not
+    conforming to [[I-D.grey-htmltrust]]'s revocation-list requirements,
+    even though the {{HTMLSignedSectionElement}} interface itself does not
+    enforce that distinction on the page's behalf.
+  </p>
+  <p>
+    {{SignedSectionCryptoOutcome/keySuperseded}} is <code>true</code> when
+    the resolved key is listed as <code>superseded</code> in the
+    revocation list, and {{SignedSectionCryptoOutcome/supersededBy}} then
+    carries the successor <code>keyid</code> when the list supplied one.
+    Neither member affects {{SignedSectionCryptoOutcome/valid}}; a
+    superseded key's existing signatures remain cryptographically valid
+    per [[I-D.grey-htmltrust]]. These members are the trust-layer-facing
+    metadata referenced in Layer 2, below.
   </p>
 
   <section>
@@ -688,7 +723,18 @@ dictionary SignedSectionTrustOutcome {
       <li>Resolve the <code>keyid</code> to a public key using one of the
         methods accepted by the user agent. If resolution fails,
         verification fails with
-        {{SignedSectionCryptoOutcome/reason}} = <code>"key-resolution-failed"</code>.</li>
+        {{SignedSectionCryptoOutcome/reason}} = <code>"key-resolution-failed"</code>.
+        A user agent that implements revocation-list consultation
+        additionally fetches the resolved key's revocation list per
+        [[I-D.grey-htmltrust]] and sets
+        {{SignedSectionCryptoOutcome/revocationStatus}} accordingly; a
+        <code>"revoked"</code> result fails verification with
+        {{SignedSectionCryptoOutcome/reason}} = <code>"key-revoked"</code>,
+        exactly as a <code>revoked: true</code> key document does. A
+        <code>"superseded"</code> list entry does not fail verification;
+        the user agent records it in
+        {{SignedSectionCryptoOutcome/keySuperseded}} and
+        {{SignedSectionCryptoOutcome/supersededBy}} instead.</li>
       <li>Verify the <code>signature</code> against the canonical signing
         payload using the public key and the algorithm identified by the
         <code>algorithm</code> attribute. If the algorithm is not accepted
@@ -745,7 +791,10 @@ dictionary SignedSectionTrustOutcome {
         user-selected trust directories, each cryptographically verified
         per [[I-D.grey-htmltrust]] before being counted.</li>
       <li>Reputation scores produced by user-selected trust directories.</li>
-      <li>Local or cached revocation state for the resolved key.</li>
+      <li>Local or cached revocation state for the resolved key,
+        including {{SignedSectionCryptoOutcome/revocationStatus}},
+        {{SignedSectionCryptoOutcome/keySuperseded}}, and
+        {{SignedSectionCryptoOutcome/supersededBy}} from layer 1.</li>
     </ul>
     <p>
       Trust evaluation <em class="rfc2119">MUST NOT</em> be performed for an
@@ -753,6 +802,18 @@ dictionary SignedSectionTrustOutcome {
       <em class="rfc2119">MUST NOT</em> contribute to the trust outcome.
       No remote authority's verdict <em class="rfc2119">MUST</em> be
       privileged over the user's configured policy.
+    </p>
+    <p>
+      A user agent that surfaces a trust indicator
+      <em class="rfc2119">SHOULD NOT</em> present a
+      {{SignedSectionCryptoOutcome/revocationStatus}} of
+      <code>"revocation-unknown"</code> the same way it presents
+      <code>"not-revoked"</code>; per [[I-D.grey-htmltrust]], the page
+      MUST NOT be treated as fully verified while its revocation status is
+      unresolved, even though its layer-1 cryptographic result remains
+      valid. {{SignedSectionCryptoOutcome/keySuperseded}}
+      <em class="rfc2119">MAY</em> lower the trust score or tier without
+      invalidating the layer-1 result.
     </p>
   </section>
 
@@ -860,8 +921,9 @@ dictionary SignedSectionTrustOutcome {
     <p>
       User-agent verification fetches use a provisional model aligned with
       [[I-D.grey-htmltrust]]. Remote key documents, source-snapshot fallbacks,
-      and trust-directory requests <em class="rfc2119">MUST</em> use
-      <code>https</code> URLs. Key and directory fetches
+      trust-directory requests, and revocation-list requests
+      <em class="rfc2119">MUST</em> use
+      <code>https</code> URLs. Key, directory, and revocation-list fetches
       <em class="rfc2119">MUST NOT</em> include ambient credentials by default.
       A user agent <em class="rfc2119">MAY</em> include credentials only for a
       same-origin source refetch of the document being verified.
@@ -915,6 +977,16 @@ dictionary SignedSectionTrustOutcome {
       ceiling <em class="rfc2119">MUST</em> produce
       <code>resource-limit-exceeded</code> and a non-valid result.
     </p>
+    <p>
+      A user agent that implements revocation-list consultation
+      <em class="rfc2119">MUST</em> cache a fetched revocation list subject
+      to a maximum staleness independent of its cache-control headers,
+      recommended at 24 hours, exactly as specified in
+      [[I-D.grey-htmltrust]]. Treating an HTTP 404 for the revocation-list
+      URL as anything other than {{SignedSectionCryptoOutcome/revocationStatus}}
+      = <code>"not-revoked"</code> is non-conforming; publishers with
+      nothing to revoke are not required to publish the resource.
+    </p>
   </section>
 
   <section>
@@ -929,6 +1001,16 @@ dictionary SignedSectionTrustOutcome {
       verification (layer 1) <em class="rfc2119">MUST NOT</em> contact a
       directory, so a user who declines all directory queries can still
       receive cryptographic verification results.
+    </p>
+    <p>
+      Revocation-list consultation is not a trust-directory query for
+      purposes of the preceding paragraph: it fetches a single
+      publisher-controlled resource at the identity's own origin, per
+      [[I-D.grey-htmltrust]], not a query to a third-party directory, and
+      a user agent MAY perform it as part of layer 1 without user opt-in.
+      Because the resource is shared across every key of an identity, the
+      fetch discloses no more to that origin than the origin already
+      learned by serving the content being verified.
     </p>
   </section>
 

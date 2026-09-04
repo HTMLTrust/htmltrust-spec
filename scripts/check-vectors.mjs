@@ -145,6 +145,44 @@ if (!verify(
   throw new Error("endorsement-01 signature does not verify");
 }
 
+const revocation = load("revocation-01.json");
+const { signature: revocationSignature, ...unsignedRevocation } = revocation.document;
+const revocationJcs = canonicalizeJcs(unsignedRevocation);
+if (revocationJcs !== revocation.jcsWithoutSignature) {
+  throw new Error("revocation-01 JCS serialization does not match");
+}
+const revocationPrivateKey = privateKeyFromSeed(revocation.key.seedHex);
+const revocationPublicKey = createPublicKey(revocationPrivateKey);
+const revocationPublicKeyRaw = revocationPublicKey.export({ format: "der", type: "spki" }).subarray(-32);
+if (revocationPublicKeyRaw.toString("hex") !== revocation.key.publicKeyRawHex) {
+  throw new Error("revocation-01 public key does not match the seed");
+}
+if (!verify(
+  null,
+  Buffer.from(revocationJcs, "utf8"),
+  revocationPublicKey,
+  Buffer.from(revocationSignature, "base64"),
+)) {
+  throw new Error("revocation-01 signature does not verify");
+}
+const revocationByKeyid = new Map(
+  revocation.document.revocations.map((entry) => [entry.keyid, entry]),
+);
+for (const check of revocation.revocationChecks) {
+  const entry = revocationByKeyid.get(check.keyid);
+  const status = entry?.status === "revoked" ? "revoked" : "not-revoked";
+  if (status !== check.expected) {
+    throw new Error(`revocation-01 status mismatch for ${check.keyid}`);
+  }
+  const superseded = entry?.status === "superseded";
+  if (Boolean(check.superseded) !== superseded) {
+    throw new Error(`revocation-01 superseded mismatch for ${check.keyid}`);
+  }
+  if (superseded && entry.supersededBy !== check.supersededBy) {
+    throw new Error(`revocation-01 supersededBy mismatch for ${check.keyid}`);
+  }
+}
+
 const escapeClaimToken = (value) => value
   .replaceAll("\\", "\\\\")
   .replaceAll(":", "\\:")

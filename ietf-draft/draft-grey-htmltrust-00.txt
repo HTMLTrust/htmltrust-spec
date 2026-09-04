@@ -78,14 +78,14 @@ Copyright Notice
 
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   4
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   5
      1.1.  Scope . . . . . . . . . . . . . . . . . . . . . . . . . .   5
      1.2.  Related Work and Adjacent Efforts . . . . . . . . . . . .   6
      1.3.  Conventions and Definitions . . . . . . . . . . . . . . .   7
    2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . .   7
    3.  Architecture Overview . . . . . . . . . . . . . . . . . . . .   8
    4.  Canonicalization  . . . . . . . . . . . . . . . . . . . . . .   9
-     4.1.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     4.1.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .  10
        4.1.1.  Portable parser profile . . . . . . . . . . . . . . .  11
      4.2.  Walk and text extraction  . . . . . . . . . . . . . . . .  11
      4.3.  Element categories  . . . . . . . . . . . . . . . . . . .  12
@@ -134,34 +134,34 @@ Internet-Draft                  HTMLTrust                    August 2026
      9.2.  Rotation and supersession . . . . . . . . . . . . . . . .  29
      9.3.  Revocation, compromise, and signed-at freshness . . . . .  29
      9.4.  Key loss and recovery . . . . . . . . . . . . . . . . . .  30
-   10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  30
-     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  31
-     10.2.  GET /.well-known/htmltrust . . . . . . . . . . . . . . .  31
-     10.3.  GET /content/{hash}  . . . . . . . . . . . . . . . . . .  31
-     10.4.  POST /content  . . . . . . . . . . . . . . . . . . . . .  32
-     10.5.  GET /content/{hash}/endorsements . . . . . . . . . . . .  33
-     10.6.  POST /endorsements . . . . . . . . . . . . . . . . . . .  33
-     10.7.  GET /keys/{id} . . . . . . . . . . . . . . . . . . . . .  34
-     10.8.  GET /signers/{id}/reputation . . . . . . . . . . . . . .  34
-     10.9.  Authentication . . . . . . . . . . . . . . . . . . . . .  34
-     10.10. Errors . . . . . . . . . . . . . . . . . . . . . . . . .  35
-   11. Endorsement Format  . . . . . . . . . . . . . . . . . . . . .  35
-     11.1.  Document shape . . . . . . . . . . . . . . . . . . . . .  36
-     11.2.  Canonicalization for signing . . . . . . . . . . . . . .  37
-     11.3.  Revocation and expiry  . . . . . . . . . . . . . . . . .  37
-     11.4.  Endorsement of an endorsement  . . . . . . . . . . . . .  38
-   12. Verification Procedure  . . . . . . . . . . . . . . . . . . .  38
-     12.1.  Step 1: Extract attributes and content . . . . . . . . .  38
+     9.5.  Publisher-served revocation list  . . . . . . . . . . . .  30
+     9.6.  Revocation list document shape  . . . . . . . . . . . . .  31
+     9.7.  The two states, and why no trusted time is required . . .  33
+     9.8.  Revocation list verification  . . . . . . . . . . . . . .  34
+     9.9.  Revocation list fetch semantics . . . . . . . . . . . . .  35
+   10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  36
+     10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  36
+     10.2.  GET /.well-known/htmltrust . . . . . . . . . . . . . . .  36
+     10.3.  GET /content/{hash}  . . . . . . . . . . . . . . . . . .  37
+     10.4.  POST /content  . . . . . . . . . . . . . . . . . . . . .  38
+     10.5.  GET /content/{hash}/endorsements . . . . . . . . . . . .  39
+     10.6.  POST /endorsements . . . . . . . . . . . . . . . . . . .  39
+     10.7.  GET /keys/{id} . . . . . . . . . . . . . . . . . . . . .  40
+     10.8.  GET /signers/{id}/reputation . . . . . . . . . . . . . .  40
+     10.9.  Authentication . . . . . . . . . . . . . . . . . . . . .  40
+     10.10. Errors . . . . . . . . . . . . . . . . . . . . . . . . .  41
+   11. Endorsement Format  . . . . . . . . . . . . . . . . . . . . .  41
+     11.1.  Document shape . . . . . . . . . . . . . . . . . . . . .  42
+     11.2.  Canonicalization for signing . . . . . . . . . . . . . .  43
+     11.3.  Revocation and expiry  . . . . . . . . . . . . . . . . .  43
+     11.4.  Endorsement of an endorsement  . . . . . . . . . . . . .  44
+   12. Verification Procedure  . . . . . . . . . . . . . . . . . . .  44
+     12.1.  Step 1: Extract attributes and content . . . . . . . . .  44
      12.2.  Step 2: Canonicalize content; compute and compare content
-             hash  . . . . . . . . . . . . . . . . . . . . . . . . .  39
-     12.3.  Step 3: Canonicalize claims; compute claims hash . . . .  39
-     12.4.  Step 4: Construct signing payload  . . . . . . . . . . .  39
-     12.5.  Step 5: Resolve keyid  . . . . . . . . . . . . . . . . .  40
-     12.6.  Step 6: Verify signature . . . . . . . . . . . . . . . .  40
-     12.7.  Step 7: Trust decision (out of scope)  . . . . . . . . .  40
-     12.8.  Failure outcomes . . . . . . . . . . . . . . . . . . . .  41
-     12.9.  Verifier network fetch policy  . . . . . . . . . . . . .  41
-     12.10. Resource limits  . . . . . . . . . . . . . . . . . . . .  42
+             hash  . . . . . . . . . . . . . . . . . . . . . . . . .  45
+     12.3.  Step 3: Canonicalize claims; compute claims hash . . . .  45
+     12.4.  Step 4: Construct signing payload  . . . . . . . . . . .  45
+     12.5.  Step 5: Resolve keyid  . . . . . . . . . . . . . . . . .  46
 
 
 
@@ -170,43 +170,61 @@ Grey                    Expires 28 February 2027                [Page 3]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
-   13. Security Considerations . . . . . . . . . . . . . . . . . . .  43
-     13.1.  Threat model . . . . . . . . . . . . . . . . . . . . . .  43
-     13.2.  Deliberate semantic-subset signing trade-off . . . . . .  44
-     13.3.  Claim metadata normalization and duplicate binding . . .  45
-       13.3.1.  Injective record encoding  . . . . . . . . . . . . .  45
-     13.4.  Revocation latency . . . . . . . . . . . . . . . . . . .  46
-     13.5.  Algorithm agility risks  . . . . . . . . . . . . . . . .  46
-     13.6.  Side channels  . . . . . . . . . . . . . . . . . . . . .  46
-   14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  46
-     14.1.  Directory query exposure . . . . . . . . . . . . . . . .  46
-     14.2.  Key resolution exposure  . . . . . . . . . . . . . . . .  47
-     14.3.  Endorsement disclosure . . . . . . . . . . . . . . . . .  47
-   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  47
-     15.1.  Media types  . . . . . . . . . . . . . . . . . . . . . .  47
-       15.1.1.  application/htmltrust-key+json . . . . . . . . . . .  47
-       15.1.2.  application/htmltrust-endorsement+json . . . . . . .  48
-       15.1.3.  application/htmltrust-directory+json . . . . . . . .  48
-       15.1.4.  application/htmltrust-content+json . . . . . . . . .  48
-     15.2.  Well-known URI . . . . . . . . . . . . . . . . . . . . .  48
-     15.3.  Signature algorithm registry . . . . . . . . . . . . . .  48
-     15.4.  Hash algorithm registry  . . . . . . . . . . . . . . . .  49
-     15.5.  HTMLTrust error type prefix  . . . . . . . . . . . . . .  49
-   16. References  . . . . . . . . . . . . . . . . . . . . . . . . .  49
-     16.1.  Normative References . . . . . . . . . . . . . . . . . .  49
-     16.2.  Informative References . . . . . . . . . . . . . . . . .  51
-   Appendix A.  Acknowledgements . . . . . . . . . . . . . . . . . .  53
-   Appendix B.  Test Vectors . . . . . . . . . . . . . . . . . . . .  53
-     B.1.  Test key (Ed25519)  . . . . . . . . . . . . . . . . . . .  53
-     B.2.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .  54
-     B.3.  Canonical content . . . . . . . . . . . . . . . . . . . .  54
-     B.4.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  54
-     B.5.  Signing payload and signature . . . . . . . . . . . . . .  55
-   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  55
-     C.1.  Submitting a content record . . . . . . . . . . . . . . .  55
-     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  56
-   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  57
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  57
+     12.6.  Step 6: Verify signature . . . . . . . . . . . . . . . .  46
+     12.7.  Step 7: Trust decision (out of scope)  . . . . . . . . .  47
+     12.8.  Failure outcomes . . . . . . . . . . . . . . . . . . . .  47
+     12.9.  Verifier network fetch policy  . . . . . . . . . . . . .  48
+     12.10. Resource limits  . . . . . . . . . . . . . . . . . . . .  49
+   13. Security Considerations . . . . . . . . . . . . . . . . . . .  50
+     13.1.  Threat model . . . . . . . . . . . . . . . . . . . . . .  50
+     13.2.  Deliberate semantic-subset signing trade-off . . . . . .  51
+     13.3.  Claim metadata normalization and duplicate binding . . .  51
+       13.3.1.  Injective record encoding  . . . . . . . . . . . . .  52
+     13.4.  Revocation latency . . . . . . . . . . . . . . . . . . .  52
+     13.5.  Algorithm agility risks  . . . . . . . . . . . . . . . .  53
+     13.6.  Side channels  . . . . . . . . . . . . . . . . . . . . .  53
+     13.7.  Revocation mechanism alternatives  . . . . . . . . . . .  53
+   14. Privacy Considerations  . . . . . . . . . . . . . . . . . . .  54
+     14.1.  Directory query exposure . . . . . . . . . . . . . . . .  54
+     14.2.  Key resolution exposure  . . . . . . . . . . . . . . . .  55
+     14.3.  Endorsement disclosure . . . . . . . . . . . . . . . . .  55
+     14.4.  Revocation list query exposure . . . . . . . . . . . . .  55
+   15. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  55
+     15.1.  Media types  . . . . . . . . . . . . . . . . . . . . . .  55
+       15.1.1.  application/htmltrust-key+json . . . . . . . . . . .  56
+       15.1.2.  application/htmltrust-endorsement+json . . . . . . .  56
+       15.1.3.  application/htmltrust-directory+json . . . . . . . .  56
+       15.1.4.  application/htmltrust-content+json . . . . . . . . .  56
+       15.1.5.  application/htmltrust-revocation+json  . . . . . . .  56
+     15.2.  Well-known URI . . . . . . . . . . . . . . . . . . . . .  57
+     15.3.  Well-known URI (revocation list) . . . . . . . . . . . .  57
+     15.4.  Signature algorithm registry . . . . . . . . . . . . . .  57
+     15.5.  Hash algorithm registry  . . . . . . . . . . . . . . . .  58
+     15.6.  HTMLTrust error type prefix  . . . . . . . . . . . . . .  58
+   16. References  . . . . . . . . . . . . . . . . . . . . . . . . .  58
+     16.1.  Normative References . . . . . . . . . . . . . . . . . .  58
+     16.2.  Informative References . . . . . . . . . . . . . . . . .  60
+   Appendix A.  Acknowledgements . . . . . . . . . . . . . . . . . .  62
+   Appendix B.  Test Vectors . . . . . . . . . . . . . . . . . . . .  62
+     B.1.  Test key (Ed25519)  . . . . . . . . . . . . . . . . . . .  62
+     B.2.  Inputs  . . . . . . . . . . . . . . . . . . . . . . . . .  63
+     B.3.  Canonical content . . . . . . . . . . . . . . . . . . . .  63
+     B.4.  Canonical claims  . . . . . . . . . . . . . . . . . . . .  63
+     B.5.  Signing payload and signature . . . . . . . . . . . . . .  64
+     B.6.  Revocation list . . . . . . . . . . . . . . . . . . . . .  64
+   Appendix C.  Example Directory Exchange . . . . . . . . . . . . .  66
+     C.1.  Submitting a content record . . . . . . . . . . . . . . .  66
+     C.2.  Submitting an endorsement . . . . . . . . . . . . . . . .  67
+   Appendix D.  Open Issues  . . . . . . . . . . . . . . . . . . . .  68
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  68
+
+
+
+
+Grey                    Expires 28 February 2027                [Page 4]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 1.  Introduction
 
@@ -217,14 +235,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    and aggregators increasingly lack a reliable means to determine who
    stands behind a particular passage of text on a page, or whether that
    text has been altered since publication.
-
-
-
-
-Grey                    Expires 28 February 2027                [Page 4]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    HTMLTrust addresses this gap with a single, narrowly-scoped
    mechanism: a cryptographic signature, carried in band, over the
@@ -265,22 +275,19 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  The endorsement document format (Section 11).
 
-   *  The verification procedure that a verifier MUST follow
-      (Section 12).
-
-   This document does not specify the HTML element, its DOM interface,
-   parsing behavior, rendering, user-agent UI, or accessibility
-   considerations.  Those are defined in [HTMLTRUST-W3C].
-
-
-
-
 
 
 Grey                    Expires 28 February 2027                [Page 5]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   *  The verification procedure that a verifier MUST follow
+      (Section 12).
+
+   This document does not specify the HTML element, its DOM interface,
+   parsing behavior, rendering, user-agent UI, or accessibility
+   considerations.  Those are defined in [HTMLTRUST-W3C].
 
 1.2.  Related Work and Adjacent Efforts
 
@@ -323,13 +330,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    disclosure metadata when carried inside a signed section.  The
    Credentials Community Group [CREDENTIALS-CG] is the originating
    community for [W3C.did-core] and the Verifiable Credentials work,
-   both used as building blocks.  The Anti-Fraud Community Group
-   [ANTIFRAUD-CG] addresses web-platform mitigations for fraudulent
-   content delivery, an adjacent threat surface to author impersonation.
-
-
-
-
 
 
 
@@ -337,6 +337,10 @@ Grey                    Expires 28 February 2027                [Page 6]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   both used as building blocks.  The Anti-Fraud Community Group
+   [ANTIFRAUD-CG] addresses web-platform mitigations for fraudulent
+   content delivery, an adjacent threat surface to author impersonation.
 
 1.3.  Conventions and Definitions
 
@@ -382,10 +386,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    Claims hash:  The cryptographic hash of the canonical claims,
       prefixed with a hash algorithm identifier per Section 6.
 
-   Signing payload:  The deterministic byte string defined in Section 5
-      over which the signature is computed.
-
-   Key identifier:  An opaque string ("keyid") that identifies a signer.
 
 
 
@@ -394,6 +394,10 @@ Grey                    Expires 28 February 2027                [Page 7]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
+   Signing payload:  The deterministic byte string defined in Section 5
+      over which the signature is computed.
+
+   Key identifier:  An opaque string ("keyid") that identifies a signer.
       A key identifier is resolved to a public key by one of the methods
       in Section 8.
 
@@ -438,10 +442,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       while the signer attests authorship.
 
    Verifier:  Performs the procedure in Section 12.  The verifier re-
-      derives canonical content, recomputes hashes, resolves the
-      signer's public key, and validates the signature.  Verification is
-      local except for key resolution, which MAY require a network
-      fetch.
 
 
 
@@ -449,6 +449,11 @@ Grey                    Expires 28 February 2027                [Page 8]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+      derives canonical content, recomputes hashes, resolves the
+      signer's public key, and validates the signature.  Verification is
+      local except for key resolution, which MAY require a network
+      fetch.
 
    Trust directory:  Optional.  Indexes content hashes for discovery,
       stores endorsements, serves public keys for signers who choose
@@ -487,6 +492,20 @@ Internet-Draft                  HTMLTrust                    August 2026
    implementation MUST produce byte-for-byte identical output for inputs
    that this section declares equivalent.
 
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027                [Page 9]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 4.1.  Inputs
 
    The input to canonicalization is a DOM subtree rooted at the signed
@@ -498,13 +517,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    suitable only when it is the parser snapshot before script-driven
    mutation; a post-mutation DOM is a different verification input and
    MUST be reported as such by the W3C processing model.
-
-
-
-Grey                    Expires 28 February 2027                [Page 9]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    A verifier that operates on bytes (for example, a crawler verifying
    without instantiating a DOM) MUST produce the same result as a DOM-
@@ -542,18 +554,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    behavior for the legacy unterminated forms.  Numeric character
    references are decoded using the HTML5 rules: a value of zero, a
    value greater than U+10FFFF, or a surrogate code point
-   (U+D800..U+DFFF) becomes U+FFFD, and a C1 control in the range
-   U+0080..U+009F maps through the standard windows-1252 replacement
-   table.  The abbreviated "common entity" tables shipped by some early
-   implementations are NOT conforming.
-
-
-
-
-
-
-
-
 
 
 
@@ -561,6 +561,11 @@ Grey                    Expires 28 February 2027               [Page 10]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   (U+D800..U+DFFF) becomes U+FFFD, and a C1 control in the range
+   U+0080..U+009F maps through the standard windows-1252 replacement
+   table.  The abbreviated "common entity" tables shipped by some early
+   implementations are NOT conforming.
 
 4.1.1.  Portable parser profile
 
@@ -605,11 +610,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       2.  If included, emits any signed semantic attribute records for
           the element per Section 4.3.2.
 
-      3.  If included, recurses into its children.
-
-      4.  If the element produces a block boundary (Section 4.5), emits
-          the boundary marker after the recursion result.
-
 
 
 
@@ -617,6 +617,11 @@ Grey                    Expires 28 February 2027               [Page 11]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+      3.  If included, recurses into its children.
+
+      4.  If the element produces a block boundary (Section 4.5), emits
+          the boundary marker after the recursion result.
 
    *  If the node is a Comment, ProcessingInstruction, or DocumentType,
       it is ignored and contributes nothing.
@@ -656,13 +661,8 @@ Internet-Draft                  HTMLTrust                    August 2026
    *  HTML comments and processing instructions (already excluded by
       4.2).
 
-   <meta> elements are excluded from the canonical content in all
-   positions: direct-child claim <meta> elements (Section 4.6)
-   contribute to the canonical claims instead, and any other <meta>
-   contributes nothing. <head> and <link> are document-metadata elements
-   that do not carry signed body content and likewise contribute no
-   bytes; in particular a <link>'s href is NOT a signed semantic
-   attribute.
+
+
 
 
 
@@ -673,6 +673,14 @@ Grey                    Expires 28 February 2027               [Page 12]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   <meta> elements are excluded from the canonical content in all
+   positions: direct-child claim <meta> elements (Section 4.6)
+   contribute to the canonical claims instead, and any other <meta>
+   contributes nothing. <head> and <link> are document-metadata elements
+   that do not carry signed body content and likewise contribute no
+   bytes; in particular a <link>'s href is NOT a signed semantic
+   attribute.
 
 4.3.2.  Included elements
 
@@ -714,14 +722,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    element-local-name and attribute-name are ASCII-lowercase names as
    exposed by the HTML parser. normalized-value for alt and aria-label
    is produced by applying the plain-text normalization in Section 4.4.
-   normalized-value for href and src is produced by applying htmltrust-
-   safe-url-v1 in Section 5.2, then serializing the resulting URL with
-   the Web URL serializer.  A URL parsing failure produces "attribute-
-   canonicalization-failed"; a parsed URL outside the selected policy
-   produces "url-policy-violation".  The normalized value MUST NOT
-   contain U+000A; if a canonicalizer cannot guarantee this,
-   verification MUST fail with "attribute-canonicalization-failed".
-   escaped-value is formed from normalized-value by replacing every
 
 
 
@@ -730,6 +730,14 @@ Grey                    Expires 28 February 2027               [Page 13]
 Internet-Draft                  HTMLTrust                    August 2026
 
 
+   normalized-value for href and src is produced by applying htmltrust-
+   safe-url-v1 in Section 5.2, then serializing the resulting URL with
+   the Web URL serializer.  A URL parsing failure produces "attribute-
+   canonicalization-failed"; a parsed URL outside the selected policy
+   produces "url-policy-violation".  The normalized value MUST NOT
+   contain U+000A; if a canonicalizer cannot guarantee this,
+   verification MUST fail with "attribute-canonicalization-failed".
+   escaped-value is formed from normalized-value by replacing every
    U+0040 COMMERCIAL AT with two consecutive U+0040 bytes.  The same
    replacement is applied to normalized text nodes immediately before
    they are emitted.  This domain-separates attribute records from text
@@ -770,14 +778,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    3.  Apply the whitespace mapping defined in Section 4.4.3.
 
-   4.  Apply the punctuation normalizations defined in Section 4.4.4.
-
-
-
-
-
-
-
 
 
 
@@ -785,6 +785,8 @@ Grey                    Expires 28 February 2027               [Page 14]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   4.  Apply the punctuation normalizations defined in Section 4.4.4.
 
 4.4.1.  Rationale
 
@@ -832,8 +834,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  U+2061..U+2064 INVISIBLE MATH OPERATORS
 
-   *  U+FFF9..U+FFFC INTERLINEAR ANNOTATION ANCHORS AND OBJECT
-      REPLACEMENT
 
 
 
@@ -841,6 +841,9 @@ Grey                    Expires 28 February 2027               [Page 15]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   *  U+FFF9..U+FFFC INTERLINEAR ANNOTATION ANCHORS AND OBJECT
+      REPLACEMENT
 
    The following characters MUST be preserved despite their visual
    invisibility.  They are semantically significant in major writing
@@ -887,9 +890,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    Single quotation marks: each of U+2018, U+2019, U+201A, U+201B,
    U+2032, U+2039, U+203A, U+0060, U+00B4 MUST be replaced with U+0027.
-
-
-
 
 
 
@@ -1662,6 +1662,312 @@ Internet-Draft                  HTMLTrust                    August 2026
    with the prior identity, but such vouching is a trust-layer signal,
    not a cryptographic guarantee.
 
+9.5.  Publisher-served revocation list
+
+   The revoked and superseded states above MAY also be asserted by an
+   identity independently of any single key document, at a location
+   under the identity's own origin rather than under the location of any
+   one key.  This gives an identity a channel to revoke or supersede one
+   of its keys even when that key's own document is hosted elsewhere, is
+   unreachable, or is compromised alongside the key material itself.
+
+   The revocation list is a JSON document at a fixed path relative to
+   the identity's origin:
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 30]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   https://<origin>/.well-known/htmltrust-revocations.json
+
+   <origin> is derived from the keyid under check, using whichever
+   resolution method (Section 8) applies to it:
+
+   *  For a did:web keyid (Section 8.1), <origin> is https:// followed
+      by the domain and optional port decoded from the DID identifier,
+      exactly as used to construct the DID document URL.  Any DID path
+      component is ignored for this purpose; the revocation list always
+      lives at the origin root, consistent with the well-known URI
+      convention [RFC8615].
+
+   *  For a direct HTTPS URL keyid (Section 8.2), <origin> is the origin
+      (scheme, host, and port) of that URL.
+
+   *  For a keyid resolved through a trust directory (Section 8.3), the
+      directory is NOT the revocation source.  This resolution method
+      defines no origin independent of the directory itself, so a
+      verifier MUST treat revocation-list consultation as not applicable
+      to such a keyid and MUST rely instead on the key document's own
+      revoked field (Section 8.2), which the directory can update
+      directly.  A future revision may define an explicit identity-
+      origin field for directory-hosted keys.
+
+   A publisher with nothing to revoke need not publish this resource at
+   all; see Revocation list fetch semantics, below.
+
+9.6.  Revocation list document shape
+
+   The revocation list is a JSON object with the following fields.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 31]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+     +=============+========+==========+=============================+
+     | Field       | Type   | Required | Description                 |
+     +=============+========+==========+=============================+
+     | signer      | string | yes      | Key identifier of the       |
+     |             |        |          | signer, resolved per        |
+     |             |        |          | Section 8.  MUST be a key   |
+     |             |        |          | of the same identity whose  |
+     |             |        |          | origin hosts this document. |
+     +-------------+--------+----------+-----------------------------+
+     | algorithm   | string | yes      | Signature algorithm         |
+     |             |        |          | identifier from             |
+     |             |        |          | Section 7.1.                |
+     +-------------+--------+----------+-----------------------------+
+     | timestamp   | string | yes      | RFC 3339 UTC timestamp at   |
+     |             |        |          | which this revision of the  |
+     |             |        |          | list was issued.            |
+     +-------------+--------+----------+-----------------------------+
+     | revocations | array  | yes      | Zero or more revocation     |
+     |             |        |          | entries, below.             |
+     +-------------+--------+----------+-----------------------------+
+     | signature   | string | yes      | Base64-encoded signature    |
+     |             |        |          | over the canonicalized      |
+     |             |        |          | document; see Revocation    |
+     |             |        |          | list verification, below.   |
+     +-------------+--------+----------+-----------------------------+
+
+                                  Table 4
+
+   Each entry of revocations is itself a JSON object:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 32]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+    +==============+========+==========+==============================+
+    | Field        | Type   | Required | Description                  |
+    +==============+========+==========+==============================+
+    | keyid        | string | yes      | The key identifier this      |
+    |              |        |          | entry applies to.            |
+    +--------------+--------+----------+------------------------------+
+    | status       | string | yes      | Exactly revoked or           |
+    |              |        |          | superseded.                  |
+    +--------------+--------+----------+------------------------------+
+    | revokedAt    | string | no       | RFC 3339 UTC timestamp;      |
+    |              |        |          | meaningful only when status  |
+    |              |        |          | is revoked.  Same semantics  |
+    |              |        |          | as the revokedAt field of    |
+    |              |        |          | Section 8.2: when compromise |
+    |              |        |          | is believed to have begun,   |
+    |              |        |          | not a cryptographically      |
+    |              |        |          | attestable boundary.         |
+    +--------------+--------+----------+------------------------------+
+    | supersededBy | string | no       | Successor keyid; meaningful  |
+    |              |        |          | only when status is          |
+    |              |        |          | superseded.  Same semantics  |
+    |              |        |          | as the supersededBy field of |
+    |              |        |          | Section 8.2.                 |
+    +--------------+--------+----------+------------------------------+
+
+                                  Table 5
+
+   Additional fields MAY be present in either object and MUST be
+   included when computing the signature (Revocation list verification,
+   below); a verifier MUST NOT drop them for that purpose.
+
+   The signer key MUST NOT itself carry status: "revoked" in the same
+   revision of the list it signs, and a verifier that already knows the
+   signer is revoked, from any earlier revision it holds or from any
+   other source, MUST reject the list.  Because revocation is absolute
+   (below), this check does not depend on comparing timestamps between
+   revisions.
+
+   The revocation list SHOULD be served with the media type application/
+   htmltrust-revocation+json (Section 15.1).  A verifier MUST NOT reject
+   an otherwise valid document solely on Content-Type; this is a static
+   file, and many hosting environments serve it as generic JSON.
+
+9.7.  The two states, and why no trusted time is required
+
+   revoked and superseded mean different things when asserted through
+   this list, and this distinction is the entire point of separating
+   them:
+
+
+
+Grey                    Expires 28 February 2027               [Page 33]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   revoked:  Compromise, suspected or confirmed.  The effect is absolute
+      and retroactive: every signature ever produced by the listed
+      keyid, at any signed-at value, MUST be treated as untrusted.  A
+      verifier MUST apply the key-revoked failure outcome and MUST NOT
+      weigh the signature's claimed timing before doing so, for the same
+      reason Section 9.3 already gives for the key document's own
+      revoked field: a signed-at value is signer-asserted, and a holder
+      of a stolen key can backdate it to precede the compromise.
+
+      A verifier MAY additionally apply the Section 9.3 corroborated-
+      timing exception (an RFC 3161 time-stamp token, transparency-log
+      inclusion, or a directory's first-seen record) to a signature from
+      a key revoked through this list, under the same conditions
+      Section 9.3 states.
+
+   superseded:  Orderly rotation, asserted independently of the key
+      document's own expires/supersededBy fields (Section 9.2).
+      Signatures already made with the listed keyid remain valid.  The
+      listed key MUST NOT be used to sign new content going forward.  A
+      verifier MUST NOT fail Section 12's cryptographic verification
+      because of a superseded entry; it MAY surface the entry as a
+      Section 12.7 trust-layer input.
+
+   This design requires no trusted time source, and that is deliberate.
+   A signed-at value cannot be trusted for reasoning about a revocation
+   window, because a compromised key can backdate it (Section 9.3).  The
+   revoked semantic above sidesteps the problem entirely by carrying no
+   window at all: it is unconditional, so there is nothing for a
+   backdated signed-at to defeat. revokedAt is retained for operator and
+   user- interface use, not as an input to the pass/fail decision.
+   Absolute revocation is, as a result, the only revocation semantic in
+   this document that needs no clock. superseded needs no trusted time
+   either, but for a different reason: it does not gate verification at
+   all, so there is no window to reason about.  It is a forward-looking
+   statement about future signing, not a retroactive judgment about past
+   signatures.
+
+9.8.  Revocation list verification
+
+   The signing payload for a revocation list is the JSON
+   Canonicalization Scheme [RFC8785] serialization of the document with
+   the signature field omitted, exactly as specified for endorsements in
+   Section 11.2, including its requirements on JCS conformance, member
+   ordering, and duplicate-member rejection.  The signer signs that byte
+   string using the algorithm given by algorithm.  A verifier resolves
+   signer per Section 8, confirms the signer is not itself known to be
+   revoked, reproduces the same serialization, and verifies the
+   signature using the resolved public key.
+
+
+
+Grey                    Expires 28 February 2027               [Page 34]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+9.9.  Revocation list fetch semantics
+
+   A verifier that wants revocation state for a keyid fetches the
+   document at the location derived above, subject to Section 12.9's
+   network policy: HTTPS only, no ambient credentials, no Referer,
+   redirect: error.  The outcome maps to one of three revocation-status
+   values:
+
+   *  HTTP 404: the publisher has published no revocation list.  Status
+      is not-revoked.  A publisher with nothing to revoke need not
+      publish this resource.
+
+   *  HTTP 200 with a document that parses and verifies per Revocation
+      list verification, above: the verifier applies its revocations
+      entries.  Status is revoked if the keyid under check appears with
+      status: "revoked"; otherwise status is not-revoked, and, if the
+      keyid appears with status: "superseded", the verifier additionally
+      records that fact as trust-layer metadata.
+
+   *  Any other outcome -- a network failure, a non-404 error status, a
+      body that is not valid JSON, a document whose signature does not
+      verify, or a document signed by a key the verifier already knows
+      to be revoked -- produces status revocation-unknown.
+
+   A verifier MUST NOT report a signature as fully verified while its
+   revocation status is revocation-unknown, and MUST surface the status
+   distinctly so trust-layer policy (Section 12.7) can act on it.  It
+   MUST NOT silently fold this state into not-revoked.  At the same
+   time, revocation-unknown MUST NOT by itself turn a cryptographically
+   valid Section 12 outcome into a key-revoked failure: a transient
+   outage of a static file at a well-known location must not make all of
+   a publisher's other content appear forged.  This mirrors how
+   Section 12.8's directory-unavailable outcome is handled: reported
+   alongside a cryptographic result, unable to invalidate one.  Only a
+   revoked status produces the key-revoked failure outcome.
+
+   A verifier caches a fetched revocation list subject to HTTP cache
+   semantics [RFC9111], but MUST additionally apply a maximum acceptable
+   staleness regardless of cache-control directives, because a
+   publisher's ability to signal compromise must not be indefinitely
+   deferred by a long-lived cache entry set before the compromise
+   occurred.  The recommended default is 24 hours; an implementation MAY
+   use a shorter value and MUST document any value longer than 24 hours.
+   A verifier SHOULD honor Cache-Control: no-cache and no-store from the
+   revocation-list server even where they would otherwise permit staler
+   reuse.
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 35]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   When a verifier consults both this list and the key document's own
+   revoked field (Section 8.2) for the same keyid, the two sources are
+   additive: a revoked result from either one is sufficient to produce
+   the key-revoked failure outcome, and neither source's not-revoked or
+   absence overrides a revoked result from the other.
+
 10.  Trust Directory HTTP API
 
    This section defines the HTTP API exposed by an optional federated
@@ -1674,13 +1980,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    diverge from these endpoints, field names, media types, or
    verification requirements need to change to match this specification
    rather than the reverse.
-
-
-
-Grey                    Expires 28 February 2027               [Page 30]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    A verifier MAY consult zero, one, or multiple directories.  The
    protocol does not require directory consultation for cryptographic
@@ -1700,6 +1999,24 @@ Internet-Draft                  HTMLTrust                    August 2026
    Returns a JSON metadata document describing the directory's
    capabilities.  The response media type is application/htmltrust-
    directory+json (provisional; see Section 15).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 36]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    {
      "directory": "https://directory.example/",
@@ -1731,13 +2048,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    A successful response is JSON of the form:
 
-
-
-Grey                    Expires 28 February 2027               [Page 31]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    {
      "contentHash": "sha256:Zm9vYmFy...",
      "firstSeen": "2026-05-15T12:34:56Z",
@@ -1754,6 +2064,15 @@ Internet-Draft                  HTMLTrust                    August 2026
      ],
      "endorsementCount": 3
    }
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 37]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    A directory that does not have a record for the requested hash MUST
    return 404 Not Found.
@@ -1785,21 +2104,31 @@ Internet-Draft                  HTMLTrust                    August 2026
    re-verify the submitted signature against the canonical signing
    payload (Section 5) before indexing.
 
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 32]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    The profile, algorithm, keyid, scope, location, contentHash,
    signedAt, and signature members are REQUIRED. sourceURL is the
    observed occurrence URL.  The directory MUST derive a location from
    sourceURL under the submitted scope and require it to equal location.
    A directory MUST NOT derive the signed location from canonical-link
    metadata.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 38]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The claims array MUST contain the complete set of direct-child claim
    records used by the signer, including exactly one signed-at record.
@@ -1843,15 +2172,19 @@ Internet-Draft                  HTMLTrust                    August 2026
    3.  Index the endorsement under the content hash for retrieval via
        Section 10.5.
 
+   Successful submission returns 201 Created.  Endorsements with invalid
+   signatures MUST be rejected with 400 Bad Request.
 
 
-Grey                    Expires 28 February 2027               [Page 33]
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 39]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
-
-   Successful submission returns 201 Created.  Endorsements with invalid
-   signatures MUST be rejected with 400 Bad Request.
 
 10.7.  GET /keys/{id}
 
@@ -1898,15 +2231,16 @@ Internet-Draft                  HTMLTrust                    August 2026
    The signature parameters MUST include created, keyid, and alg;
    created MUST be within the directory's configured clock-skew window
    and implementations SHOULD include a nonce to prevent replay of
+   otherwise valid requests.
 
 
 
-Grey                    Expires 28 February 2027               [Page 34]
+
+
+Grey                    Expires 28 February 2027               [Page 40]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
-
-   otherwise valid requests.
 
    The alg parameter identifies the HTTP Message Signature algorithm
    profile.  For this revision, ed25519 means an Ed25519 signature over
@@ -1957,7 +2291,9 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 35]
+
+
+Grey                    Expires 28 February 2027               [Page 41]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2003,7 +2339,7 @@ Internet-Draft                  HTMLTrust                    August 2026
    |             |        |          | hash.                           |
    +-------------+--------+----------+---------------------------------+
 
-                                  Table 4
+                                  Table 6
 
    Additional fields MAY be present and SHOULD be preserved by
    directories.  Verifiers MUST ignore fields they do not recognize for
@@ -2013,7 +2349,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 36]
+Grey                    Expires 28 February 2027               [Page 42]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2069,7 +2405,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 37]
+Grey                    Expires 28 February 2027               [Page 43]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2125,7 +2461,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 38]
+Grey                    Expires 28 February 2027               [Page 44]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2181,7 +2517,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 39]
+Grey                    Expires 28 February 2027               [Page 45]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2205,8 +2541,12 @@ Internet-Draft                  HTMLTrust                    August 2026
    failure produces "key-resolution-failed".  A key response that
    violates the required document schema produces "malformed-key-
    document".  A revoked key, or an expired key that Section 9 does not
-   permit for this signature, produces "key-revoked".  The verifier MUST
-   stop after any of these results.
+   permit for this signature, produces "key-revoked".  A verifier that
+   also consults a Section 9.5 revocation list MUST apply the same "key-
+   revoked" outcome when that list reports revoked for keyid; a
+   revocation-unknown list result from that consultation does not
+   produce a failure at this step (Section 9.9).  The verifier MUST stop
+   after any "key-revoked" or other listed result.
 
    If the algorithm associated with the resolved key is incompatible
    with the algorithm attribute of the signed section, the verifier MUST
@@ -2225,6 +2565,19 @@ Internet-Draft                  HTMLTrust                    August 2026
    If the verification succeeds, the verifier MUST return a "valid"
    cryptographic outcome.
 
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 46]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 12.7.  Step 7: Trust decision (out of scope)
 
    The verifier returns the cryptographic outcome to the trust-decision
@@ -2232,15 +2585,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    [HTMLTRUST-W3C]).  The trust layer composes endorsement, reputation,
    and personal-trust-list inputs and MUST NOT alter the cryptographic
    outcome.
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 40]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
 12.8.  Failure outcomes
 
@@ -2270,6 +2614,26 @@ Internet-Draft                  HTMLTrust                    August 2026
    failure MUST NOT change a valid cryptographic result into an invalid
    one.
 
+   Section 9.9's revocation-unknown revocation-list status follows the
+   same pattern as directory-unavailable: it is not a member of this
+   failure vocabulary and MUST NOT be used as a layer-1 cryptographic-
+   outcome reason.  It is reported as a separate, distinguishable value
+   alongside a layer-1 result and MUST NOT be silently treated as not-
+   revoked.  A revoked revocation-list status is not treated the same
+   way: it maps directly onto the "key-revoked" failure above.
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 47]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 12.9.  Verifier network fetch policy
 
    This section defines a provisional network model for verifier-
@@ -2288,15 +2652,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    Verifier fetches SHOULD send no Referer header.  If a platform cannot
    omit the header, it MUST trim it no less strictly than strict-origin-
    when-cross-origin.
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 41]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    Web-page JavaScript verifiers are subject to the Fetch CORS model and
    therefore require key and directory servers to opt in with
@@ -2321,6 +2676,20 @@ Internet-Draft                  HTMLTrust                    August 2026
    provide a privileged verification path SHOULD bypass page script and
    extension mutation when preserving the original response snapshot.
 
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 48]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    Trust-directory consultation MUST be user opt-in.  If a directory
    fetch, key fetch, source refetch, CORS check, redirect policy,
    timeout, cache validation, or user-permission check fails, the
@@ -2335,24 +2704,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    fetching untrusted input.  The following limits are the interoperable
    baseline for this revision; an implementation MAY choose lower
    values, but MUST NOT silently continue beyond them:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 42]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
        +=============================================+============+
        | Resource                                    |    Maximum |
@@ -2378,7 +2729,7 @@ Internet-Draft                  HTMLTrust                    August 2026
        | Concurrent verifier fetches per document    |          4 |
        +---------------------------------------------+------------+
 
-                                 Table 5
+                                 Table 7
 
    The limits apply independently to source verification, key
    resolution, and optional directory consultation.  A verifier that
@@ -2387,6 +2738,13 @@ Internet-Draft                  HTMLTrust                    August 2026
    failure resource-limit-exceeded.  It MUST NOT expose the rejected
    input or canonical bytes to page scripts.  An implementation MAY
    expose the precise limit to privileged diagnostics.
+
+
+
+Grey                    Expires 28 February 2027               [Page 49]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 13.  Security Considerations
 
@@ -2402,14 +2760,6 @@ Internet-Draft                  HTMLTrust                    August 2026
       or at a non- origin endpoint.  HTMLTrust detects any modification
       of canonical text or signed semantic attributes inside a signed
       section.  It does not detect modifications to surrounding markup
-
-
-
-Grey                    Expires 28 February 2027               [Page 43]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
       or to non-signed regions; verifiers and trust policies MUST
       present cryptographic outcomes per signed section, not per
       document.
@@ -2422,8 +2772,12 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    Key compromise:  An adversary in possession of a signer's private
       key.  HTMLTrust cannot prevent forgery in this case.  Mitigations
-      are revocation (Section 8.2, revoked field) and short-lived keys
-      with expires.
+      are revocation through the key document's own revoked field
+      (Section 8.2), the independent publisher-served revocation list
+      (Section 9.5), and short-lived keys with expires.  The revocation
+      list is the more robust of the two revocation channels when the
+      key document itself is hosted somewhere the compromise also
+      reaches.
 
    Replay across origins:  An adversary copying a signed section from
       one site to another.  Both v1 scopes bind an HTTPS tuple origin,
@@ -2439,6 +2793,15 @@ Internet-Draft                  HTMLTrust                    August 2026
       integrity.
 
    Downgrade:  An adversary inducing a verifier to use a weak algorithm.
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 50]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
       Mitigated by signing the exact algorithm, key identifier, and
       profile identifiers, and by the verifier's right to refuse
       algorithms (Section 7.3).  A verifier never retries under a legacy
@@ -2456,15 +2819,6 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  Location binding (Section 5) restricts the signed material to one
       URL by default, or to one origin after an explicit signer choice.
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 44]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    *  Trust-directory indexing and external research (out of band, but
       enabled by the content hash being globally addressable) catches
@@ -2490,6 +2844,20 @@ Internet-Draft                  HTMLTrust                    August 2026
    direct child <meta> elements and SHOULD keep unrelated machine
    metadata outside the signed section.
 
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 51]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    The signed-at value is intentionally included twice: once as a normal
    claim inside the claims hash and once as an explicit signing-payload
    field.  The duplicate binding is not ambiguous because both uses
@@ -2513,15 +2881,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    historical unescaped form is a legacy mode and MUST be clearly
    distinguished from this revision.
 
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 45]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
 13.4.  Revocation latency
 
    Revocation under Section 8.2 depends on the verifier re-fetching the
@@ -2531,6 +2890,29 @@ Internet-Draft                  HTMLTrust                    August 2026
    short maximum cache age for HTMLTrust key documents (recommended: one
    hour) and SHOULD honor Cache-Control: no-cache directives from the
    key-document server.
+
+   The Section 9.5 revocation list has the same category of dependency,
+   with its own recommended 24-hour maximum staleness (Section 9.9).
+   That window is longer than the key-document recommendation above
+   because the two channels serve different operational needs: the key
+   document is small, per-key, and cheap to re-fetch on every
+   resolution, while the revocation list is a single shared resource an
+   origin may prefer not to see re-fetched by every verifier on every
+   page load.  A publisher for whom 24 hours is an unacceptable
+   compromise MAY serve the list with explicit, shorter Cache-Control
+   directives, which a conforming verifier honors.
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 52]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 13.5.  Algorithm agility risks
 
@@ -2550,6 +2932,74 @@ Internet-Draft                  HTMLTrust                    August 2026
    through which verification outcomes are exposed; verifiers in non-
    browser contexts SHOULD follow analogous discipline.
 
+13.7.  Revocation mechanism alternatives
+
+   Section 9.5 adopts a publisher-served revocation list rather than
+   several alternatives considered during design.  Recording why they
+   were set aside is intended to save a future reviewer from re-
+   litigating them without new information.
+
+   Key expiry alone:  Relying solely on the key document's expires field
+      (Section 8.2) was rejected as a complete solution because it
+      establishes a scheduled retirement, not an emergency signal; a
+      publisher who discovers a compromise cannot wait for a previously
+      scheduled expiry, and setting expires to the past after the fact
+      is indistinguishable from the publisher having planned that
+      rotation all along.  It also inherits the general problem that
+      expiry-window reasoning needs a trusted time boundary, and a key
+      holder who retains write access to wherever the key document is
+      hosted can extend the document's own expires value.
+
+   Directory-served revocation:  Having trust directories (Section 10)
+      serve revocation state, rather than the identity's own origin, was
+      rejected for two reasons.  First, it reintroduces the reading-
+      behavior privacy leak that directory-based key resolution already
+      creates (Section 14.2): a verifier that checks revocation status
+      through a directory reveals to that directory exactly which keys,
+      and therefore which content, it is currently examining.  Second,
+      it makes directories semi-authoritative over an identity's key
+      state, contradicting this document's design that no directory is
+      privileged (Architecture Overview) and that a verifier MAY perform
+      full cryptographic verification without ever contacting one.
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 53]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   Transparency log:  An append-only, publicly auditable log of
+      revocation events, in the style of Certificate Transparency
+      [RFC9162], would give verifiers a stronger guarantee than a single
+      publisher-served file: it resists a compromised origin quietly
+      omitting a revocation, and its append-only structure gives
+      verifiers a trusted ordering of events as a by-product, which is
+      exactly the trusted-time input Section 9.7 explains this design
+      avoids needing.  It was deferred because it requires log
+      operators, an ecosystem this document does not presume exists, and
+      a witness or gossip protocol to detect a forked log.  It remains
+      the strongest long-term direction for revocation in this protocol
+      and a natural target for a future revision.
+
+   Stapled revocation status:  An OCSP-stapling analogue, where the
+      publisher attaches a short-lived, signed non-revocation
+      attestation to the signed content itself, or to the HTTP response
+      serving it, rather than requiring the verifier to fetch a separate
+      resource, was deferred as a later enhancement.  It would remove
+      the verifier-initiated fetch in the common case entirely, at the
+      cost of requiring the publishing pipeline to periodically re-
+      staple fresh attestations, which is a larger operational change to
+      the publishing side than this revision makes.
+
+   OpenTimestamps, or a comparable proof-of-existence scheme, addresses
+   a related but distinct problem: proving that a piece of content
+   existed before a given time, for resolving precedence disputes
+   between two publishers.  It does not by itself address revocation and
+   is out of scope for this document; it remains the leading candidate
+   should a future revision need a provable existence-before guarantee.
+
 14.  Privacy Considerations
 
 14.1.  Directory query exposure
@@ -2568,15 +3018,16 @@ Internet-Draft                  HTMLTrust                    August 2026
    *  Verifiers MAY batch endorsement requests for multiple content
       hashes encountered in the same document.
 
-   *  Verifiers SHOULD support a "no directory" mode that limits the
-      verifier to local cryptographic verification only.
 
 
 
-Grey                    Expires 28 February 2027               [Page 46]
+Grey                    Expires 28 February 2027               [Page 54]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   *  Verifiers SHOULD support a "no directory" mode that limits the
+      verifier to local cryptographic verification only.
 
    *  Verifiers MAY use HTTP via Tor or another anonymizing transport
       for directory queries; directories SHOULD accept anonymized
@@ -2600,6 +3051,21 @@ Internet-Draft                  HTMLTrust                    August 2026
    directory; the protocol does not provide a private- endorsement
    mechanism.
 
+14.4.  Revocation list query exposure
+
+   Fetching the Section 9.5 revocation list discloses to the identity's
+   own origin that some verifier is checking that identity's revocation
+   state.  This is a smaller disclosure than Section 14.2's per-key
+   resolution exposure in two respects: the list is one shared resource
+   per origin covering every key of that identity, so the fetch does not
+   identify which specific key or piece of content is being verified,
+   and the request goes to the same origin that already served the
+   content being checked, which therefore learns nothing about the
+   verifier's activity that serving the page did not already reveal.  A
+   verifier that batches or delays revocation fetches independently of
+   the specific content that triggered them further reduces correlation
+   between a fetch and a specific page visit.
+
 15.  IANA Considerations
 
    This document requests the following IANA actions.
@@ -2608,6 +3074,13 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    The following media types are to be registered in the "Media Types"
    registry.
+
+
+
+Grey                    Expires 28 February 2027               [Page 55]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 15.1.1.  application/htmltrust-key+json
 
@@ -2626,13 +3099,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    *  Interoperability considerations: see Section 8.2
 
    *  Published specification: this document (Section 8.2)
-
-
-
-Grey                    Expires 28 February 2027               [Page 47]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    *  Applications that use this media type: HTMLTrust verifiers,
       publishers, and trust directories
@@ -2657,6 +3123,21 @@ Internet-Draft                  HTMLTrust                    August 2026
    content+json and a reference to Section 10.3 (the /content/{hash}
    response format).
 
+15.1.5.  application/htmltrust-revocation+json
+
+   Identical fields as Section 15.1.1, with subtype name htmltrust-
+   revocation+json and a reference to Section 9.6 (the revocation list
+   document shape).
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 56]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 15.2.  Well-known URI
 
    The suffix htmltrust is to be registered in the "Well-Known URIs"
@@ -2670,7 +3151,21 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  Related information: identifies trust directory discovery metadata
 
-15.3.  Signature algorithm registry
+15.3.  Well-known URI (revocation list)
+
+   The suffix htmltrust-revocations.json is to be registered in the
+   "Well-Known URIs" registry per [RFC8615].
+
+   *  URI suffix: htmltrust-revocations.json
+
+   *  Change controller: IETF
+
+   *  Specification document: this document, Section 9.5
+
+   *  Related information: identifies a publisher's signed key-
+      revocation list, scoped to the origin serving it
+
+15.4.  Signature algorithm registry
 
    IANA is requested to establish a new registry titled "HTMLTrust
    Signature Algorithms" under a new "HTMLTrust Parameters" group.  The
@@ -2683,18 +3178,23 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  Algorithm description
 
-
-
-Grey                    Expires 28 February 2027               [Page 48]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
    *  Reference
 
    *  Status: "current" or "deprecated"
 
-15.4.  Hash algorithm registry
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 57]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+15.5.  Hash algorithm registry
 
    IANA is requested to establish a new registry titled "HTMLTrust Hash
    Algorithms" under the "HTMLTrust Parameters" group.  The registry is
@@ -2714,7 +3214,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
    *  Status: "current" or "deprecated"
 
-15.5.  HTMLTrust error type prefix
+15.6.  HTMLTrust error type prefix
 
    This document does not request an IANA registry for the
    https://htmltrust.org/errors/... URIs used in problem-details
@@ -2741,7 +3241,11 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 49]
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 58]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2797,7 +3301,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 50]
+Grey                    Expires 28 February 2027               [Page 59]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2853,7 +3357,7 @@ Internet-Draft                  HTMLTrust                    August 2026
 
 
 
-Grey                    Expires 28 February 2027               [Page 51]
+Grey                    Expires 28 February 2027               [Page 60]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -2901,18 +3405,21 @@ Internet-Draft                  HTMLTrust                    August 2026
               Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
               <https://www.rfc-editor.org/rfc/rfc8446>.
 
-   [SRI]      W3C, "Subresource Integrity", 2023,
-              <https://www.w3.org/TR/SRI/>.
+   [RFC9162]  Laurie, B., Messeri, E., and R. Stradling, "Certificate
+              Transparency Version 2.0", RFC 9162, DOI 10.17487/RFC9162,
+              December 2021, <https://www.rfc-editor.org/rfc/rfc9162>.
 
 
 
 
 
-
-Grey                    Expires 28 February 2027               [Page 52]
+Grey                    Expires 28 February 2027               [Page 61]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
+
+   [SRI]      W3C, "Subresource Integrity", 2023,
+              <https://www.w3.org/TR/SRI/>.
 
    [SXG]      Yasskin, J., "Signed HTTP Exchanges", 2024,
               <https://datatracker.ietf.org/doc/draft-yasskin-http-
@@ -2962,10 +3469,7 @@ public key (hex): ae8e474e7921dd51be650dcf6847ab452dee63421339efc3d6b041b2e85f4c
 
 
 
-
-
-
-Grey                    Expires 28 February 2027               [Page 53]
+Grey                    Expires 28 February 2027               [Page 62]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3021,7 +3525,7 @@ B.4.  Canonical claims
 
 
 
-Grey                    Expires 28 February 2027               [Page 54]
+Grey                    Expires 28 February 2027               [Page 63]
 
 Internet-Draft                  HTMLTrust                    August 2026
 
@@ -3062,25 +3566,100 @@ B.5.  Signing payload and signature
 
 m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA
 
+B.6.  Revocation list
+
+   This vector illustrates Section 9's revocation list using a dedicated
+   test key, distinct from the key used in the signing-profile vector
+   above, so it is reproducible on its own.  Its 32-byte private seed is
+   the ASCII string htmltrust-revocation-vector-0001:
+
+   seed (hex):       68746d6c74727573742d7265766f636174696f6e2d766563
+                      746f722d30303031
+   public key (hex): 91bf5c75896638143e837df158a6378d9b2b2b45bc5762b
+                      527a2851f7bd36cff
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 64]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   Public key (SubjectPublicKeyInfo, PEM):
+
+   -----BEGIN PUBLIC KEY-----
+   MCowBQYDK2VwAyEAkb9cdYlmOBQ+g33xWKY3jZsrK0W8V2K1J6KFH3vTbP8=
+   -----END PUBLIC KEY-----
+
+   For this vector, https://keys.example/alice-2026.json (the keyid used
+   as signer throughout) is backed by the dedicated test key above, not
+   by the key used in the signing-profile vector; the two vectors are
+   independent even though they reuse the same example keyid string for
+   "Alice."  Alice's revocation list, derived from that keyid's origin
+   per Section 9.5, is https://keys.example/.well-known/htmltrust-
+   revocations.json.  The document below revokes one prior key of hers
+   outright and separately marks another as superseded by her current
+   key:
+
+   {
+     "signer": "https://keys.example/alice-2026.json",
+     "algorithm": "ed25519",
+     "timestamp": "2026-06-01T00:00:00Z",
+     "revocations": [
+       {
+         "keyid": "https://keys.example/alice-2024.json",
+         "status": "revoked",
+         "revokedAt": "2026-05-30T00:00:00Z"
+       },
+       {
+         "keyid": "https://keys.example/alice-2025.json",
+         "status": "superseded",
+         "supersededBy": "https://keys.example/alice-2026.json"
+       }
+     ],
+     "signature": "6pl20NgiwKTo4Ed5yL085suxRKRVCnl3yi+GH6LOFB4V/810/dKFhloh4LiIbCEMycoW3GHj4UP9HWl68YevCg"
+   }
+
+   The JCS input for the document above (the object with signature
+   omitted), shown on one line:
+
+   {"algorithm":"ed25519","revocations":[{"keyid":"https://keys.example/alice-2024.json","revokedAt":"2026-05-30T00:00:00Z","status":"revoked"},{"keyid":"https://keys.example/alice-2025.json","status":"superseded","supersededBy":"https://keys.example/alice-2026.json"}],"signer":"https://keys.example/alice-2026.json","timestamp":"2026-06-01T00:00:00Z"}
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 65]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
+   A verifier checking https://keys.example/alice-2024.json against this
+   list observes status: "revoked" and MUST return key-revoked for any
+   signature made with that keyid, regardless of its signed-at value.  A
+   verifier checking https://keys.example/alice-2025.json observes
+   status: "superseded"; existing signatures from that keyid remain
+   cryptographically valid, and the verifier MAY surface the
+   supersession as trust-layer metadata.  A verifier checking any other
+   keyid under this origin, including https://keys.example/alice-
+   2026.json itself, finds no matching entry and reports not-revoked.
+
+   The machine-readable form of this vector is maintained as ietf-
+   draft/vectors/revocation-01.json in this repository.
+
 Appendix C.  Example Directory Exchange
 
 C.1.  Submitting a content record
 
    Request:
-
-
-
-
-
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 55]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
 POST /content HTTP/1.1
 Host: directory.example
@@ -3104,6 +3683,20 @@ Content-Digest: sha-256=:vVnocWvEKyG/MTZYW9GmhC8a+6EE3faenFcdA9UF8Ug:
 }
 
    Response:
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 66]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
 HTTP/1.1 201 Created
 Location: https://directory.example/content/sha256%3AIVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8
@@ -3130,14 +3723,6 @@ C.2.  Submitting an endorsement
 
    Request body (after canonicalization per Section 11.2 and signing):
 
-
-
-
-Grey                    Expires 28 February 2027               [Page 56]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
-
 {
   "endorser": "did:web:reviewer.example",
   "endorsement": "sha256:IVAwpRTDujszmYf76W497alVTtxGCgtJtQlasiFSCM8",
@@ -3157,6 +3742,18 @@ Internet-Draft                  HTMLTrust                    August 2026
    this appendix.  Its canonical payload hash is
    sha256:sPBnoFyxiTmeBOQHaTyhdJy6prv3jmTdoTZpDXP5xrg.
 
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 67]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 Appendix D.  Open Issues
 
    The following issues are open in this revision and are expected to be
@@ -3175,6 +3772,13 @@ Appendix D.  Open Issues
        endpoint is intentionally directory-specific.  A future revision
        may define a small interoperable subset.
 
+   4.  Revocation lists for directory-hosted keys.  Section 9.5 excludes
+       keys resolved through Section 8.3 from revocation-list
+       consultation because that resolution method defines no identity
+       origin independent of the directory itself.  A future revision
+       may define an explicit identity-origin field for directory-hosted
+       keys so this gap can be closed.
+
 Author's Address
 
    Jason Grey
@@ -3189,4 +3793,16 @@ Author's Address
 
 
 
-Grey                    Expires 28 February 2027               [Page 57]
+
+
+
+
+
+
+
+
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 68]

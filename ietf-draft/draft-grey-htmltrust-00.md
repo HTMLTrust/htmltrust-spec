@@ -60,6 +60,7 @@ informative:
   RFC6376:
   RFC3161:
   RFC8446:
+  RFC9162:
   HTMLTRUST-W3C:
     title: "HTMLTrust: Signed Sections for the Web (W3C Community Group Report)"
     target: https://htmltrust.org/spec/
@@ -1272,6 +1273,179 @@ endorsers MAY vouch for a successor key's continuity with the prior
 identity, but such vouching is a trust-layer signal, not a cryptographic
 guarantee.
 
+## Publisher-served revocation list
+
+The `revoked` and `superseded` states above MAY also be asserted by an
+identity independently of any single key document, at a location under the
+identity's own origin rather than under the location of any one key. This
+gives an identity a channel to revoke or supersede one of its keys even
+when that key's own document is hosted elsewhere, is unreachable, or is
+compromised alongside the key material itself.
+
+The revocation list is a JSON document at a fixed path relative to the
+identity's origin:
+
+~~~
+https://<origin>/.well-known/htmltrust-revocations.json
+~~~
+
+`<origin>` is derived from the `keyid` under check, using whichever
+resolution method (Section 8) applies to it:
+
+- For a `did:web` `keyid` (Section 8.1), `<origin>` is `https://` followed
+  by the domain and optional port decoded from the DID identifier, exactly
+  as used to construct the DID document URL. Any DID path component is
+  ignored for this purpose; the revocation list always lives at the origin
+  root, consistent with the well-known URI convention [RFC8615].
+- For a direct HTTPS URL `keyid` (Section 8.2), `<origin>` is the origin
+  (scheme, host, and port) of that URL.
+- For a `keyid` resolved through a trust directory (Section 8.3), the
+  directory is NOT the revocation source. This resolution method defines
+  no origin independent of the directory itself, so a verifier MUST treat
+  revocation-list consultation as not applicable to such a `keyid` and MUST
+  rely instead on the key document's own `revoked` field (Section 8.2),
+  which the directory can update directly. A future revision may define an
+  explicit identity-origin field for directory-hosted keys.
+
+A publisher with nothing to revoke need not publish this resource at all;
+see Revocation list fetch semantics, below.
+
+## Revocation list document shape
+
+The revocation list is a JSON object with the following fields.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `signer` | string | yes | Key identifier of the signer, resolved per Section 8. MUST be a key of the same identity whose origin hosts this document. |
+| `algorithm` | string | yes | Signature algorithm identifier from Section 7.1. |
+| `timestamp` | string | yes | RFC 3339 UTC timestamp at which this revision of the list was issued. |
+| `revocations` | array | yes | Zero or more revocation entries, below. |
+| `signature` | string | yes | Base64-encoded signature over the canonicalized document; see Revocation list verification, below. |
+
+Each entry of `revocations` is itself a JSON object:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `keyid` | string | yes | The key identifier this entry applies to. |
+| `status` | string | yes | Exactly `revoked` or `superseded`. |
+| `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
+| `supersededBy` | string | no | Successor `keyid`; meaningful only when `status` is `superseded`. Same semantics as the `supersededBy` field of Section 8.2. |
+
+Additional fields MAY be present in either object and MUST be included when
+computing the signature (Revocation list verification, below); a verifier
+MUST NOT drop them for that purpose.
+
+The signer key MUST NOT itself carry `status: "revoked"` in the same
+revision of the list it signs, and a verifier that already knows the
+signer is revoked, from any earlier revision it holds or from any other
+source, MUST reject the list. Because revocation is absolute (below), this
+check does not depend on comparing timestamps between revisions.
+
+The revocation list SHOULD be served with the media type
+`application/htmltrust-revocation+json` (Section 15.1). A verifier MUST
+NOT reject an otherwise valid document solely on `Content-Type`; this is a
+static file, and many hosting environments serve it as generic JSON.
+
+## The two states, and why no trusted time is required
+
+`revoked` and `superseded` mean different things when asserted through this
+list, and this distinction is the entire point of separating them:
+
+`revoked`:
+: Compromise, suspected or confirmed. The effect is absolute and
+  retroactive: every signature ever produced by the listed `keyid`, at any
+  `signed-at` value, MUST be treated as untrusted. A verifier MUST apply
+  the `key-revoked` failure outcome and MUST NOT weigh the signature's
+  claimed timing before doing so, for the same reason Section 9.3 already
+  gives for the key document's own `revoked` field: a `signed-at` value is
+  signer-asserted, and a holder of a stolen key can backdate it to precede
+  the compromise.
+: A verifier MAY additionally apply the Section 9.3 corroborated-timing
+  exception (an RFC 3161 time-stamp token, transparency-log inclusion, or a
+  directory's first-seen record) to a signature from a key revoked through
+  this list, under the same conditions Section 9.3 states.
+
+`superseded`:
+: Orderly rotation, asserted independently of the key document's own
+  `expires`/`supersededBy` fields (Section 9.2). Signatures already made
+  with the listed `keyid` remain valid. The listed key MUST NOT be used to
+  sign new content going forward. A verifier MUST NOT fail Section 12's
+  cryptographic verification because of a `superseded` entry; it MAY
+  surface the entry as a Section 12.7 trust-layer input.
+
+This design requires no trusted time source, and that is deliberate. A
+`signed-at` value cannot be trusted for reasoning about a revocation
+window, because a compromised key can backdate it (Section 9.3). The
+`revoked` semantic above sidesteps the problem entirely by carrying no
+window at all: it is unconditional, so there is nothing for a backdated
+`signed-at` to defeat. `revokedAt` is retained for operator and user-
+interface use, not as an input to the pass/fail decision. Absolute
+revocation is, as a result, the only revocation semantic in this document
+that needs no clock. `superseded` needs no trusted time either, but for a
+different reason: it does not gate verification at all, so there is no
+window to reason about. It is a forward-looking statement about future
+signing, not a retroactive judgment about past signatures.
+
+## Revocation list verification
+
+The signing payload for a revocation list is the JSON Canonicalization
+Scheme [RFC8785] serialization of the document with the `signature` field
+omitted, exactly as specified for endorsements in Section 11.2, including
+its requirements on JCS conformance, member ordering, and duplicate-member
+rejection. The signer signs that byte string using the algorithm given by
+`algorithm`. A verifier resolves `signer` per Section 8, confirms the
+signer is not itself known to be revoked, reproduces the same
+serialization, and verifies the signature using the resolved public key.
+
+## Revocation list fetch semantics
+
+A verifier that wants revocation state for a `keyid` fetches the document
+at the location derived above, subject to Section 12.9's network policy:
+HTTPS only, no ambient credentials, no `Referer`, `redirect: error`. The
+outcome maps to one of three revocation-status values:
+
+- HTTP 404: the publisher has published no revocation list. Status is
+  `not-revoked`. A publisher with nothing to revoke need not publish this
+  resource.
+- HTTP 200 with a document that parses and verifies per Revocation list
+  verification, above: the verifier applies its `revocations` entries.
+  Status is `revoked` if the `keyid` under check appears with
+  `status: "revoked"`; otherwise status is `not-revoked`, and, if the
+  `keyid` appears with `status: "superseded"`, the verifier additionally
+  records that fact as trust-layer metadata.
+- Any other outcome -- a network failure, a non-404 error status, a body
+  that is not valid JSON, a document whose signature does not verify, or a
+  document signed by a key the verifier already knows to be revoked --
+  produces status `revocation-unknown`.
+
+A verifier MUST NOT report a signature as fully verified while its
+revocation status is `revocation-unknown`, and MUST surface the status
+distinctly so trust-layer policy (Section 12.7) can act on it. It MUST NOT
+silently fold this state into `not-revoked`. At the same time,
+`revocation-unknown` MUST NOT by itself turn a cryptographically valid
+Section 12 outcome into a `key-revoked` failure: a transient outage of a
+static file at a well-known location must not make all of a publisher's
+other content appear forged. This mirrors how Section 12.8's
+`directory-unavailable` outcome is handled: reported alongside a
+cryptographic result, unable to invalidate one. Only a `revoked` status
+produces the `key-revoked` failure outcome.
+
+A verifier caches a fetched revocation list subject to HTTP cache
+semantics [RFC9111], but MUST additionally apply a maximum acceptable
+staleness regardless of cache-control directives, because a publisher's
+ability to signal compromise must not be indefinitely deferred by a
+long-lived cache entry set before the compromise occurred. The recommended
+default is 24 hours; an implementation MAY use a shorter value and MUST
+document any value longer than 24 hours. A verifier SHOULD honor
+`Cache-Control: no-cache` and `no-store` from the revocation-list server
+even where they would otherwise permit staler reuse.
+
+When a verifier consults both this list and the key document's own
+`revoked` field (Section 8.2) for the same `keyid`, the two sources are
+additive: a `revoked` result from either one is sufficient to produce the
+`key-revoked` failure outcome, and neither source's `not-revoked` or
+absence overrides a `revoked` result from the other.
+
 # Trust Directory HTTP API
 
 This section defines the HTTP API exposed by an optional federated
@@ -1694,7 +1868,11 @@ algorithm it is suitable for. A retrieval or DID-resolution failure produces
 "key-resolution-failed". A key response that violates the required document
 schema produces "malformed-key-document". A revoked key, or an expired key
 that Section 9 does not permit for this signature, produces "key-revoked".
-The verifier MUST stop after any of these results.
+A verifier that also consults a Section 9.5 revocation list MUST apply the
+same "key-revoked" outcome when that list reports `revoked` for `keyid`; a
+`revocation-unknown` list result from that consultation does not produce a
+failure at this step (Section 9.9). The verifier MUST stop after any
+"key-revoked" or other listed result.
 
 If the algorithm associated with the resolved key is incompatible
 with the `algorithm` attribute of the signed section, the verifier
@@ -1749,6 +1927,14 @@ identifier and a privacy-safe explanation to page scripts.
 consultation in the layer-2 processing model. A layer-1 cryptographic result
 MUST NOT use that identifier, and directory failure MUST NOT change a valid
 cryptographic result into an invalid one.
+
+Section 9.9's `revocation-unknown` revocation-list status follows the same
+pattern as `directory-unavailable`: it is not a member of this failure
+vocabulary and MUST NOT be used as a layer-1 cryptographic-outcome
+`reason`. It is reported as a separate, distinguishable value alongside a
+layer-1 result and MUST NOT be silently treated as `not-revoked`. A
+`revoked` revocation-list status is not treated the same way: it maps
+directly onto the "key-revoked" failure above.
 
 ## Verifier network fetch policy
 
@@ -1852,8 +2038,11 @@ Origin compromise:
 Key compromise:
 : An adversary in possession of a signer's private key. HTMLTrust
   cannot prevent forgery in this case. Mitigations are revocation
-  (Section 8.2, `revoked` field) and short-lived keys with
-  `expires`.
+  through the key document's own `revoked` field (Section 8.2), the
+  independent publisher-served revocation list (Section 9.5), and
+  short-lived keys with `expires`. The revocation list is the more
+  robust of the two revocation channels when the key document itself is
+  hosted somewhere the compromise also reaches.
 
 Replay across origins:
 : An adversary copying a signed section from one site to another. Both v1
@@ -1937,6 +2126,16 @@ short maximum cache age for HTMLTrust key documents (recommended:
 one hour) and SHOULD honor `Cache-Control: no-cache` directives from
 the key-document server.
 
+The Section 9.5 revocation list has the same category of dependency, with
+its own recommended 24-hour maximum staleness (Section 9.9). That window
+is longer than the key-document recommendation above because the two
+channels serve different operational needs: the key document is small,
+per-key, and cheap to re-fetch on every resolution, while the revocation
+list is a single shared resource an origin may prefer not to see
+re-fetched by every verifier on every page load. A publisher for whom
+24 hours is an unacceptable compromise MAY serve the list with explicit,
+shorter `Cache-Control` directives, which a conforming verifier honors.
+
 ## Algorithm agility risks
 
 The registry in Section 7 is designed to permit new algorithms
@@ -1955,6 +2154,66 @@ scripts). The user-agent processing model in [HTMLTRUST-W3C]
 specifies the channel through which verification outcomes are
 exposed; verifiers in non-browser contexts SHOULD follow analogous
 discipline.
+
+## Revocation mechanism alternatives
+
+Section 9.5 adopts a publisher-served revocation list rather than several
+alternatives considered during design. Recording why they were set aside
+is intended to save a future reviewer from re-litigating them without new
+information.
+
+Key expiry alone:
+: Relying solely on the key document's `expires` field (Section 8.2) was
+  rejected as a complete solution because it establishes a scheduled
+  retirement, not an emergency signal; a publisher who discovers a
+  compromise cannot wait for a previously scheduled expiry, and setting
+  `expires` to the past after the fact is indistinguishable from the
+  publisher having planned that rotation all along. It also inherits the
+  general problem that expiry-window reasoning needs a trusted time
+  boundary, and a key holder who retains write access to wherever the key
+  document is hosted can extend the document's own `expires` value.
+
+Directory-served revocation:
+: Having trust directories (Section 10) serve revocation state, rather
+  than the identity's own origin, was rejected for two reasons. First, it
+  reintroduces the reading-behavior privacy leak that directory-based key
+  resolution already creates (Section 14.2): a verifier that checks
+  revocation status through a directory reveals to that directory exactly
+  which keys, and therefore which content, it is currently examining.
+  Second, it makes directories semi-authoritative over an identity's key
+  state, contradicting this document's design that no directory is
+  privileged (Architecture Overview) and that a verifier MAY perform full
+  cryptographic verification without ever contacting one.
+
+Transparency log:
+: An append-only, publicly auditable log of revocation events, in the
+  style of Certificate Transparency [RFC9162], would give verifiers a
+  stronger guarantee than a single publisher-served file: it resists a
+  compromised origin quietly omitting a revocation, and its append-only
+  structure gives verifiers a trusted ordering of events as a by-product,
+  which is exactly the trusted-time input Section 9.7 explains this design
+  avoids needing. It was deferred because it requires log operators, an
+  ecosystem this document does not presume exists, and a witness or gossip
+  protocol to detect a forked log. It remains the strongest long-term
+  direction for revocation in this protocol and a natural target for a
+  future revision.
+
+Stapled revocation status:
+: An OCSP-stapling analogue, where the publisher attaches a short-lived,
+  signed non-revocation attestation to the signed content itself, or to
+  the HTTP response serving it, rather than requiring the verifier to
+  fetch a separate resource, was deferred as a later enhancement. It would
+  remove the verifier-initiated fetch in the common case entirely, at the
+  cost of requiring the publishing pipeline to periodically re-staple
+  fresh attestations, which is a larger operational change to the
+  publishing side than this revision makes.
+
+OpenTimestamps, or a comparable proof-of-existence scheme, addresses a
+related but distinct problem: proving that a piece of content existed
+before a given time, for resolving precedence disputes between two
+publishers. It does not by itself address revocation and is out of scope
+for this document; it remains the leading candidate should a future
+revision need a provable existence-before guarantee.
 
 # Privacy Considerations
 
@@ -1996,6 +2255,20 @@ their endorsement to be public-facing MUST NOT submit it to a
 public directory; the protocol does not provide a private-
 endorsement mechanism.
 
+## Revocation list query exposure
+
+Fetching the Section 9.5 revocation list discloses to the identity's own
+origin that some verifier is checking that identity's revocation state.
+This is a smaller disclosure than Section 14.2's per-key resolution
+exposure in two respects: the list is one shared resource per origin
+covering every key of that identity, so the fetch does not identify which
+specific key or piece of content is being verified, and the request goes
+to the same origin that already served the content being checked, which
+therefore learns nothing about the verifier's activity that serving the
+page did not already reveal. A verifier that batches or delays revocation
+fetches independently of the specific content that triggered them further
+reduces correlation between a fetch and a specific page visit.
+
 # IANA Considerations
 
 This document requests the following IANA actions.
@@ -2036,6 +2309,12 @@ Identical fields as Section 15.1.1, with subtype name
 `htmltrust-content+json` and a reference to Section 10.3 (the
 `/content/{hash}` response format).
 
+### application/htmltrust-revocation+json
+
+Identical fields as Section 15.1.1, with subtype name
+`htmltrust-revocation+json` and a reference to Section 9.6 (the
+revocation list document shape).
+
 ## Well-known URI
 
 The suffix `htmltrust` is to be registered in the "Well-Known URIs"
@@ -2046,6 +2325,17 @@ registry per [RFC8615].
 - Specification document: this document, Section 10.2
 - Related information: identifies trust directory discovery
   metadata
+
+## Well-known URI (revocation list)
+
+The suffix `htmltrust-revocations.json` is to be registered in the
+"Well-Known URIs" registry per [RFC8615].
+
+- URI suffix: htmltrust-revocations.json
+- Change controller: IETF
+- Specification document: this document, Section 9.5
+- Related information: identifies a publisher's signed key-revocation
+  list, scoped to the origin serving it
 
 ## Signature algorithm registry
 
@@ -2228,6 +2518,78 @@ Ed25519 signature over that payload, unpadded standard Base64:
 m0ykSPqUWdyZprUAqosOB2IEK2XsKp7auPIWz80/2ht+LwT1LiNcsLL6cn2IkmTZFG9ptLiUHaB1crPJgBw7BA
 ~~~
 
+## Revocation list
+
+This vector illustrates Section 9's revocation list using a dedicated
+test key, distinct from the key used in the signing-profile vector above,
+so it is reproducible on its own. Its 32-byte private seed is the ASCII
+string `htmltrust-revocation-vector-0001`:
+
+~~~
+seed (hex):       68746d6c74727573742d7265766f636174696f6e2d766563
+                   746f722d30303031
+public key (hex): 91bf5c75896638143e837df158a6378d9b2b2b45bc5762b
+                   527a2851f7bd36cff
+~~~
+
+Public key (SubjectPublicKeyInfo, PEM):
+
+~~~
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAkb9cdYlmOBQ+g33xWKY3jZsrK0W8V2K1J6KFH3vTbP8=
+-----END PUBLIC KEY-----
+~~~
+
+For this vector, `https://keys.example/alice-2026.json` (the `keyid` used
+as `signer` throughout) is backed by the dedicated test key above, not by
+the key used in the signing-profile vector; the two vectors are
+independent even though they reuse the same example `keyid` string for
+"Alice." Alice's revocation list, derived from that `keyid`'s origin per
+Section 9.5, is `https://keys.example/.well-known/htmltrust-revocations.json`.
+The document below revokes one prior key of hers outright and separately
+marks another as superseded by her current key:
+
+~~~ json
+{
+  "signer": "https://keys.example/alice-2026.json",
+  "algorithm": "ed25519",
+  "timestamp": "2026-06-01T00:00:00Z",
+  "revocations": [
+    {
+      "keyid": "https://keys.example/alice-2024.json",
+      "status": "revoked",
+      "revokedAt": "2026-05-30T00:00:00Z"
+    },
+    {
+      "keyid": "https://keys.example/alice-2025.json",
+      "status": "superseded",
+      "supersededBy": "https://keys.example/alice-2026.json"
+    }
+  ],
+  "signature": "6pl20NgiwKTo4Ed5yL085suxRKRVCnl3yi+GH6LOFB4V/810/dKFhloh4LiIbCEMycoW3GHj4UP9HWl68YevCg"
+}
+~~~
+
+The JCS input for the document above (the object with `signature`
+omitted), shown on one line:
+
+~~~ json
+{"algorithm":"ed25519","revocations":[{"keyid":"https://keys.example/alice-2024.json","revokedAt":"2026-05-30T00:00:00Z","status":"revoked"},{"keyid":"https://keys.example/alice-2025.json","status":"superseded","supersededBy":"https://keys.example/alice-2026.json"}],"signer":"https://keys.example/alice-2026.json","timestamp":"2026-06-01T00:00:00Z"}
+~~~
+
+A verifier checking `https://keys.example/alice-2024.json` against this
+list observes `status: "revoked"` and MUST return `key-revoked` for any
+signature made with that `keyid`, regardless of its `signed-at` value. A
+verifier checking `https://keys.example/alice-2025.json` observes
+`status: "superseded"`; existing signatures from that `keyid` remain
+cryptographically valid, and the verifier MAY surface the supersession as
+trust-layer metadata. A verifier checking any other `keyid` under this
+origin, including `https://keys.example/alice-2026.json` itself, finds no
+matching entry and reports `not-revoked`.
+
+The machine-readable form of this vector is maintained as
+`ietf-draft/vectors/revocation-01.json` in this repository.
+
 # Example Directory Exchange
 
 ## Submitting a content record
@@ -2324,3 +2686,9 @@ Community Group Report.
 3. Reputation-score interoperability. The `/signers/{id}/reputation`
    endpoint is intentionally directory-specific. A future revision
    may define a small interoperable subset.
+4. Revocation lists for directory-hosted keys. Section 9.5 excludes
+   keys resolved through Section 8.3 from revocation-list consultation
+   because that resolution method defines no identity origin
+   independent of the directory itself. A future revision may define
+   an explicit identity-origin field for directory-hosted keys so this
+   gap can be closed.
