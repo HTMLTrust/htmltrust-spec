@@ -136,8 +136,8 @@ Internet-Draft                  HTMLTrust                    August 2026
      9.4.  Key loss and recovery . . . . . . . . . . . . . . . . . .  30
      9.5.  Publisher-served revocation list  . . . . . . . . . . . .  30
      9.6.  Revocation list document shape  . . . . . . . . . . . . .  31
-     9.7.  The two states, and why no trusted time is required . . .  33
-     9.8.  Revocation list verification  . . . . . . . . . . . . . .  34
+     9.7.  The two states, and why no trusted time is required . . .  34
+     9.8.  Revocation list verification  . . . . . . . . . . . . . .  35
      9.9.  Revocation list fetch semantics . . . . . . . . . . . . .  35
    10. Trust Directory HTTP API  . . . . . . . . . . . . . . . . . .  36
      10.1.  Base URL and discovery . . . . . . . . . . . . . . . . .  36
@@ -1821,9 +1821,19 @@ Internet-Draft                  HTMLTrust                    August 2026
 
                                   Table 5
 
-   Additional fields MAY be present in either object and MUST be
-   included when computing the signature (Revocation list verification,
-   below); a verifier MUST NOT drop them for that purpose.
+   Additional fields MAY be present in either object.  A verifier MUST
+   ignore fields it does not recognize for purposes of the status
+   decision in The two states, below, exactly as Section 11.1 already
+   requires for an unrecognized endorsement field, but MUST still
+   include every field, recognized or not, when computing the signature
+   (Revocation list verification, below); it MUST NOT drop any field for
+   that purpose.  This is deliberate room for a future revision to
+   qualify a revoked or superseded entry more precisely (for example, to
+   a range of prior keys or signing periods for an identity) without
+   changing the meaning of status for a verifier that does not yet
+   understand the added field: an unrecognized qualifier MUST NOT be
+   treated as narrowing or widening the entry's effect.  This revision
+   defines only the two unqualified entry-wide states above.
 
    The signer key MUST NOT itself carry status: "revoked" in the same
    revision of the list it signs, and a verifier that already knows the
@@ -1831,6 +1841,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    other source, MUST reject the list.  Because revocation is absolute
    (below), this check does not depend on comparing timestamps between
    revisions.
+
+
+
+
+Grey                    Expires 28 February 2027               [Page 33]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
 
    The revocation list SHOULD be served with the media type application/
    htmltrust-revocation+json (Section 15.1).  A verifier MUST NOT reject
@@ -1842,13 +1860,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    revoked and superseded mean different things when asserted through
    this list, and this distinction is the entire point of separating
    them:
-
-
-
-Grey                    Expires 28 February 2027               [Page 33]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    revoked:  Compromise, suspected or confirmed.  The effect is absolute
       and retroactive: every signature ever produced by the listed
@@ -1887,6 +1898,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    statement about future signing, not a retroactive judgment about past
    signatures.
 
+
+
+
+Grey                    Expires 28 February 2027               [Page 34]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
 9.8.  Revocation list verification
 
    The signing payload for a revocation list is the JSON
@@ -1898,13 +1917,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    signer per Section 8, confirms the signer is not itself known to be
    revoked, reproduces the same serialization, and verifies the
    signature using the resolved public key.
-
-
-
-Grey                    Expires 28 February 2027               [Page 34]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
 9.9.  Revocation list fetch semantics
 
@@ -1942,6 +1954,14 @@ Internet-Draft                  HTMLTrust                    August 2026
    alongside a cryptographic result, unable to invalidate one.  Only a
    revoked status produces the key-revoked failure outcome.
 
+
+
+
+Grey                    Expires 28 February 2027               [Page 35]
+
+Internet-Draft                  HTMLTrust                    August 2026
+
+
    A verifier caches a fetched revocation list subject to HTTP cache
    semantics [RFC9111], but MUST additionally apply a maximum acceptable
    staleness regardless of cache-control directives, because a
@@ -1952,15 +1972,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    A verifier SHOULD honor Cache-Control: no-cache and no-store from the
    revocation-list server even where they would otherwise permit staler
    reuse.
-
-
-
-
-
-Grey                    Expires 28 February 2027               [Page 35]
-
-Internet-Draft                  HTMLTrust                    August 2026
-
 
    When a verifier consults both this list and the key document's own
    revoked field (Section 8.2) for the same keyid, the two sources are
@@ -1999,17 +2010,6 @@ Internet-Draft                  HTMLTrust                    August 2026
    Returns a JSON metadata document describing the directory's
    capabilities.  The response media type is application/htmltrust-
    directory+json (provisional; see Section 15).
-
-
-
-
-
-
-
-
-
-
-
 
 
 

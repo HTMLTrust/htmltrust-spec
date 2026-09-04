@@ -3486,9 +3486,17 @@ see Revocation list fetch semantics, below.<a href="#section-9.5-6" class="pilcr
             </tr>
           </tbody>
         </table>
-<p id="section-9.6-5">Additional fields <span class="bcp14">MAY</span> be present in either object and <span class="bcp14">MUST</span> be included when
-computing the signature (Revocation list verification, below); a verifier
-<span class="bcp14">MUST NOT</span> drop them for that purpose.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
+<p id="section-9.6-5">Additional fields <span class="bcp14">MAY</span> be present in either object. A verifier <span class="bcp14">MUST</span> ignore
+fields it does not recognize for purposes of the status decision in The two
+states, below, exactly as Section 11.1 already requires for an unrecognized
+endorsement field, but <span class="bcp14">MUST</span> still include every field, recognized or not,
+when computing the signature (Revocation list verification, below); it <span class="bcp14">MUST NOT</span> drop any field for that purpose. This is deliberate room for a future
+revision to qualify a <code>revoked</code> or <code>superseded</code> entry more precisely (for
+example, to a range of prior keys or signing periods for an identity) without
+changing the meaning of <code>status</code> for a verifier that does not yet understand
+the added field: an unrecognized qualifier <span class="bcp14">MUST NOT</span> be treated as narrowing
+or widening the entry's effect. This revision defines only the two
+unqualified entry-wide states above.<a href="#section-9.6-5" class="pilcrow">¶</a></p>
 <p id="section-9.6-6">The signer key <span class="bcp14">MUST NOT</span> itself carry <code>status: "revoked"</code> in the same
 revision of the list it signs, and a verifier that already knows the
 signer is revoked, from any earlier revision it holds or from any other

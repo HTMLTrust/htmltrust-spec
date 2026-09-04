@@ -1331,9 +1331,18 @@ Each entry of `revocations` is itself a JSON object:
 | `revokedAt` | string | no | RFC 3339 UTC timestamp; meaningful only when `status` is `revoked`. Same semantics as the `revokedAt` field of Section 8.2: when compromise is believed to have begun, not a cryptographically attestable boundary. |
 | `supersededBy` | string | no | Successor `keyid`; meaningful only when `status` is `superseded`. Same semantics as the `supersededBy` field of Section 8.2. |
 
-Additional fields MAY be present in either object and MUST be included when
-computing the signature (Revocation list verification, below); a verifier
-MUST NOT drop them for that purpose.
+Additional fields MAY be present in either object. A verifier MUST ignore
+fields it does not recognize for purposes of the status decision in The two
+states, below, exactly as Section 11.1 already requires for an unrecognized
+endorsement field, but MUST still include every field, recognized or not,
+when computing the signature (Revocation list verification, below); it MUST
+NOT drop any field for that purpose. This is deliberate room for a future
+revision to qualify a `revoked` or `superseded` entry more precisely (for
+example, to a range of prior keys or signing periods for an identity) without
+changing the meaning of `status` for a verifier that does not yet understand
+the added field: an unrecognized qualifier MUST NOT be treated as narrowing
+or widening the entry's effect. This revision defines only the two
+unqualified entry-wide states above.
 
 The signer key MUST NOT itself carry `status: "revoked"` in the same
 revision of the list it signs, and a verifier that already knows the
