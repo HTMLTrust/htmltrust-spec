@@ -1,5 +1,7 @@
 import {
   createHash,
+  createHmac,
+  hkdfSync,
   createPrivateKey,
   createPublicKey,
   verify,
@@ -566,5 +568,194 @@ for (const testCase of signing.urlPolicyCases) {
     }
   } catch (error) {
     if (!testCase.failure || error.message !== testCase.failure) throw error;
+  }
+}
+
+// period-keys-v1.json: HKDF-SHA-256 period-key derivation (draft Section
+// 9.10). Every intermediate value in the vector is recomputed here.
+const periodKeys = load("period-keys-v1.json");
+{
+  const master = Buffer.from(periodKeys.masterHex, "hex");
+  if (master.length !== 32) throw new Error("period-keys-v1 master must be 32 bytes");
+  const salt = Buffer.from(periodKeys.salt, "utf8");
+  if (periodKeys.salt !== "htmltrust-period-key-v1") throw new Error("period-keys-v1 salt constant");
+  const prk = createHmac("sha256", salt).update(master).digest();
+  if (prk.toString("hex") !== periodKeys.prkHex) throw new Error("period-keys-v1 PRK does not match");
+  for (const entry of periodKeys.periods) {
+    const n = entry.period;
+    if (!Number.isInteger(n) || n < 1 || n > 2147483647) throw new Error(`period-keys-v1 bad index ${n}`);
+    const info = Buffer.concat([
+      Buffer.from("ed25519", "utf8"), Buffer.from([0]),
+      Buffer.from(periodKeys.identity, "utf8"), Buffer.from([0]),
+      Buffer.from([(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]),
+    ]);
+    if (info.toString("hex") !== entry.infoHex) throw new Error(`period-keys-v1 info mismatch for period ${n}`);
+    const seed = Buffer.from(hkdfSync("sha256", master, salt, info, 32));
+    if (seed.toString("hex") !== entry.seedHex) throw new Error(`period-keys-v1 seed mismatch for period ${n}`);
+    const priv = privateKeyFromSeed(entry.seedHex);
+    const pub = createPublicKey(priv);
+    const spki = pub.export({ format: "der", type: "spki" });
+    if (unpaddedBase64(spki) !== entry.publicKeySpkiBase64) throw new Error(`period-keys-v1 SPKI mismatch for period ${n}`);
+    if (spki.subarray(-32).toString("hex") !== entry.publicKeyRawHex) throw new Error(`period-keys-v1 raw public key mismatch for period ${n}`);
+    if (unpaddedBase64(priv.export({ format: "der", type: "pkcs8" })) !== entry.privateKeyPkcs8Base64) throw new Error(`period-keys-v1 PKCS#8 mismatch for period ${n}`);
+    if (unpaddedBase64(createHash("sha256").update(spki).digest()) !== entry.publicKeyHash) throw new Error(`period-keys-v1 publicKeyHash mismatch for period ${n}`);
+    if (entry.publicKeyPem !== `-----BEGIN PUBLIC KEY-----\n${spki.toString("base64")}\n-----END PUBLIC KEY-----`) throw new Error(`period-keys-v1 PEM mismatch for period ${n}`);
+    if (entry.signatureBase64 !== undefined
+        && !verify(null, Buffer.from(entry.signatureTestMessage, "utf8"), pub, Buffer.from(entry.signatureBase64, "base64"))) {
+      throw new Error(`period-keys-v1 test signature does not verify for period ${n}`);
+    }
+  }
+}
+
+// period-signature-v1.json: a signature under did:web:example.com#p3 and a
+// range revocation striking period 2, signed by the anchor (draft Section
+// 9.10 and the appendix vector).
+const periodSig = load("period-signature-v1.json");
+{
+  const doc = periodSig.didDocument;
+  if (doc.id !== periodSig.identity) throw new Error("period-signature-v1 DID document id must equal the identity");
+  const methods = new Map();
+  for (const m of doc.verificationMethod) {
+    const id = m.id.startsWith("#") ? `${doc.id}${m.id}` : m.id;
+    if (methods.has(id)) throw new Error(`period-signature-v1 duplicate method id ${id}`);
+    if (!id.startsWith(`${doc.id}#`)) throw new Error(`period-signature-v1 method ${id} is not under the identity`);
+    if ("expires" in m) throw new Error("period-signature-v1 period identities never carry expires");
+    methods.set(id, m);
+  }
+  // Ordering rule: anchors first, then period methods in ascending index order.
+  const isPeriod = (id) => /^p([1-9][0-9]{0,9})$/.test(id.split("#")[1] ?? "");
+  let seenPeriod = false;
+  let lastIndex = 0;
+  for (const id of methods.keys()) {
+    if (isPeriod(id)) {
+      seenPeriod = true;
+      const index = Number(id.split("#p")[1]);
+      if (index <= lastIndex) throw new Error("period-signature-v1 period methods must ascend");
+      lastIndex = index;
+    } else if (seenPeriod) {
+      throw new Error("period-signature-v1 anchor methods must precede period methods");
+    }
+  }
+  const listed = doc.assertionMethod.filter((id) => isPeriod(id));
+  const present = [...methods.keys()].filter((id) => isPeriod(id));
+  if (listed.join(",") !== present.join(",")) throw new Error("period-signature-v1 assertionMethod must list every period method in order");
+  const pubOf = (id) => createPublicKey(methods.get(id).publicKeyPem);
+  const spkiOf = (id) => pubOf(id).export({ format: "der", type: "spki" });
+  const hashOf = (id) => unpaddedBase64(createHash("sha256").update(spkiOf(id)).digest());
+  // Period keys are the derivation vector; the anchor is the signing-profile test key.
+  for (const entry of periodKeys.periods) {
+    const id = `${doc.id}#p${entry.period}`;
+    if (!methods.has(id)) throw new Error(`period-signature-v1 missing method ${id}`);
+    if (unpaddedBase64(spkiOf(id)) !== entry.publicKeySpkiBase64) throw new Error(`period-signature-v1 ${id} is not the derived key`);
+  }
+  const anchorSpki = spkiOf(`${doc.id}#key-1`);
+  if (!anchorSpki.equals(createPublicKey(privateKeyFromSeed(signing.key.seedHex)).export({ format: "der", type: "spki" }))) {
+    throw new Error("period-signature-v1 anchor #key-1 must be the signing-profile test key");
+  }
+  // The signing object differs from the signing-profile vector only in keyid.
+  const expectedObject = { ...signing.signingObject, keyid: `${doc.id}#p3` };
+  if (canonicalizeJcs(expectedObject) !== periodSig.jcsPayload || canonicalizeJcs(periodSig.signingObject) !== periodSig.jcsPayload) {
+    throw new Error("period-signature-v1 signing payload does not match");
+  }
+  const payload = Buffer.from(periodSig.jcsPayload, "utf8");
+  if (!verify(null, payload, pubOf(`${doc.id}#p3`), Buffer.from(periodSig.signature, "base64"))) {
+    throw new Error("period-signature-v1 signature does not verify under #p3");
+  }
+  const mislabelled = Buffer.from(periodSig.signatureFromPeriod2Mislabelled, "base64");
+  if (verify(null, payload, pubOf(`${doc.id}#p3`), mislabelled)) throw new Error("period-signature-v1 mislabelled signature must not verify under #p3");
+  if (!verify(null, payload, pubOf(`${doc.id}#p2`), mislabelled)) throw new Error("period-signature-v1 mislabelled signature must be a genuine #p2 signature");
+  // The range list.
+  const list = periodSig.revocationList;
+  const { signature: listSignature, ...unsignedList } = list;
+  if (canonicalizeJcs(unsignedList) !== periodSig.revocationListJcsInput) throw new Error("period-signature-v1 list JCS does not match");
+  if (isPeriod(list.signer)) throw new Error("period-signature-v1 list signer must be an anchor");
+  if (!verify(null, Buffer.from(periodSig.revocationListJcsInput, "utf8"), pubOf(list.signer), Buffer.from(listSignature, "base64"))) {
+    throw new Error("period-signature-v1 list signature does not verify under the anchor");
+  }
+  if (list.revocations.length !== 1) throw new Error("period-signature-v1 expects exactly one entry");
+  const entry = list.revocations[0];
+  if (entry.status !== "revoked" || entry.keyid !== `${doc.id}#p2`) throw new Error("period-signature-v1 entry shape");
+  if (entry.publicKeyHash !== hashOf(`${doc.id}#p2`) || entry.publicKeyHash !== periodSig.publicKeyHash.p2) throw new Error("period-signature-v1 entry publicKeyHash must be #p2's");
+  if (Buffer.from(entry.publicKeyHash, "base64").length !== 32) throw new Error("period-signature-v1 publicKeyHash must decode to 32 bytes");
+  if (periodSig.publicKeyHash.p3 !== hashOf(`${doc.id}#p3`)) throw new Error("period-signature-v1 recorded #p3 hash mismatch");
+  if (entry.publicKeyHash === hashOf(`${doc.id}#p3`)) throw new Error("period-signature-v1 the entry must not match #p3 by material");
+  const wellFormedRange = Number.isInteger(entry["from-period"]) && entry["from-period"] >= 1
+    && (entry["to-period"] === undefined || (Number.isInteger(entry["to-period"]) && entry["to-period"] > entry["from-period"]));
+  if (!wellFormedRange) throw new Error("period-signature-v1 range members malformed");
+  const rangeApplies = (period) => entry["from-period"] <= period && (entry["to-period"] === undefined || period < entry["to-period"]);
+  if (!rangeApplies(2) || rangeApplies(1) || rangeApplies(3) || rangeApplies(0)) throw new Error("period-signature-v1 range must strike exactly period 2");
+  // Every case in the vector is run through a small verifier under the
+  // selection rule the case names: "section-9.10" (exact id, first
+  // non-period entry for a bare keyid, range revocation), "section-8.1-exact"
+  // (exact id, no range evaluation, no keyPeriod), or "legacy-first-usable"
+  // (the selection rule of earlier revisions: first entry in array order
+  // with usable material, skipping revoked or expired entries).
+  const listEntries = list.revocations;
+  const rangeStrikes = (identity, period) => listEntries.some((e) =>
+    e.status === "revoked" && Number.isInteger(e["from-period"]) && e["from-period"] >= 1
+    && identityOf(e) === identity && e["from-period"] <= period
+    && (e["to-period"] === undefined || period < e["to-period"]));
+  const identityOf = (e) => (e.keyid.startsWith("did:") ? e.keyid.split("#")[0] : e.identity);
+  const materialStrikes = (spkiHash) => listEntries.some((e) => e.status === "revoked" && e.publicKeyHash === spkiHash);
+  const parseKeyid = (keyid) => {
+    const hash = keyid.indexOf("#");
+    if (hash === -1) return { d: keyid, f: null, kind: "bare", period: 0 };
+    const f = keyid.slice(hash + 1);
+    const m = /^p([1-9][0-9]{0,9})$/.exec(f);
+    if (m && Number(m[1]) <= 2147483647) return { d: keyid.slice(0, hash), f, kind: "period", period: Number(m[1]) };
+    return { d: keyid.slice(0, hash), f, kind: "anchor", period: 0 };
+  };
+  const usable = (m) => typeof m.publicKeyPem === "string" && m.revoked !== true && m.expires === undefined;
+  const select = (rule, keyid) => {
+    const parsed = parseKeyid(keyid);
+    if (rule === "legacy-first-usable") {
+      const first = doc.verificationMethod.find(usable);
+      return first ? { method: first, id: first.id, ...parsed } : null;
+    }
+    if (parsed.kind === "bare") {
+      const first = [...methods.entries()].find(([id]) => !isPeriod(id));
+      return first ? { method: first[1], id: first[0], ...parsed } : null;
+    }
+    const method = methods.get(keyid);
+    return method ? { method, id: keyid, ...parsed } : null;
+  };
+  const run = (c) => {
+    const selected = select(c.selection, c.keyid);
+    if (!selected) return { result: "key-resolution-failed" };
+    const key = createPublicKey(selected.method.publicKeyPem);
+    if (c.selection === "section-9.10") {
+      const spkiHash = unpaddedBase64(createHash("sha256").update(key.export({ format: "der", type: "spki" })).digest());
+      if (selected.method.revoked === true || materialStrikes(spkiHash) || rangeStrikes(selected.d, selected.period)) {
+        return { result: "key-revoked", revocationStatus: "revoked" };
+      }
+    }
+    const casePayload = Buffer.from(canonicalizeJcs({ ...signing.signingObject, keyid: c.keyid }), "utf8");
+    if (!verify(null, casePayload, key, Buffer.from(c.signature, "base64"))) return { result: "signature-invalid" };
+    const out = { result: "valid" };
+    if (c.selection === "section-9.10") { out.keyPeriod = selected.period; out.revocationStatus = "not-revoked"; }
+    return out;
+  };
+  if (!Array.isArray(periodSig.cases) || periodSig.cases.length < 9) throw new Error("period-signature-v1 must carry the nine cases");
+  for (const c of periodSig.cases) {
+    const got = run(c);
+    for (const field of ["result", "keyPeriod", "revocationStatus"]) {
+      if (c[field] !== undefined && got[field] !== c[field]) {
+        throw new Error(`period-signature-v1 case ${c.case}: ${field} expected ${c[field]}, got ${got[field]}`);
+      }
+      if (c[field] === undefined && field === "keyPeriod" && got[field] !== undefined && c.selection !== "section-9.10") {
+        throw new Error(`period-signature-v1 case ${c.case}: keyPeriod must be absent under ${c.selection}`);
+      }
+    }
+  }
+  if (!methods.has(`${doc.id}#p4`) === false) throw new Error("period-signature-v1 #p4 must be unpublished");
+  for (const [keyid, signature] of Object.entries(periodSig.signaturesByKeyid)) {
+    const parsed = parseKeyid(keyid);
+    const signer = parsed.kind === "bare"
+      ? createPublicKey(privateKeyFromSeed(signing.key.seedHex))
+      : createPublicKey(privateKeyFromSeed(periodKeys.periods.find((e) => e.period === parsed.period)?.seedHex
+          ?? Buffer.from(hkdfSync("sha256", Buffer.from(periodKeys.masterHex, "hex"), Buffer.from(periodKeys.salt, "utf8"),
+            Buffer.concat([Buffer.from("ed25519"), Buffer.from([0]), Buffer.from(periodKeys.identity, "utf8"), Buffer.from([0]), Buffer.from([0, 0, 0, parsed.period])]), 32)).toString("hex")));
+    const casePayload = Buffer.from(canonicalizeJcs({ ...signing.signingObject, keyid }), "utf8");
+    if (!verify(null, casePayload, signer, Buffer.from(signature, "base64"))) throw new Error(`period-signature-v1 signaturesByKeyid[${keyid}] does not verify under its own key`);
   }
 }
